@@ -1,0 +1,84 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "repolaris"
+version = "0.2.0"
+description = "Modern Python framework for continuous ECG waveform analysis, ventricular repolarization, and arrhythmia triage"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "Repolaris Contributors"}
+]
+keywords = ["ecg", "cardiology", "qt-interval", "repolarization", "qtvi", "holter", "signal-processing", "pyqtgraph", "zstd", "biomedical"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Healthcare Industry",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Medical Science Apps."
+]
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "matplotlib>=3.7",
+    "pandas>=2.0",
+    "zstandard>=0.22",
+    "cbor2>=5.6"
+]
+
+[project.optional-dependencies]
+gui = [
+    "PyQt6>=6.5",
+    "pyqtgraph>=0.13"
+]
+wfdb = [
+    "wfdb>=4.1",
+    "pydicom>=2.4"
+]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.4",
+    "mypy>=1.9"
+]
+
+[project.scripts]
+repolaris = "repolaris.cli:main"
+repolaris-gui = "repolaris.app:main"
+pyecg = "repolaris.cli:main"
+pyecg-gui = "repolaris.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+
+# --- Modern Astral Tooling Configuration (https://astral.sh/) ---
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+]
+ignore = ["E501"]  # line length handled by formatter
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false

@@ -1,0 +1,147 @@
+# ==============================================================================
+# PyECG .gitignore
+# Modern Python development with Astral tooling (uv, ruff), IDEs, and clinical data
+# ==============================================================================
+
+# --- Modern Python Tooling (Astral - https://astral.sh/) ---
+# uv (fast package manager & resolver)
+.uv/
+# ruff (fast linter and code formatter)
+.ruff_cache/
+
+# --- Virtual Environments ---
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# --- Environment Variables & Secrets ---
+.env
+.env.local
+.env.*.local
+*.env
+
+# --- Byte-compiled / Optimized / DLL files ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyd
+
+# --- Distribution & Packaging ---
+build/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# --- Testing, Coverage & Type Checkers ---
+.pytest_cache/
+.coverage
+.coverage.*
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+htmlcov/
+.tox/
+.nox/
+# Mypy / Pytype / Pyright
+.mypy_cache/
+.pytype/
+.dmypy.json
+dmypy.json
+.pyre/
+
+# --- Editors & IDEs ---
+
+# VS Code (Visual Studio Code)
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+.history/
+.ionide/
+
+# Zed Editor (https://zed.dev/)
+.zed/
+.zed-recent/
+
+# JetBrains (PyCharm, IntelliJ, etc.)
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+cmake-build-*/
+
+# Sublime Text
+*.sublime-workspace
+*.sublime-project
+
+# Vim / Emacs backup files
+*~
+*.swp
+*.swo
+*.swn
+.#*
+\#*#
+
+# --- Documentation Builds ---
+docs/_build/
+site/
+
+# --- Databases, Logs & Temporary Files ---
+*.log
+*.sqlite
+*.sqlite3
+*.db
+*.bak
+*.tmp
+*.temp
+
+# --- Clinical Datasets, Raw Recordings & Local Dumps ---
+# Prevents accidentally committing heavy multi-GB patient recordings or test files
+data_raw/
+data_local/
+recordings_cache/
+exports/
+*.pecg_temp
+*.raw
+
+# --- Operating System Artifacts ---
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+
+# Linux
+.fuse_hidden*
+.directory
+.Trash-*

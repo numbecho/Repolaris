@@ -126,7 +126,7 @@ requires = []
 
 [tool.briefcase.app.repolaris.linux.system.debian]
 system_requires = [
-    "libgl1-mesa-glx",
+    "libgl1",
     "libxkbcommon-x11-0"
 ]
 

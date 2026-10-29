@@ -37,6 +37,7 @@ def main():
     cmd = [
         sys.executable, "-m", "nuitka",
         mode,
+        "--assume-yes-for-downloads",
         "--enable-plugin=pyqt6",
         "--include-package=repolaris",
         "--include-package-data=repolaris",

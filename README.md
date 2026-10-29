@@ -201,13 +201,15 @@ This project is licensed under the **Apache License, Version 2.0**. See the [LIC
 If you use this software in academic or clinical research, please cite the original foundational paper from Universidad de Oriente and KU Leuven:
 
 ```bibtex
-@article{suarez2018herramienta,
-  title={Herramienta para el an{\'a}lisis de la repolarizaci{\'o}n ventricular en el electrocardiograma},
-  author={Su{\'a}rez-Le{\'o}n, Alexander A and Varon, Carolina and Willems, Rik and Van Huffel, Sabine and V{\'a}zquez-Seisdedos, Carlos R},
-  journal={Revista Ingenier{\'i}a Electr{\'o}nica, Autom{\'a}tica y Comunicaciones (RIELAC)},
+@article{suarez2018pyecg,
+  title={PyECG: A software tool for the analysis of the QT interval in the electrocardiogram},
+  author={Su{\'a}rez-Le{\'o}n, Alexander A. and Varon, Carolina and Willems, Rik and Van Huffel, Sabine and V{\'a}zquez-Seisdedos, Carlos R.},
+  journal={Revista de Ingenier{\'i}a Electr{\'o}nica, Autom{\'a}tica y Comunicaciones (RIELAC)},
   volume={39},
-  number={1},
-  pages={1--13},
-  year={2018}
+  number={2},
+  pages={54--69},
+  year={2018},
+  url={http://rielac.cujae.edu.cu/index.php/rieac/article/view/663}
 }
+
 ```

@@ -76,6 +76,16 @@ jobs:
           briefcase create --no-input
           briefcase build --no-input
 
+      - name: Prepare Windows WiX License
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if (Test-Path "LICENSE.rtf") {
+            Get-ChildItem -Path "build" -Recurse -Directory -Filter "app" | ForEach-Object {
+              Copy-Item "LICENSE.rtf" -Destination $_.FullName -Force
+            }
+          }
+
       - name: Briefcase Package (Installer Generation)
         run: |
           briefcase package --no-input --adhoc-sign

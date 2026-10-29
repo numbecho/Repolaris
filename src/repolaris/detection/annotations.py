@@ -11,7 +11,7 @@ and episode-level annotations across automated AI detectors and clinical reviewe
 from __future__ import annotations
 
 from dataclasses import dataclass, field, asdict
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 
@@ -26,7 +26,7 @@ class ECGAnnotation:
     author: str = "AI_DETECTOR"           # 'AI_DETECTOR' or physician username (e.g., 'Dr. Mercantete')
     is_manual_override: bool = False      # True if reviewed/modified by clinician
     notes: str = ""                       # Clinical rationale or caliper notes
-    created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
     def to_dict(self) -> Dict[str, Any]:
         """Serializes annotation to dictionary."""
@@ -43,7 +43,7 @@ class ECGAnnotation:
             author=str(data.get("author", "AI_DETECTOR")),
             is_manual_override=bool(data.get("is_manual_override", False)),
             notes=str(data.get("notes", "")),
-            created_at=str(data.get("created_at", datetime.utcnow().isoformat())),
+            created_at=str(data.get("created_at", datetime.now(timezone.utc).isoformat())),
         )
 
 

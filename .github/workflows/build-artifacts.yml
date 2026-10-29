@@ -56,11 +56,15 @@ jobs:
           cache: "pip"
           cache-dependency-path: "pyproject.toml"
 
-      - name: Install Linux Build Tools
+      - name: Install Linux Build Tools & Align System Python
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgl1 libegl1 libxkbcommon-x11-0 libgtk-3-dev appstream
+          sudo apt-get install -y libgl1 libegl1 libxkbcommon-x11-0 libgtk-3-dev appstream dpkg-dev debhelper
+          # Align /usr/bin/python3 with the active Python 3.14 to satisfy Briefcase system version check
+          ACTIVE_PYTHON="$(which python3)"
+          sudo ln -sf "$ACTIVE_PYTHON" /usr/bin/python3
+          sudo ln -sf "${ACTIVE_PYTHON}-config" /usr/bin/python3-config 2>/dev/null || true
 
       - name: Install Briefcase
         run: |

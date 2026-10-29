@@ -96,7 +96,7 @@ author_email = "ssdnam7t@pm.me"
 
 [tool.briefcase.app.repolaris]
 formal_name = "Repolaris"
-description = "Clinical & Research ECG Ventricular Repolarization Workstation"
+description = "Clinical and Research ECG Ventricular Repolarization Workstation"
 long_description = """Repolaris is an open-source clinical and research software framework for continuous electrocardiogram (ECG) waveform segmentation, automated arrhythmia triage, and high-precision ventricular repolarization (QT interval) analysis."""
 sources = [
     "src/repolaris"
@@ -114,6 +114,7 @@ requires = [
 
 [tool.briefcase.app.repolaris.macOS]
 universal_build = false
+min_os_version = "13.0"
 requires = [
     "std-nslog~=1.0.0"
 ]

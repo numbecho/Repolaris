@@ -80,10 +80,13 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          if (Test-Path "LICENSE.rtf") {
-            Get-ChildItem -Path "build" -Recurse -Directory -Filter "app" | ForEach-Object {
-              Copy-Item "LICENSE.rtf" -Destination $_.FullName -Force
-            }
+          python -c "
+          with open('LICENSE', 'r') as f: lines = f.readlines()
+          rtf = ['{\\rtf1\\ansi\\deff0{\\fonttbl{\\f0 Arial;}}\\f0\\fs20\n'] + [l.rstrip().replace('\\', '\\\\') + '\\par\n' for l in lines] + ['}\n']
+          with open('LICENSE.rtf', 'w') as f: f.writelines(rtf)
+          "
+          Get-ChildItem -Path "build" -Recurse -Directory -Filter "app" | ForEach-Object {
+            Copy-Item "LICENSE.rtf" -Destination $_.FullName -Force
           }
 
       - name: Briefcase Package (Installer Generation)

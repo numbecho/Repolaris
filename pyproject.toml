@@ -9,7 +9,7 @@ description = "Modern Python framework for continuous ECG waveform analysis, ven
 readme = "README.md"
 requires-python = ">=3.14"
 license = "Apache-2.0"
-license-files = ["LICENSE", "LICENSE.rtf"]
+license-files = ["LICENSE"]
 authors = [
     {name = "Repolaris Contributors"}
 ]

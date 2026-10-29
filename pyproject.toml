@@ -47,12 +47,16 @@ dev = [
     "ruff>=0.4",
     "mypy>=1.9"
 ]
+packaging = [
+    "briefcase>=0.3.18",
+    "nuitka>=2.1",
+    "ordered-set>=4.1",
+    "zstandard>=0.22"
+]
 
 [project.scripts]
 repolaris = "repolaris.cli:main"
 repolaris-gui = "repolaris.app:main"
-pyecg = "repolaris.cli:main"
-pyecg-gui = "repolaris.app:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -82,3 +86,49 @@ ignore = ["E501"]  # line length handled by formatter
 quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
+
+# --- Briefcase Distribution Packaging Configuration (BeeWare) ---
+[tool.briefcase]
+project_name = "Repolaris"
+bundle = "org.repolaris"
+version = "0.2.0"
+url = "https://github.com/numbecho/repolaris"
+license = "Apache-2.0"
+author = "Repolaris Contributors"
+author_email = "contact@repolaris.org"
+
+[tool.briefcase.app.repolaris]
+formal_name = "Repolaris"
+description = "Clinical & Research ECG Ventricular Repolarization Workstation"
+long_description = """Repolaris is an open-source clinical and research software framework for continuous electrocardiogram (ECG) waveform segmentation, automated arrhythmia triage, and high-precision ventricular repolarization (QT interval) analysis."""
+sources = [
+    "src/repolaris"
+]
+requires = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "matplotlib>=3.7",
+    "pandas>=2.0",
+    "zstandard>=0.22",
+    "cbor2>=5.6",
+    "PyQt6>=6.5",
+    "pyqtgraph>=0.13"
+]
+
+[tool.briefcase.app.repolaris.macOS]
+universal_build = true
+requires = [
+    "std-nslog~=1.0.0"
+]
+
+[tool.briefcase.app.repolaris.linux]
+requires = []
+
+[tool.briefcase.app.repolaris.linux.system.debian]
+system_requires = [
+    "libgl1-mesa-glx",
+    "libxkbcommon-x11-0"
+]
+
+[tool.briefcase.app.repolaris.windows]
+requires = []

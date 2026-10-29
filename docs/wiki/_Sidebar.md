@@ -9,6 +9,7 @@
 * **[Workstation GUI Guide](Workstation-GUI-Guide)**
 * **[Developer & Contributing Guide](Developer-Guide)**
 * **[i18n & Translation Guide](Internationalization-and-Translation-Guide)**
+* **[Packaging & CI/CD Guide](Packaging-and-CI-CD-Guide)**
 * **[FAQ & Troubleshooting](FAQ-and-Troubleshooting)**
 
 ---

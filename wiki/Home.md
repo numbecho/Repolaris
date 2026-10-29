@@ -23,15 +23,16 @@ Originally introduced as **PyECG** (*Suárez-León et al., 2018; Universidad de 
 
 | Section | Description |
 | :--- | :--- |
-| **[Getting Started](https://www.google.com/search?q=Getting-Started)** | Installation via `pip` or `uv`, CLI commands, running synthetic demos, and starting the desktop GUI. |
-| **[Architecture Overview](https://www.google.com/search?q=Architecture-Overview)** | Decoupled subpackage structure (`repolaris.io`, `detection`, `gui`, `pipeline`, `utils`) and backward compatibility. |
-| **[File Formats \& I/O](https://www.google.com/search?q=File-Formats-and-IO)** | Specification of the `.pecg` container format, ISHNE 1.0 demultiplexer, Excorde 3C reader, and WFDB Format 16/212. |
-| **[Electrophysiology \& Algorithms](https://www.google.com/search?q=Electrophysiology-and-Algorithms)** | Mathematical formulations for $QT_c$, Berger QTVI, uniform 4 Hz step-integration, 6 restitution models, and SQI. |
-| **[Arrhythmia \& AAMI EC57](https://www.google.com/search?q=Arrhythmia-and-AAMI-EC57)** | ANSI/AAMI EC57 beat classification (`N`, `V`, `S`, `F`, `Q`), coupled rhythm detection (Bigeminy, Couplets, VT), and audit logging. |
-| **[Workstation GUI Guide](https://www.google.com/search?q=Workstation-GUI-Guide)** | Interactive PyQtGraph desktop viewer, draggable calipers, double-click manual override dialog, and triage diary. |
-| **[Developer Guide](https://www.google.com/search?q=Developer-Guide)** | Setting up virtual environments with Astral `uv`, linting with `ruff`, running the 25-case test suite, and contributing. |
-| **[FAQ \& Troubleshooting](https://www.google.com/search?q=FAQ-and-Troubleshooting)** | Frequently asked questions, hardware requirements, and formal academic citations. |
+| **[Getting Started](Getting-Started)** | Installation via `pip` or `uv`, CLI commands, running synthetic demos, and starting the desktop GUI. |
+| **[Architecture Overview](Architecture-Overview)** | Decoupled subpackage structure (`repolaris.io`, `detection`, `gui`, `pipeline`, `utils`) and backward compatibility. |
+| **[File Formats \& I/O](File-Formats-and-IO)** | Specification of the `.pecg` container format, ISHNE 1.0 demultiplexer, Excorde 3C reader, and WFDB Format 16/212. |
+| **[Electrophysiology \& Algorithms](Electrophysiology-and-Algorithms)** | Mathematical formulations for $QT_c$, Berger QTVI, uniform 4 Hz step-integration, 6 restitution models, and SQI. |
+| **[Arrhythmia \& AAMI EC57](Arrhythmia-and-AAMI-EC57)** | ANSI/AAMI EC57 beat classification (`N`, `V`, `S`, `F`, `Q`), coupled rhythm detection (Bigeminy, Couplets, VT), and audit logging. |
+| **[Workstation GUI Guide](Workstation-GUI-Guide)** | Interactive PyQtGraph desktop viewer, draggable calipers, double-click manual override dialog, and triage diary. |
+| **[Developer Guide](Developer-Guide)** | Setting up virtual environments with Astral `uv`, linting with `ruff`, running the test suite, and contributing. |
 | **[i18n & Translation Guide](Internationalization-and-Translation-Guide)** | Contributor guide for adding UI languages (English, Spanish, French, German) and translating wiki docs. |
+| **[Packaging & CI/CD Guide](Packaging-and-CI-CD-Guide)** | Compiling native prototypes with Nuitka and building distribution installers (`.msi`, `.dmg`, `.AppImage`) with Briefcase. |
+| **[FAQ \& Troubleshooting](FAQ-and-Troubleshooting)** | Frequently asked questions, hardware requirements, and formal academic citations. |
 
 ---
 
@@ -42,4 +43,4 @@ Originally introduced as **PyECG** (*Suárez-León et al., 2018; Universidad de 
 * **Electrophysiological Precision:** Validated formulations for Bazett, Fridericia, Framingham, and Hodges $QT_c$, Berger QT Variability Index (QTVI), and 6 dynamic non-linear QT-RR restitution models.
 * **Clinical Governance:** Full ANSI/AAMI EC57 beat classification, rhythm pattern grouping, and an `AnnotationManager` that preserves immutable physician review audit logs with ISO 8601 timestamps.
 * **Hardware-Accelerated GUI:** 60fps continuous waveform scrolling via PyQtGraph, interactive calipers with real-time recalculation, and a click-to-seek Clinical Events Diary.
-* **Modern Developer Stack:** Python $\ge 3.10$, 100% strict PEP 484/585/604 static typing, PEP 517/621 `pyproject.toml`, Astral `ruff`/`uv` ergonomics, and a 25-case automated test suite.
+* **Modern Developer Stack:** Python $\ge 3.10$, 100% strict PEP 484/585/604 static typing, PEP 517/621 `pyproject.toml`, Astral `ruff`/`uv` ergonomics, and an automated multi-platform CI/CD packaging matrix.

@@ -31,16 +31,16 @@ Originally introduced as **PyECG** (*Suárez-León et al., 2018; Universidad de 
 | **[Workstation GUI Guide](Workstation-GUI-Guide)** | Interactive PyQtGraph desktop viewer, draggable calipers, double-click manual override dialog, and triage diary. |
 | **[Developer Guide](Developer-Guide)** | Setting up virtual environments with Astral `uv`, linting with `ruff`, running the test suite, and contributing. |
 | **[i18n & Translation Guide](Internationalization-and-Translation-Guide)** | Contributor guide for adding UI languages (English, Spanish, French, German) and translating wiki docs. |
-| **[Packaging & CI/CD Guide](Packaging-and-CI-CD-Guide)** | Compiling native prototypes with Nuitka and building distribution installers (`.msi`, `.dmg`, `.AppImage`) with Briefcase. |
+| **[Packaging & CI/CD Guide](Packaging-and-CI-CD-Guide)** | Building distribution installers (`.msi`, `.dmg`, `.AppImage`) with Briefcase. |
 | **[FAQ \& Troubleshooting](FAQ-and-Troubleshooting)** | Frequently asked questions, hardware requirements, and formal academic citations. |
 
 ---
 
 ## Primary Highlights of Repolaris 0.2.0
 
-* **Universal Format Ingestion:** Zero external proprietary software required to ingest ISHNE 1.0 `.ecg`, Excorde 3C `.e3c`, European Data Format `.edf`, PhysioNet WFDB `.hea`/`.dat`, MATLAB `.mat`, or delimited `.csv`.
+* **Universal Format Ingestion:** Zero external proprietary software required to ingest ISHNE 1.0 `.ecg`, Excorde 3C `.e3c`, European Data Format `.edf`, PhysioNet WFDB `.hea`/`.dat``.mat`, or delimited `.csv`.
 * **Portable Clinical Exchange (`.pecg`):** A custom de-identified single-file container supporting Zstandard (`zstd`) compression, CBOR/JSON metadata, and zero-copy memory mapping (`np.memmap`) for instant multi-hour seeking with zero RAM overhead.
 * **Electrophysiological Precision:** Validated formulations for Bazett, Fridericia, Framingham, and Hodges $QT_c$, Berger QT Variability Index (QTVI), and 6 dynamic non-linear QT-RR restitution models.
 * **Clinical Governance:** Full ANSI/AAMI EC57 beat classification, rhythm pattern grouping, and an `AnnotationManager` that preserves immutable physician review audit logs with ISO 8601 timestamps.
 * **Hardware-Accelerated GUI:** 60fps continuous waveform scrolling via PyQtGraph, interactive calipers with real-time recalculation, and a click-to-seek Clinical Events Diary.
-* **Modern Developer Stack:** Python $\ge 3.10$, 100% strict PEP 484/585/604 static typing, PEP 517/621 `pyproject.toml`, Astral `ruff`/`uv` ergonomics, and an automated multi-platform CI/CD packaging matrix.
+* **Modern Developer Stack:** Python $\ge 3.14$, 100% strict PEP 484/585/604 static typing, PEP 517/621 `pyproject.toml`, Astral `ruff`/`uv` ergonomics, and an automated multi-platform CI/CD packaging matrix.

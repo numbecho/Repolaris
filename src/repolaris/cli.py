@@ -28,7 +28,7 @@ def main(argv: Optional[list[str]] = None) -> None:
 
     # analyze command
     ana_p = subparsers.add_parser("analyze", help="Analyze an ECG recording file")
-    ana_p.add_argument("file", help="Path to ECG file (.pecg, .ecg, .e3c, .edf, .hea, .mat, .csv, .npy)")
+    ana_p.add_argument("file", help="Path to ECG file (.pecg, .ecg, .e3c, .edf, .hea, .csv, .npy)")
     ana_p.add_argument("--fs", type=float, default=500.0, help="Sampling frequency")
     ana_p.add_argument("--lead", default=0, help="Lead index or channel name")
 

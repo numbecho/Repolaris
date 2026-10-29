@@ -1,4 +1,4 @@
-"""PyECG: Biomedical signal processing for electrocardiogram, ventricular repolarization, and arrhythmia analysis."""
+"""Repolaris: Biomedical signal processing for electrocardiogram, ventricular repolarization, and arrhythmia analysis."""
 
 from __future__ import annotations
 
@@ -18,10 +18,9 @@ from repolaris.detection.classifier import (
 from repolaris.detection.annotations import ECGAnnotation, AnnotationManager
 from repolaris.io.ecg_loader import load_ecg_file, load_ecg_dataset
 from repolaris.io.pecg_format import save_pecg, load_pecg
-from repolaris.io.mat_reader import load_mat_ecg, save_mat_ecg
 from repolaris.io.e3c_reader import read_e3c
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 __all__ = [
     "ECGConfig",
     "FilterConfig",
@@ -45,7 +44,5 @@ __all__ = [
     "load_ecg_dataset",
     "save_pecg",
     "load_pecg",
-    "load_mat_ecg",
-    "save_mat_ecg",
     "read_e3c",
 ]

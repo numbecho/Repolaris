@@ -22,7 +22,6 @@ src/repolaris/
 │   ├── e3c_reader.py         # Excorde 3C (.e3c) in-memory zip & binary parser
 │   ├── wfdb_reader.py        # PhysioNet WFDB (.hea/.dat) Format 16/212 parser
 │   ├── edf_reader.py         # European Data Format (.edf / .edf+) parser
-│   ├── mat_reader.py         # MATLAB workspace (.mat) dimension sniffer & exporter
 │   └── db.py                 # SQLite relational + JSON document persistence adapter
 │
 ├── detection/                # Electrophysiological Algorithms & Classification

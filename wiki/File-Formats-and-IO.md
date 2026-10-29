@@ -13,7 +13,6 @@ A cornerstone of Repolaris is its **universal, zero-dependency ingestion engine*
 | **Excorde 3C** | `.e3c` | Fukuda Denshi Holter Monitors | In-memory ZIP extractor, 2-channel int16 binary stream, 25-byte QRS records (`<6IB`). |
 | **European Data Format** | `.edf`, `.edf+` | Wearable Patches & Polysomnography | Official EDF/EDF+ specification, 256-byte header, per-channel physical dimension scaling. |
 | **PhysioNet WFDB** | `.hea`, `.dat` | Clinical Research Benchmarks | Dual-file ASCII header parser, Format 16 bit-packed, Format 212 12-bit nibble packed. |
-| **MATLAB Workspace** | `.mat` | Academic Algorithms & Dumps | Automatic dimension sniffing (channels x samples vs samples x channels), `save_mat_ecg`. |
 | **Delimited Text / NumPy** | `.csv`, `.txt`, `.npy` | Community Sensors & Raw Dumps | Direct matrix ingestion with arbitrary delimiters. |
 
 ---

@@ -7,7 +7,6 @@ electrocardiogram recordings across all clinical, academic, and device formats:
 - .e3c: Excorde 3C Holter proprietary archive
 - .hea / .dat: PhysioNet WFDB Benchmark Format (Format 16 and Format 212 bit-packed)
 - .edf: European Data Format (EDF / EDF+)
-- .mat: MATLAB Workspace files (.mat)
 - .npy: NumPy binary array dumps
 - .csv / .txt: Raw delimited tabular recordings
 """
@@ -19,7 +18,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 
-from repolaris.io.mat_reader import load_mat_ecg
 from repolaris.io.e3c_reader import read_e3c
 from repolaris.io.pecg_format import load_pecg
 from repolaris.io.ishne_reader import read_ishne
@@ -104,19 +102,7 @@ def load_ecg_file(
                 return wfdb_rec.signals[idx]
         return wfdb_rec.signals[0]
 
-    # 6. MATLAB Format (.mat)
-    elif ext == ".mat":
-        mat_res = load_mat_ecg(str(path))
-        signals = mat_res["signals"]
-        lead_names = mat_res["lead_names"]
-        if isinstance(lead_name_or_index, int):
-            idx = min(lead_name_or_index, len(lead_names) - 1)
-            return signals[lead_names[idx]]
-        if lead_name_or_index in signals:
-            return signals[lead_name_or_index]
-        return next(iter(signals.values()))
-
-    # 7. NumPy Array (.npy)
+    # 6. NumPy Array (.npy)
     elif ext == ".npy":
         arr = np.load(str(path))
         if arr.ndim > 1:
@@ -124,7 +110,7 @@ def load_ecg_file(
             return arr[idx]
         return arr
 
-    # 8. Delimited Text (.csv, .txt)
+    # 7. Delimited Text (.csv, .txt)
     elif ext in (".csv", ".txt"):
         arr = np.loadtxt(str(path), delimiter="," if ext == ".csv" else None)
         if arr.ndim > 1:
@@ -134,8 +120,8 @@ def load_ecg_file(
 
     else:
         raise ValueError(
-            f"Unsupported file format '{ext}'. PyECG supports: .pecg, .ecg (ISHNE), "
-            ".e3c (Excorde 3C), .edf, .hea/.dat (WFDB), .mat, .npy, .csv, and .txt."
+            f"Unsupported file format '{ext}'. Repolaris supports: .pecg, .ecg (ISHNE), "
+            ".e3c (Excorde 3C), .edf, .hea/.dat (WFDB), .npy, .csv, and .txt."
         )
 
 
@@ -202,10 +188,6 @@ def load_ecg_dataset(
         rec = read_wfdb(path)
         signals = {name: rec.signals[i] for i, name in enumerate(rec.lead_names)}
         return signals, float(rec.sampling_rate), {"record_name": rec.record_name}
-
-    elif ext == ".mat":
-        mat_res = load_mat_ecg(path)
-        return mat_res["signals"], float(mat_res["fs"]), mat_res["raw_metadata"]
 
     elif ext == ".npy":
         arr = np.load(str(path))

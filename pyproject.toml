@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "repolaris"
-version = "0.2.0"
+version = "0.3.0"
 description = "Modern Python framework for continuous ECG waveform analysis, ventricular repolarization, and arrhythmia triage"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.14"
 license = {text = "Apache-2.0"}
 authors = [
     {name = "Repolaris Contributors"}
@@ -19,9 +19,8 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3 :: Only",
     "Topic :: Scientific/Engineering :: Medical Science Apps."
 ]
 dependencies = [
@@ -49,8 +48,6 @@ dev = [
 ]
 packaging = [
     "briefcase>=0.3.18",
-    "nuitka>=2.1",
-    "ordered-set>=4.1",
     "zstandard>=0.22"
 ]
 
@@ -68,7 +65,7 @@ python_files = ["test_*.py"]
 # --- Modern Astral Tooling Configuration (https://astral.sh/) ---
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py314"
 
 [tool.ruff.lint]
 select = [
@@ -91,11 +88,11 @@ skip-magic-trailing-comma = false
 [tool.briefcase]
 project_name = "Repolaris"
 bundle = "org.repolaris"
-version = "0.2.0"
-url = "https://github.com/numbecho/repolaris"
+version = "0.3.0"
+url = "https://github.com/numbecho/Repolaris"
 license = "Apache-2.0"
 author = "Repolaris Contributors"
-author_email = "contact@repolaris.org"
+author_email = "ssdnam7t@pm.me"
 
 [tool.briefcase.app.repolaris]
 formal_name = "Repolaris"
@@ -116,7 +113,7 @@ requires = [
 ]
 
 [tool.briefcase.app.repolaris.macOS]
-universal_build = true
+universal_build = false
 requires = [
     "std-nslog~=1.0.0"
 ]

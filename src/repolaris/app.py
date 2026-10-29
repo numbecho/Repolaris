@@ -490,13 +490,12 @@ class MainWindow(QMainWindow):
             self,
             tr("btn_open"),
             "",
-            "All Supported ECG (*.pecg *.ecg *.e3c *.edf *.hea *.dat *.mat *.csv *.npy);;"
+            "All Supported ECG (*.pecg *.ecg *.e3c *.edf *.hea *.dat *.csv *.npy);;"
             "PECG Colleague Study (*.pecg);;"
             "ISHNE Holter Standard (*.ecg);;"
             "Excorde 3C Holter (*.e3c);;"
             "EDF Telemetry Patch (*.edf);;"
             "PhysioNet WFDB (*.hea *.dat);;"
-            "MATLAB Workspace (*.mat);;"
             "All Files (*)",
         )
         if not path:

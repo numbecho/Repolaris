@@ -3,8 +3,8 @@
 **Modernized ECG Analysis, Ventricular Repolarization & Universal Holter Framework**
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-brightgreen.svg)](pyproject.toml)
-[![Tests](https://img.shields.io/badge/Tests-25%20Passed-success.svg)](tests/)
+[![Python](https://img.shields.io/badge/Python-3.14%2B-brightgreen.svg)](pyproject.toml)
+[![Tests](https://img.shields.io/badge/Tests-31%20Passed-success.svg)](tests/)
 [![GUI](https://img.shields.io/badge/GUI-PyQt6%20%2B%20PyQtGraph-purple.svg)](src/repolaris/app.py)
 [![Wiki](https://img.shields.io/badge/Documentation-Wiki-orange.svg)](wiki/Home.md)
 
@@ -31,7 +31,7 @@ Exhaustive guides, algorithmic specifications, format references, and GUI tutori
 
 ## Key Features
 
-- **Universal Multi-Format Ingestion:** Opens commercial digital Holters (ISHNE `.ecg`), wearable telemetry patches (EDF/EDF+ `.edf`), research databases (PhysioNet WFDB `.hea`/`.dat`), MATLAB matrices (`.mat`), and delimited text (`.csv`/`.txt`) with zero proprietary external dependencies.
+- **Universal Multi-Format Ingestion:** Opens commercial digital Holters (ISHNE `.ecg`), wearable telemetry patches (EDF/EDF+ `.edf`), research databases (PhysioNet WFDB `.hea`/`.dat`), and delimited text (`.csv`/`.txt`) with zero proprietary external dependencies.
 - **Advanced Repolarization Lability & HRV:** Implements Berger's classical QT Variability Index (QTVI, Berger 1997) and uniform spectral resampling (Berger 1986) to detect temporal repolarization dispersion, along with multi-model QT-RR restitution curve fitting (Linear, Hyperbolic, Parabolic, Logarithmic).
 - **AAMI EC57 Beat Classifier & Rhythm Patterns:** Classifies individual heartbeats into diagnostic categories (Normal, PVC, PAC, Fusion, Unknown) and detects ectopic sequences (Bigeminy, Trigeminy, Couplets, VT runs) with audit-tracked physician annotation overrides.
 - **Automated Lead Signal Quality Index (SQI):** Computes QRS relative power (pSQI), baseline drift stability (basSQI), and SNR to screen and rank leads before running diagnostic measurements.
@@ -51,7 +51,6 @@ Exhaustive guides, algorithmic specifications, format references, and GUI tutori
 | **ISHNE Holter Standard** | `.ecg` | Commercial Holters (Mortara, GE, Rozinn, E3C) | Full ISHNE 1.0 specification (522-byte header, nV resolution scaling, demographics, notes). |
 | **PhysioNet WFDB** | `.hea`, `.dat` | Clinical Research (MIT-BIH, QT Database, PTB-XL) | Native pure-Python reader supporting Format 16 and Format 212 bit-packed signals. |
 | **European Data Format** | `.edf` | Wearable Patches & Telemetry (Bittium Faros, SOMNOtouch) | Official EDF / EDF+ standard, epoch reconstruction, $\mu\text{V}/\text{mV}$ calibration. |
-| **MATLAB Workspace** | `.mat` | Clinical Research Dumps & Legacy Tools | Automated lead array discovery (supports `testqtrr10.mat` records). |
 | **Delimited Text / NumPy** | `.csv`, `.txt`, `.npy` | Community Clinics & Raw Sensors | Direct matrix loading of raw voltage tracks. |
 
 ---
@@ -59,7 +58,7 @@ Exhaustive guides, algorithmic specifications, format references, and GUI tutori
 ## Installation
 
 ### Prerequisites
-- Python `>= 3.10`
+- Python `>= 3.14`
 
 ### Setup
 

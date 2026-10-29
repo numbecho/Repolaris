@@ -40,7 +40,7 @@ repolaris-gui
 
 ### 3.1 Dynamic Multi-Lead Selection Dropdown
 * Located in the **Study Controls** panel directly under the Open/Reload buttons.
-* When opening multi-channel recordings (e.g., 12-lead ISHNE `.ecg`, 3-channel Holters, multi-lead `.pecg` or `.mat`), the dropdown automatically discovers and enumerates all available channels (e.g., `Lead I`, `Lead II`, `V1`–`V6`).
+* When opening multi-channel recordings (e.g., 12-lead ISHNE `.ecg`, 3-channel Holters, multi-lead `.pecg``.mat`), the dropdown automatically discovers and enumerates all available channels (e.g., `Lead I`, `Lead II`, `V1`–`V6`).
 * Automatically selects **Lead II** (or **V5**) by default in accordance with AHA/ACC/HRS and FDA E14 clinical guidelines for optimal T-wave prominence and steepest repolarization downslope.
 * Selecting any channel instantly switches the active signal, re-executes the morphological delineation pipeline, and dynamically recalculates R-peak fiducials, caliper positions, QTc metrics, and the Events Diary for that specific lead.
 
@@ -56,7 +56,7 @@ repolaris-gui
 * **Click-to-Seek:** Clicking any entry immediately pans the main viewport and positions the calipers directly on that beat.
 
 ### 3.4 Manual Beat Reclassification Dialog
-* Double-clicking any beat marker or row in the beat table opens the **Physician Reclassification Dialog**.
+* Double-clicking any beat markerrow in the beat table opens the **Physician Reclassification Dialog**.
 * Select a new AAMI EC57 class (`N`, `V`, `S`, `F`, `Q`) and enter clinical notes.
 * Overrides are logged with timestamps in the `AnnotationManager` audit history.
 

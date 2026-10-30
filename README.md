@@ -27,7 +27,7 @@ Comprehensive guides, algorithmic specifications, and developer instructions—i
 - **Universal Multi-Format Ingestion:** Seamlessly opens commercial digital Holters, wearable telemetry patches, research databases, custom study containers, and delimited text with zero proprietary external dependencies.
 - **Advanced Repolarization & HRV:** Implements Berger's classical QT Variability Index (QTVI, Berger 1997), uniform spectral resampling (Berger 1986), and multi-model QT-RR restitution curve fitting.
 - **AAMI EC57 Beat Classification:** Automatically categorizes heartbeats and identifies ectopic rhythm sequences (Bigeminy, Trigeminy, Couplets, VT runs) with immutable physician audit logs.
-- **Automated Clinical Events Triage:** Scans recordings to index critical episodes: severe QTc prolongation ($QT_c \ge 500\text{ ms}$), short QT ($QT_c \le 340\text{ ms}$), sinus pauses, and rate extremes.
+- **Automated Arrhythmogenic & Conduction Disturbance Screening:** Continuously screens recordings to detect and index high-risk repolarization anomalies—including marked acquired/congenital Long QT Syndrome substrate and Short QT Syndrome—alongside sinoatrial arrest/exit blocks, severe sinus bradycardia, and sustained tachyarrhythmias.
 
 ---
 

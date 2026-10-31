@@ -25,6 +25,7 @@ To maintain long-term maintainability across a global biomedical engineering com
 | **`es`** | Spanish | Español | Complete (100%) |
 | **`fr`** | French | Français | Complete (100%) |
 | **`de`** | German | Deutsch | Complete (100%) |
+| **`pt`** | Portuguese | Português | Complete (100%) |
 
 ---
 
@@ -130,12 +131,12 @@ To translate wiki pages:
 
 When translating clinical terms, adhere to standard electrophysiology conventions:
 
-| English Term | Spanish (es) | French (fr) | German (de) |
-| :--- | :--- | :--- | :--- |
-| **Normal Sinus Rhythm** | Ritmo Sinusal Normal | Rythme Sinusal Normal | Normaler Sinusrhythmus |
-| **Premature Ventricular Contraction (PVC)** | Contracción Ventricular Prematura (CVP) | Extrasystole Ventriculaire (ESV) | Ventrikuläre Extrasystole (VES) |
-| **Premature Atrial Contraction (PAC)** | Contracción Auricular Prematura (CAP) | Extrasystole Auriculaire (ESA) | Supraventrikuläre Extrasystole (SVES) |
-| **Ventricular Repolarization** | Repolarización Ventricular | Repolarisation Ventriculaire | Ventrikuläre Repolarisation |
-| **Rate-Corrected QT (QTc)** | QT Corregido (QTc) | QT Corrigé (QTc) | Frequenzkorrigiertes QT (QTc) |
-| **Signal-to-Noise Ratio (SNR)** | Relación Señal-Ruido (SNR) | Rapport Signal sur Bruit (RSB) | Signal-Rausch-Verhältnis (SNR) |
-| **Digital Calipers** | Calibradores Digitales | Pied à coulisse digital | Digitale Messzange |
+| English Term | Spanish (es) | French (fr) | German (de) | Portuguese (pt) |
+| :--- | :--- | :--- | :--- | :--- |
+| **Normal Sinus Rhythm** | Ritmo Sinusal Normal | Rythme Sinusal Normal | Normaler Sinusrhythmus | Ritmo Sinusal Normal |
+| **Premature Ventricular Contraction (PVC)** | Contracción Ventricular Prematura (CVP) | Extrasystole Ventriculaire (ESV) | Ventrikuläre Extrasystole (VES) | Contração Ventricular Prematura (CVP / PVC) |
+| **Premature Atrial Contraction (PAC)** | Contracción Auricular Prematura (CAP) | Extrasystole Auriculaire (ESA) | Supraventrikuläre Extrasystole (SVES) | Contração Atrial Prematura (CAP / PAC) |
+| **Ventricular Repolarization** | Repolarización Ventricular | Repolarisation Ventriculaire | Ventrikuläre Repolarisation | Repolarização Ventricular |
+| **Rate-Corrected QT (QTc)** | QT Corregido (QTc) | QT Corrigé (QTc) | Frequenzkorrigiertes QT (QTc) | QT Corrigido (QTc) |
+| **Signal-to-Noise Ratio (SNR)** | Relación Señal-Ruido (SNR) | Rapport Signal sur Bruit (RSB) | Signal-Rausch-Verhältnis (SNR) | Relação Sinal-Ruído (SNR) |
+| **Digital Calipers** | Calibradores Digitales | Pied à coulisse digital | Digitale Messzange | Calibradores Digitais |

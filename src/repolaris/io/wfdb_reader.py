@@ -106,6 +106,11 @@ def read_wfdb(record_path_or_header: str | Path) -> WFDBRecord:
     fs = float(first_tokens[2]) if len(first_tokens) > 2 else 250.0
     sig_len = int(first_tokens[3]) if len(first_tokens) > 3 else 0
 
+    if not (1 <= num_signals <= 64):
+        raise ValueError(f"Security Alert: Invalid WFDB signal count ({num_signals}). Must be between 1 and 64.")
+    if sig_len < 0 or sig_len > 100_000_000:
+        raise ValueError(f"Security Alert: Invalid WFDB sample count ({sig_len}).")
+
     lead_names = []
     gains = []
     baselines = []
@@ -146,8 +151,9 @@ def read_wfdb(record_path_or_header: str | Path) -> WFDBRecord:
 
     # Read binary .dat file
     if not dat_path.exists():
-        # Check if header references a specific dat filename in the same folder
-        candidate = header_path.parent / dat_filenames[0]
+        # Check if header references a specific dat filename in the same folder (prevent directory traversal)
+        safe_dat_name = Path(dat_filenames[0]).name if dat_filenames else dat_path.name
+        candidate = header_path.parent / safe_dat_name
         if candidate.exists():
             dat_path = candidate
         else:
@@ -155,6 +161,9 @@ def read_wfdb(record_path_or_header: str | Path) -> WFDBRecord:
 
     with open(dat_path, "rb") as f:
         raw_bytes = f.read()
+
+    if len(raw_bytes) == 0:
+        raise ValueError(f"Corrupt WFDB record: Binary data file '{dat_path.name}' contains 0 bytes.")
 
     main_format = formats[0] if formats else 16
     if main_format == 16:

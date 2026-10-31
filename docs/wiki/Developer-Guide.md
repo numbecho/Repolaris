@@ -49,7 +49,25 @@ ignore = ["E501"]
 
 ---
 
-## 3. Strict Type Safety (PEP 484 / 585 / 604)
+
+---
+
+## 3. UI Layout & Precompilation (`app.ui`)
+
+The workstation graphical layout is designed in Qt 6 Designer and stored in XML format at `src/repolaris/resources/app.ui`. For fast startup and static IDE type safety, it is precompiled to native Python at `src/repolaris/resources/ui_app.py`.
+
+### Recompiling UI Layouts
+Whenever you modify `app.ui` in Qt Designer, recompile the Python presentation module using either method:
+
+```bash
+# Automated compiler (auto-detects pyuic6 or falls back to built-in generator)
+python -m repolaris.resources.compile_ui
+
+# Or using standard pyuic6 CLI
+pyuic6 src/repolaris/resources/app.ui -o src/repolaris/resources/ui_app.py
+```
+
+## 4. Strict Type Safety (PEP 484 / 585 / 604)
 
 All new code must include static type annotations:
 * Use modern union operators (`int | float | None` instead of `Optional[Union[int, float]]`).
@@ -61,7 +79,7 @@ All new code must include static type annotations:
 
 ---
 
-## 4. Automated Testing
+## 5. Automated Testing
 
 All pull requests must pass the complete unit test suite:
 
@@ -78,7 +96,7 @@ Place unit tests in `tests/test_*.py`. Use synthetic ECG generators (`repolaris.
 
 ---
 
-## 5. Syncing Wiki with GitHub
+## 6. Syncing Wiki with GitHub
 
 The wiki documentation files in this directory are formatted for GitHub Wikis. To publish or synchronize updates:
 

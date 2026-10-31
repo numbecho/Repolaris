@@ -27,8 +27,15 @@ class EDFRecord:
 
 
 def read_edf(filepath: str | Path) -> EDFRecord:
-    """Reads and parses an official EDF or EDF+ (.edf) recording."""
+    """Reads and parses an official EDF or EDF+ (.edf) recording with security guards."""
     filepath = Path(filepath)
+    if not filepath.exists():
+        raise FileNotFoundError(f"File not found: {filepath}")
+
+    file_size = filepath.stat().st_size
+    if file_size < 256:
+        raise ValueError(f"Corrupt EDF file: File size ({file_size} B) is smaller than the 256-byte header.")
+
     with open(filepath, "rb") as f:
         # 1. Main Header (256 bytes)
         raw_header = f.read(256)
@@ -44,6 +51,12 @@ def read_edf(filepath: str | Path) -> EDFRecord:
         num_records = int(raw_header[236:244].decode("ascii", errors="ignore").strip())
         record_duration = float(raw_header[244:252].decode("ascii", errors="ignore").strip())
         num_signals = int(raw_header[252:256].decode("ascii", errors="ignore").strip())
+
+        # Defensive bounds validation
+        if not (1 <= num_signals <= 64):
+            raise ValueError(f"Security Alert: Invalid EDF signal count ({num_signals}). Must be between 1 and 64.")
+        if header_bytes < 256 or header_bytes > 10 * 1024 * 1024 or header_bytes > file_size:
+            raise ValueError(f"Corrupt EDF file: Header byte length ({header_bytes}) is invalid or exceeds 10 MB ceiling.")
 
         # 2. Per-Signal Headers (num_signals * 256 bytes)
         raw_sig_headers = f.read(header_bytes - 256)
@@ -67,9 +80,13 @@ def read_edf(filepath: str | Path) -> EDFRecord:
         read_fields(32)  # Reserved
 
         # 3. Read Data Records
-        # Total samples per record across all channels
         record_size_samples = sum(samples_per_record)
+        if record_size_samples <= 0:
+            raise ValueError(f"Corrupt EDF file: Sum of samples per record is zero or negative ({record_size_samples}).")
         raw_data = np.fromfile(f, dtype="<i2")
+
+    if len(raw_data) == 0:
+        raise ValueError("Corrupt EDF file: No ECG waveform data could be read (0 samples).")
 
     if num_records > 0 and len(raw_data) < num_records * record_size_samples:
         actual_records = len(raw_data) // record_size_samples

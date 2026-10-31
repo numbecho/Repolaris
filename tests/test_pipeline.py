@@ -35,6 +35,24 @@ class TestE3CReader(unittest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
+
+    def test_load_dataset_metadata(self):
+        import tempfile
+        from repolaris.io.pecg_format import save_pecg
+        from repolaris.io.ecg_loader import load_ecg_dataset
+        with tempfile.TemporaryDirectory() as td:
+            p = os.path.join(td, "case.pecg")
+            sigs = np.zeros((2, 500), dtype=np.float32)
+            save_pecg(
+                p, sigs, 250.0, ["Lead I", "Lead II"],
+                patient_info={"age": 52, "sex": "F", "race": "Caucasian", "pacemaker": "DDD", "indication": "Palpitations"}
+            )
+            loaded_sigs, fs, meta = load_ecg_dataset(p)
+            self.assertEqual(meta["format"], "PECG (Portable Clinical ECG)")
+            self.assertEqual(meta["patient"]["age"], 52)
+            self.assertEqual(meta["patient"]["pacemaker"], "DDD")
+            self.assertEqual(meta["patient"]["indication"], "Palpitations")
+
     def test_e3c_reader(self):
         e3c_path = os.path.join(self.temp_dir.name, "record.e3c")
         channels = 2

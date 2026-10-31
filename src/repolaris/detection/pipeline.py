@@ -16,7 +16,7 @@ Coordinates end-to-end processing of electrocardiogram recordings:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 import numpy as np
 
 from repolaris.config import ECGConfig
@@ -38,6 +38,7 @@ def analyze_ecg(
     raw_signal: np.ndarray,
     fs: float = 500.0,
     config: Optional[ECGConfig] = None,
+    progress_callback: Optional[Callable[[float, str], None]] = None,
 ) -> Dict[str, Any]:
     """Executes the master diagnostic analysis pipeline on a raw ECG signal.
 
@@ -63,19 +64,27 @@ def analyze_ecg(
     if config is None:
         config = ECGConfig(sampling_rate=fs)
 
+    if progress_callback:
+        progress_callback(0.10, "Preprocessing and baseline wander removal...")
     # 1. Preprocessing and noise reduction
     filtered = bandpass_filter(raw_signal, fs, config.filter_cfg)
     clean_signal = remove_baseline_wander(filtered, fs)
 
+    if progress_callback:
+        progress_callback(0.25, "Evaluating lead signal quality (SQI)...")
     # 2. Lead Signal Quality Evaluation
     sqi_metrics = evaluate_lead_quality(clean_signal, fs)
 
+    if progress_callback:
+        progress_callback(0.40, "Detecting QRS complexes and R-peaks...")
     # 3. QRS Detection
     r_peaks = detect_r_peaks(clean_signal, fs, config.detection_cfg.refractory_period_ms)
 
     beats: List[Dict[str, Any]] = []
     n_peaks = len(r_peaks)
 
+    if progress_callback:
+        progress_callback(0.60, f"Segmenting fiducials ({n_peaks} cardiac cycles)...")
     # 4. Waveform Fiducial Segmentation
     rr_list: List[float] = []
     qt_list: List[float] = []
@@ -117,6 +126,8 @@ def analyze_ecg(
             "qtc": qtc_dict,
         })
 
+    if progress_callback:
+        progress_callback(0.75, "Classifying beats and ectopic rhythm sequences...")
     # 5. Beat Classification & Rhythm Sequence Analysis (AAMI EC57)
     q_arr = np.array(q_onsets_list, dtype=int)
     t_arr = np.array(t_ends_list, dtype=int)
@@ -150,6 +161,8 @@ def analyze_ecg(
 
     events = detect_clinical_events(beats, fs=fs)
 
+    if progress_callback:
+        progress_callback(0.90, "Assessing repolarization lability (QTVI & restitution)...")
     # 6. Advanced Repolarization Lability: QTVI & QT-RR Restitution
     qtvi_score: Optional[float] = None
     qtrr_metrics: Optional[Dict[str, Any]] = None
@@ -172,6 +185,8 @@ def analyze_ecg(
         except (ValueError, ZeroDivisionError):
             qtrr_metrics = None
 
+    if progress_callback:
+        progress_callback(1.00, f"Diagnostic analysis complete ({n_peaks} beats processed).")
     return {
         "clean_signal": clean_signal,
         "r_peaks": r_peaks,

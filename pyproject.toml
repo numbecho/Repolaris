@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "repolaris"
-version = "0.3.0"
+version = "0.5.0"
 description = "Modern Python framework for continuous ECG waveform analysis, ventricular repolarization, and arrhythmia triage"
 readme = "README.md"
 requires-python = ">=3.14"
@@ -58,6 +58,10 @@ repolaris-gui = "repolaris.app:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+"repolaris.resources" = ["*.ui", "*.qss", "*.png", "*.svg", "*.py"]
+
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
@@ -88,7 +92,7 @@ skip-magic-trailing-comma = false
 [tool.briefcase]
 project_name = "Repolaris"
 bundle = "org.repolaris"
-version = "0.3.0"
+version = "0.5.0"
 url = "https://github.com/numbecho/Repolaris"
 license = "Apache-2.0"
 license_file = "LICENSE"

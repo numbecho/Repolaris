@@ -56,6 +56,9 @@ def read_e3c(
     if not os.path.exists(filepath):
         raise FileNotFoundError(f"Excorde 3C file not found: {filepath}")
 
+    if not (1 <= channels <= 16):
+        raise ValueError(f"Security Alert: Invalid Excorde 3C channel count ({channels}). Must be between 1 and 16.")
+
     try:
         with zipfile.ZipFile(filepath, "r") as zf:
             namelist = zf.namelist()
@@ -64,6 +67,18 @@ def read_e3c(
 
             if not ecg_name:
                 raise ValueError(f"No current.ECG data stream found inside {filepath}")
+
+            # Mitigate decompression bombs by checking uncompressed file size
+            ecg_info = zf.getinfo(ecg_name)
+            if ecg_info.file_size == 0:
+                raise ValueError(f"Corrupt Excorde 3C archive: Data stream '{ecg_name}' contains 0 bytes.")
+            if ecg_info.file_size > 2 * 1024**3:
+                raise ValueError(f"Security Alert: Decompressed Excorde 3C stream ({ecg_info.file_size / 1e6:.1f} MB) exceeds 2 GB ceiling.")
+
+            if qrs_name:
+                qrs_info = zf.getinfo(qrs_name)
+                if qrs_info.file_size > 50 * 1024 * 1024:
+                    raise ValueError("Security Alert: QRS annotation stream exceeds 50 MB ceiling.")
 
             ecg_bytes = zf.read(ecg_name)
             qrs_bytes = zf.read(qrs_name) if qrs_name else b""

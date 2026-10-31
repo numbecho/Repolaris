@@ -41,6 +41,7 @@ When generating a `.pecg` file, direct identifiers (Patient Full Name, Hospital 
 * **Patient Age** (integer years)
 * **Sex / Gender** (`Male`, `Female`, `Unknown`)
 * **Race / Ethnicity** (for QT reference ranges)
+* **Pacemaker Implant Status** (`NO`, `YES`, `VVI`, `DDD`, `AAI`, `CRT`)
 * **Clinical Indication** (e.g., *"Syncope under sotalol therapy"*)
 
 ### Python Usage Example

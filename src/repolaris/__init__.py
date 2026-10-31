@@ -20,7 +20,7 @@ from repolaris.io.ecg_loader import load_ecg_file, load_ecg_dataset
 from repolaris.io.pecg_format import save_pecg, load_pecg
 from repolaris.io.e3c_reader import read_e3c
 
-__version__ = "0.3.0"
+__version__ = "0.5.0"
 __all__ = [
     "ECGConfig",
     "FilterConfig",
@@ -46,3 +46,34 @@ __all__ = [
     "load_pecg",
     "read_e3c",
 ]
+
+# Auto-register in-process API layer
+import sys
+from pathlib import Path
+import importlib.util
+
+_api_dir = Path(__file__).parent / "api"
+_api_init = _api_dir / "__init__.py"
+if _api_init.is_file() and "repolaris.api" not in sys.modules:
+    _spec = importlib.util.spec_from_file_location(
+        "repolaris.api",
+        _api_init,
+        submodule_search_locations=[str(_api_dir)]
+    )
+    if _spec and _spec.loader:
+        _mod = importlib.util.module_from_spec(_spec)
+        sys.modules["repolaris.api"] = _mod
+        _spec.loader.exec_module(_mod)
+
+_res_dir = Path(__file__).parent / "resources"
+_res_init = _res_dir / "__init__.py"
+if _res_init.is_file() and "repolaris.resources" not in sys.modules:
+    _spec_res = importlib.util.spec_from_file_location(
+        "repolaris.resources",
+        _res_init,
+        submodule_search_locations=[str(_res_dir)]
+    )
+    if _spec_res and _spec_res.loader:
+        _mod_res = importlib.util.module_from_spec(_spec_res)
+        sys.modules["repolaris.resources"] = _mod_res
+        _spec_res.loader.exec_module(_mod_res)

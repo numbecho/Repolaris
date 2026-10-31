@@ -1,6 +1,6 @@
 # Architecture Overview
 
-Repolaris adopts a modular, decoupled architecture where signal conditioning, electrophysiological delineation, beat classification, and data storage operate completely independently from the graphical user interface.
+Repolaris adopts a modular, decoupled architecture where signal conditioning, electrophysiological delineation, autonomic profiling, beat classification, and data storage operate completely independently from the graphical user interface.
 
 ---
 
@@ -13,7 +13,7 @@ src/repolaris/
 ├── __init__.py               # Package metadata and top-level public API exports
 ├── config.py                 # FilterConfig, DetectionConfig, and top-level ECGConfig dataclasses
 ├── cli.py                    # Command-line interface dispatcher
-├── app.py                    # Desktop GUI entry point
+├── app.py                    # Desktop GUI entry point with conditional channel-sensing logic
 │
 ├── io/                       # Universal Multi-Format Ingestion & Serialization
 │   ├── ecg_loader.py         # Unified multi-format sniffer and loader router
@@ -32,6 +32,11 @@ src/repolaris/
 │   ├── qtvi.py               # Berger QT Variability Index & 4 Hz step-integration
 │   ├── qtrr.py               # 6 non-linear QT-RR dynamic restitution models
 │   ├── sqi.py                # Spectral Signal Quality Indices (pSQI, basSQI, SNR)
+│   ├── dispersion.py         # Multi-lead QT Dispersion (QTd) & transmural Tpe dispersion
+│   ├── twa.py                # Microvolt T-Wave Alternans (Spectral FFT & continuous MMA)
+│   ├── hrt.py                # Heart Rate Turbulence (Turbulence Onset & Turbulence Slope)
+│   ├── hrv.py                # Comprehensive HRV suite (time, Welch PSD frequency, non-linear)
+│   ├── hysteresis.py         # Multi-beat QT-RR memory modeling (EW and LW lag kernels)
 │   ├── classifier.py         # ANSI/AAMI EC57 beat classifier (N, V, S, F, Q) & sequences
 │   ├── annotations.py        # AnnotationManager with immutable audit logging
 │   ├── events.py             # Automated clinical triage alert detector
@@ -39,7 +44,7 @@ src/repolaris/
 │
 ├── gui/                      # PyQtGraph Hardware-Accelerated Workstation
 │   ├── widgets.py            # ECGPlotWidget with draggable calipers and OpenGL rendering
-│   └── main_window.py        # MainWindow with Events Diary, HUD, and override dialogs
+│   └── main_window.py        # MainWindow with Events Diary, HUD, and diagnostic docks
 │
 └── utils/                    # Shared Utilities
     └── signal.py             # Realistic multi-component synthetic ECG generator
@@ -78,15 +83,24 @@ The processing pipeline operates in distinct stages:
          v
 +-----------------------+
 | Metric Calculation    |  --> RR intervals & Heart Rate (BPM)
-|                       |  --> QTc Correction (Bazett, Fridericia, Framingham, Hodges)
+| & Dynamic Modeling    |  --> QTc Correction (Bazett, Fridericia, Framingham, Hodges)
 |                       |  --> Berger QTVI & 4 Hz step-integration resampling
 |                       |  --> Non-linear QT-RR restitution model optimization
+|                       |  --> Multi-beat QT-RR memory hysteresis (EW/LW profiles)
 +-----------------------+
          |
          v
 +-----------------------+
 | Beat Classification   |  --> ANSI/AAMI EC57 Beat Labeling (N, V, S, F, Q)
 | & Rhythm Sequences    |  --> Sequence detection (Bigeminy, Trigeminy, Couplets, VT)
++-----------------------+
+         |
+         v
++-----------------------+
+| Autonomic & Spatial   |  --> Microvolt T-Wave Alternans (Spectral FFT & MMA)
+| Advanced Analysis     |  --> Heart Rate Turbulence (TO & TS post-solitary PVCs)
+|                       |  --> Comprehensive HRV (Time, Frequency, Non-Linear Poincaré)
+|                       |  --> Spatial QT Dispersion (Gated: requires >= 3 valid leads)
 +-----------------------+
          |
          v
@@ -98,17 +112,11 @@ The processing pipeline operates in distinct stages:
 
 ---
 
-## 3. Backward Compatibility Shim (`pyecg`)
+## 3. Dynamic Channel-Sensing & Multi-Lead Gating
 
-To preserve compatibility with existing research scripts and academic workflows written for PyECG, the `src/pyecg/` namespace mirrors `src/repolaris/`:
+Repolaris features an automated channel-sensing engine that detects the physical channel count of the active recording and modulates analytical passes and GUI presentation:
 
-```python
-# Legacy PyECG import:
-from pyecg.io.ecg_loader import load_ecg_file
-from pyecg.detection.pipeline import analyze_ecg
-
-# Modern Repolaris import (Identical API):
-from repolaris.io.ecg_loader import load_ecg_file
-from repolaris.detection.pipeline import analyze_ecg
-```
-Both imports resolve to the same underlying implementations without deprecation warnings.
+1. **Lead Quorum Verification**: The ingestion router (`ecg_loader.py`) determines total channel count $N_\text{leads}$ and evaluates per-lead signal quality.
+2. **Conditional Path Routing**:
+   * **Single-Lead Wearable Mode ($N_\text{leads} < 3$)**: Dispatches single-lead delineations, rate corrections, QTVI, restitution, HRV, HRT, TWA, and hysteresis. Bypasses the spatial dispersion module to prevent degenerate zero-dispersion artifacts.
+   * **Multi-Lead Holter Mode ($N_\text{leads} \ge 3$)**: Executes parallel multi-channel delineation, aligns global $Q_\text{onset}$, calculates spatial $QT_d$ and $T_{pe,d}$, and unlocks multi-lead butterfly and radar views in the workstation interface.

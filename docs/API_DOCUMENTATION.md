@@ -367,3 +367,66 @@ Central registry coordinating study annotations:
 - `get_manual_overrides()`: Retrieves all physician-modified annotations.
 - `summary()`: Computes total countsdistribution per AAMI categoryand override rates.
 - `to_physionet_table()`: Exports annotations to standard tabular text compatible with PhysioNet `rdann`/`wrann`.
+
+
+---
+
+## 11. Advanced Repolarization & Autonomic Modules
+
+### `repolaris.detection.dispersion.calculate_qt_dispersion(lead_signals, fs, lead_names=None, config=None)`
+Quantifies spatial repolarization heterogeneity across synchronous multi-lead recordings.
+- **Parameters:**
+  - `lead_signals` (*np.ndarray*): 2D array of shape `(n_leads, n_samples)`.
+  - `fs` (*float*): Sampling frequency in Hz.
+  - `lead_names` (*list[str], optional*): List of clinical lead identifiers.
+  - `config` (*DetectionConfig, optional*): Delineation configuration thresholds.
+- **Returns:**
+  - `qt_dispersion_ms`: Array of beat-by-beat absolute QT dispersion ($QT_d = \max QT - \min QT$).
+  - `qtc_dispersion_ms`: Array of rate-corrected QT dispersion ($QTc_d$).
+  - `tpe_dispersion_ms`: Array of transmural dispersion ($T_{pe,d} = \max T_{pe} - \min T_{pe}$).
+  - `summary`: Dictionary with mean, median, 95th percentile, and lead qualification flags.
+- **Note:** Requires a minimum quorum of $\ge 3$ diagnostic quality leads ($\text{pSQI} \ge 0.65$, $\text{basSQI} \ge 0.85$, $\text{SNR} \ge 12\text{ dB}$, T-wave amplitude $\ge 50\ \mu\text{V}$). Returns `None` when fewer than 3 leads are valid.
+
+### `repolaris.detection.twa.compute_spectral_twa(lead_signal, fs, r_peaks, beat_classes, window_beats=128)`
+Quantifies microvolt T-wave alternans using 128-beat FFT periodograms during sustained sinus rhythm.
+- **Returns:** Dictionary containing `v_alt_uv` (alternans voltage), `k_score` (alternans ratio relative to noise band), and `is_positive` boolean flag ($V_\text{alt} \ge 1.9\ \mu\text{V}$ and $k \ge 3.0$).
+
+### `repolaris.detection.twa.compute_mma_twa(lead_signal, fs, r_peaks, update_fraction=32)`
+Continuously tracks T-wave alternans across non-stationary ambulatory recordings using recursive Modified Moving Average odd/even templates.
+- **Returns:** Continuous time-series of $V_\text{MMA}$ in microvolts ($\mu\text{V}$) aligned to beat timestamps.
+
+### `repolaris.detection.hrt.compute_heart_rate_turbulence(classified_beats, r_peaks, fs)`
+Evaluates baroreflex-mediated autonomic response following solitary PVCs.
+- **Returns:**
+  - `turbulence_onset`: Percentage early sinus acceleration ($TO$, normal $< 0\%$).
+  - `turbulence_slope`: Maximum positive late regression slope ($TS$, normal $> 2.5\text{ ms/beat}$).
+  - `category`: Autonomic risk level (`0` = Normal, `1` = Intermediate, `2` = High Risk).
+  - `valid_pvc_count`: Number of qualified solitary PVC episodes analyzed.
+
+### `repolaris.detection.hrv.compute_time_domain_hrv(nn_intervals_ms)`
+Computes standard time-domain autonomic metrics over Normal-to-Normal ($NN$) beat intervals.
+- **Returns:** `sdnn`, `rmssd`, `pnn50`, `mean_nn`, and `cv_percent`.
+
+### `repolaris.detection.hrv.compute_frequency_domain_hrv(nn_intervals_ms, fs_resample=4.0)`
+Computes Welch power spectral density metrics over 4 Hz Berger-resampled $NN$ series.
+- **Returns:** `vlf_power`, `lf_power`, `hf_power`, `lf_hf_ratio`, `lf_nu`, and `hf_nu`.
+
+### `repolaris.detection.hrv.compute_nonlinear_hrv(nn_intervals_ms)`
+Evaluates non-linear autonomic dynamics.
+- **Returns:** Poincaré geometry (`sd1`, `sd2`, `sd1_sd2_ratio`), Sample Entropy (`sampen`), and DFA exponents (`alpha_1`, `alpha_2`).
+
+### `repolaris.detection.hysteresis.compute_effective_rr_exponential(rr_intervals_sec, lambda_param)`
+Calculates memory-weighted effective cycle length ($RR_\text{eff}$) using recursive exponential state-space weighting ($w_k = e^{-\lambda k}$).
+
+### `repolaris.detection.hysteresis.optimize_hysteresis_parameter(qt_intervals_sec, rr_intervals_sec, model_type='linear')`
+Finds optimal patient-specific memory decay parameter ($\lambda^*$) minimizing restitution residual variance, returning $\lambda^*$, 90% adaptation latency ($t_{90}$), and the resulting $QTc_\text{hyst}$ series.
+
+---
+
+## 12. Workstation Multi-Lead Sensing & Conditional Gating
+
+### `repolaris.app.MainWindow._evaluate_channel_capabilities()`
+Dynamic channel-sensing state machine in the workstation GUI:
+- Evaluates `len(self.multi_lead_signals)` and per-channel signal quality.
+- **Single-Lead Wearable Mode ($< 3$ channels):** Badges and disables spatial dispersion views (`card_qtd.setEnabled(False)`, `val_lbl.setText("N/A")`) while keeping single-lead autonomic docks (HRV, HRT, TWA, Hysteresis) active.
+- **Multi-Lead Holter Mode ($\ge 3$ channels):** Dynamically unlocks the `Spatial QT Dispersion` tab, multi-channel butterfly overlay, and 12-lead polar radar widget.

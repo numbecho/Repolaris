@@ -8,12 +8,12 @@ Exponential, and Arcus-Tangent formulations.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
+
 import numpy as np
 from scipy.stats import pearsonr
 
-
-SUPPORTED_QTRR_MODELS: List[str] = [
+SUPPORTED_QTRR_MODELS: list[str] = [
     "linear",
     "hyperbolic",
     "parabolic_log",
@@ -27,7 +27,7 @@ def fit_qtrr_model(
     rr_intervals: np.ndarray,
     qt_intervals: np.ndarray,
     model: str = "linear",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Fits an empirical QT-RR restitution model to paired beat observations.
 
     Args:
@@ -50,9 +50,7 @@ def fit_qtrr_model(
     """
     model_lower = model.lower()
     if model_lower not in SUPPORTED_QTRR_MODELS:
-        raise ValueError(
-            f"Unsupported QT-RR model '{model}'. Choose from: {SUPPORTED_QTRR_MODELS}"
-        )
+        raise ValueError(f"Unsupported QT-RR model '{model}'. Choose from: {SUPPORTED_QTRR_MODELS}")
 
     rr = np.asarray(rr_intervals, dtype=np.float64)
     qt = np.asarray(qt_intervals, dtype=np.float64)
@@ -78,14 +76,18 @@ def fit_qtrr_model(
         y = qt
         poly = np.polyfit(x, y, 1)
         slope, intercept = float(poly[0]), float(poly[1])
-        predict_fn = lambda r_in: slope * np.asarray(r_in) + intercept
+
+        def predict_fn(r_in):
+            return slope * np.asarray(r_in) + intercept
 
     elif model_lower == "hyperbolic":
         x = 1.0 / rr
         y = qt
         poly = np.polyfit(x, y, 1)
         slope, intercept = float(poly[0]), float(poly[1])
-        predict_fn = lambda r_in: slope / np.asarray(r_in) + intercept
+
+        def predict_fn(r_in):
+            return slope / np.asarray(r_in) + intercept
 
     elif model_lower == "parabolic_log":
         x = np.log(rr)
@@ -93,28 +95,36 @@ def fit_qtrr_model(
         poly = np.polyfit(x, y, 1)
         slope, intercept_log = float(poly[0]), float(poly[1])
         intercept = float(np.exp(intercept_log))
-        predict_fn = lambda r_in: intercept * (np.asarray(r_in) ** slope)
+
+        def predict_fn(r_in):
+            return intercept * (np.asarray(r_in) ** slope)
 
     elif model_lower == "logarithmic":
         x = np.log(rr)
         y = qt
         poly = np.polyfit(x, y, 1)
         slope, intercept = float(poly[0]), float(poly[1])
-        predict_fn = lambda r_in: slope * np.log(np.asarray(r_in)) + intercept
+
+        def predict_fn(r_in):
+            return slope * np.log(np.asarray(r_in)) + intercept
 
     elif model_lower == "exponential":
         x = np.exp(-rr)
         y = qt
         poly = np.polyfit(x, y, 1)
         slope, intercept = float(poly[0]), float(poly[1])
-        predict_fn = lambda r_in: slope * np.exp(-np.asarray(r_in)) + intercept
+
+        def predict_fn(r_in):
+            return slope * np.exp(-np.asarray(r_in)) + intercept
 
     elif model_lower == "arctan":
         x = np.arctan(rr)
         y = qt
         poly = np.polyfit(x, y, 1)
         slope, intercept = float(poly[0]), float(poly[1])
-        predict_fn = lambda r_in: slope * np.arctan(np.asarray(r_in)) + intercept
+
+        def predict_fn(r_in):
+            return slope * np.arctan(np.asarray(r_in)) + intercept
 
     r_val, p_val = pearsonr(x, y)
 

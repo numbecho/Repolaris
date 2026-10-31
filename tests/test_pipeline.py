@@ -1,32 +1,34 @@
+from __future__ import annotations
+
+import os
+import struct
+import tempfile
 import unittest
-from repolaris.utils.signal import generate_synthetic_ecg
+import zipfile
+import numpy as np
+
 from repolaris.detection.pipeline import analyze_ecg
+from repolaris.io.e3c_reader import read_e3c
+from repolaris.io.ecg_loader import load_ecg_dataset, load_ecg_file
+from repolaris.io.pecg_format import save_pecg
+from repolaris.utils.signal import generate_synthetic_ecg
+
 
 class TestPipeline(unittest.TestCase):
     def test_end_to_end_analysis(self):
         fs = 500.0
         _, sig, _ = generate_synthetic_ecg(duration_sec=8.0, fs=fs, heart_rate_bpm=75.0)
         results = analyze_ecg(sig, fs=fs)
-        
+
         self.assertIn("summary", results)
         self.assertIn("beats", results)
         summary = results["summary"]
-        
+
         self.assertGreater(summary["total_beats"], 6)
         self.assertAlmostEqual(summary["mean_hr_bpm"], 75.0, delta=5.0)
         self.assertGreater(summary["mean_qt_ms"], 300.0)
         self.assertLess(summary["mean_qt_ms"], 500.0)
 
-if __name__ == "__main__":
-    unittest.main()
-
-import os
-import struct
-import tempfile
-import zipfile
-import numpy as np
-from repolaris.io.e3c_reader import read_e3c
-from repolaris.io.ecg_loader import load_ecg_file
 
 class TestE3CReader(unittest.TestCase):
     def setUp(self):
@@ -35,17 +37,22 @@ class TestE3CReader(unittest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-
     def test_load_dataset_metadata(self):
-        import tempfile
-        from repolaris.io.pecg_format import save_pecg
-        from repolaris.io.ecg_loader import load_ecg_dataset
         with tempfile.TemporaryDirectory() as td:
             p = os.path.join(td, "case.pecg")
             sigs = np.zeros((2, 500), dtype=np.float32)
             save_pecg(
-                p, sigs, 250.0, ["Lead I", "Lead II"],
-                patient_info={"age": 52, "sex": "F", "race": "Caucasian", "pacemaker": "DDD", "indication": "Palpitations"}
+                p,
+                sigs,
+                250.0,
+                ["Lead I", "Lead II"],
+                patient_info={
+                    "age": 52,
+                    "sex": "F",
+                    "race": "Caucasian",
+                    "pacemaker": "DDD",
+                    "indication": "Palpitations",
+                },
             )
             loaded_sigs, fs, meta = load_ecg_dataset(p)
             self.assertEqual(meta["format"], "PECG (Portable Clinical ECG)")
@@ -79,3 +86,7 @@ class TestE3CReader(unittest.TestCase):
 
         ch1 = load_ecg_file(e3c_path, lead_name_or_index=0)
         self.assertEqual(len(ch1), samples_per_ch)
+
+
+if __name__ == "__main__":
+    unittest.main()

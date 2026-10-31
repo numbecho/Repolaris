@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import argparse
 import sys
-from typing import Optional
+
 import numpy as np
 
-from repolaris.api import StudyAPI, AnalysisAPI, ExportAPI
+from repolaris.api import AnalysisAPI, ExportAPI, StudyAPI
 
 
 def print_cli_progress(fraction: float, message: str) -> None:
@@ -23,7 +23,7 @@ def print_cli_progress(fraction: float, message: str) -> None:
         sys.stdout.flush()
 
 
-def main(argv: Optional[list[str]] = None) -> None:
+def main(argv: list[str] | None = None) -> None:
     """Entrypoint for the PyECG command-line tool."""
     parser = argparse.ArgumentParser(
         prog="repolaris",
@@ -36,20 +36,31 @@ def main(argv: Optional[list[str]] = None) -> None:
     demo_p.add_argument("--duration", type=float, default=10.0, help="Duration in seconds")
     demo_p.add_argument("--fs", type=float, default=500.0, help="Sampling frequency (Hz)")
     demo_p.add_argument("--hr", type=float, default=72.0, help="Heart rate (BPM)")
-    demo_p.add_argument("--export", help="Optional target .pecg path to export the study after analysis")
+    demo_p.add_argument(
+        "--export", help="Optional target .pecg path to export the study after analysis"
+    )
 
     # analyze command
     ana_p = subparsers.add_parser("analyze", help="Analyze an ECG recording file")
     ana_p.add_argument("file", help="Path to ECG file (.pecg, .ecg, .e3c, .edf, .hea, .csv, .npy)")
     ana_p.add_argument("--fs", type=float, default=500.0, help="Sampling frequency")
     ana_p.add_argument("--lead", default=0, help="Lead index or channel name")
-    ana_p.add_argument("--export", help="Optional target .pecg path to export the study after analysis")
+    ana_p.add_argument(
+        "--export", help="Optional target .pecg path to export the study after analysis"
+    )
 
     # export command
-    exp_p = subparsers.add_parser("export", help="Convert and export an ECG recording to .pecg format")
+    exp_p = subparsers.add_parser(
+        "export", help="Convert and export an ECG recording to .pecg format"
+    )
     exp_p.add_argument("file", help="Path to input ECG recording")
     exp_p.add_argument("output", help="Target .pecg output path")
-    exp_p.add_argument("--compression", default="zstd", choices=["zstd", "deflate", "none"], help="Compression mode")
+    exp_p.add_argument(
+        "--compression",
+        default="zstd",
+        choices=["zstd", "deflate", "none"],
+        help="Compression mode",
+    )
 
     args = parser.parse_args(argv)
 
@@ -75,7 +86,9 @@ def main(argv: Optional[list[str]] = None) -> None:
                 sampling_rate=args.fs,
                 lead_names=["Lead II"],
                 patient_info={"indication": "Synthetic Demo Study"},
-                annotations={"beats": results.get("annotations").to_dict_list()} if results.get("annotations") else {},
+                annotations={"beats": results.get("annotations").to_dict_list()}
+                if results.get("annotations")
+                else {},
                 events=results.get("events", []),
                 progress_callback=print_cli_progress,
             )
@@ -102,7 +115,9 @@ def main(argv: Optional[list[str]] = None) -> None:
                 signals=sig,
                 sampling_rate=fs,
                 lead_names=[f"Lead {args.lead}"],
-                annotations={"beats": results.get("annotations").to_dict_list()} if results.get("annotations") else {},
+                annotations={"beats": results.get("annotations").to_dict_list()}
+                if results.get("annotations")
+                else {},
                 events=results.get("events", []),
                 progress_callback=print_cli_progress,
             )
@@ -148,7 +163,9 @@ def main(argv: Optional[list[str]] = None) -> None:
     print(f"Mean QTc Bazett:     {summary['mean_qtc_bazett_ms']:.1f} ms")
     print(f"Mean QTc Fridericia: {summary['mean_qtc_fridericia_ms']:.1f} ms")
     if ectopic:
-        print(f"PVC Count:           {ectopic.get('pvc_count', 0)} ({ectopic.get('pvc_percentage', 0.0):.1f}%)")
+        print(
+            f"PVC Count:           {ectopic.get('pvc_count', 0)} ({ectopic.get('pvc_percentage', 0.0):.1f}%)"
+        )
         print(f"PAC Count:           {ectopic.get('pac_count', 0)}")
     if qtvi is not None:
         print(f"QTVI:                {qtvi:.2f}")
@@ -160,10 +177,18 @@ def main(argv: Optional[list[str]] = None) -> None:
     if events:
         print(f"Clinical Events:     {len(events)} detected")
         for ev in events[:5]:
-            t_sec = getattr(ev, "time_offset_sec", ev.get("time_offset_sec", ev.get("time_sec", 0.0)) if isinstance(ev, dict) else 0.0)
-            etype = getattr(ev, "event_type", ev.get("event_type", "Event") if isinstance(ev, dict) else "Event")
+            t_sec = getattr(
+                ev,
+                "time_offset_sec",
+                ev.get("time_offset_sec", ev.get("time_sec", 0.0)) if isinstance(ev, dict) else 0.0,
+            )
+            etype = getattr(
+                ev, "event_type", ev.get("event_type", "Event") if isinstance(ev, dict) else "Event"
+            )
             etype_str = etype.value if hasattr(etype, "value") else str(etype)
-            desc = getattr(ev, "description", ev.get("description", "") if isinstance(ev, dict) else "")
+            desc = getattr(
+                ev, "description", ev.get("description", "") if isinstance(ev, dict) else ""
+            )
             print(f"  - [{t_sec:.1f}s] {etype_str}: {desc}")
         if len(events) > 5:
             print(f"  ... and {len(events) - 5} more")

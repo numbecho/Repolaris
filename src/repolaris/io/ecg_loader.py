@@ -14,22 +14,24 @@ electrocardiogram recordings across all clinical, academic, and device formats:
 from __future__ import annotations
 
 import os
-from pathlib import Path
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from pathlib import Path
+from typing import Any
+
 import numpy as np
 
 from repolaris.io.e3c_reader import read_e3c
-from repolaris.io.pecg_format import load_pecg
-from repolaris.io.ishne_reader import read_ishne
-from repolaris.io.wfdb_reader import read_wfdb
 from repolaris.io.edf_reader import read_edf
+from repolaris.io.ishne_reader import read_ishne
+from repolaris.io.pecg_format import load_pecg
+from repolaris.io.wfdb_reader import read_wfdb
 
 
 def load_ecg_file(
-    filepath: Union[str, Path, os.PathLike[str]],
-    lead_name_or_index: Union[str, int] = 0,
-    progress_callback: Optional[Callable[[float, str], None]] = None,
+    filepath: str | Path | os.PathLike[str],
+    lead_name_or_index: str | int = 0,
+    progress_callback: Callable[[float, str], None] | None = None,
 ) -> np.ndarray:
     """Loads a single specified lead signal from any supported ECG recording format.
 
@@ -110,7 +112,9 @@ def load_ecg_file(
     elif ext == ".npy":
         arr = np.load(str(path))
         if arr.ndim > 1:
-            idx = min(lead_name_or_index if isinstance(lead_name_or_index, int) else 0, arr.shape[0] - 1)
+            idx = min(
+                lead_name_or_index if isinstance(lead_name_or_index, int) else 0, arr.shape[0] - 1
+            )
             return arr[idx]
         return arr
 
@@ -118,7 +122,9 @@ def load_ecg_file(
     elif ext in (".csv", ".txt"):
         arr = np.loadtxt(str(path), delimiter="," if ext == ".csv" else None)
         if arr.ndim > 1:
-            idx = min(lead_name_or_index if isinstance(lead_name_or_index, int) else 0, arr.shape[1] - 1)
+            idx = min(
+                lead_name_or_index if isinstance(lead_name_or_index, int) else 0, arr.shape[1] - 1
+            )
             return arr[:, idx]
         return arr
 
@@ -130,9 +136,9 @@ def load_ecg_file(
 
 
 def load_ecg_dataset(
-    filepath: Union[str, Path, os.PathLike[str]],
-    progress_callback: Optional[Callable[[float, str], None]] = None,
-) -> Tuple[Dict[str, np.ndarray], float, Dict[str, Any]]:
+    filepath: str | Path | os.PathLike[str],
+    progress_callback: Callable[[float, str], None] | None = None,
+) -> tuple[dict[str, np.ndarray], float, dict[str, Any]]:
     """Loads all leads, sampling rate, and clinical metadata from any supported ECG file.
 
     Args:
@@ -153,27 +159,33 @@ def load_ecg_dataset(
 
     file_size = path.stat().st_size
     if file_size > 2 * 1024**3:
-        raise ValueError(f"Security Alert: File '{path.name}' ({file_size / 1e9:.2f} GB) exceeds the 2 GB maximum allowed size.")
+        raise ValueError(
+            f"Security Alert: File '{path.name}' ({file_size / 1e9:.2f} GB) exceeds the 2 GB maximum allowed size."
+        )
 
     ext = path.suffix.lower()
 
     if ext == ".pecg":
         meta, signals_matrix = load_pecg(path, mmap=False, progress_callback=progress_callback)
         channels = meta.get("recording", {}).get("channels", [])
-        signals: Dict[str, np.ndarray] = {}
+        signals: dict[str, np.ndarray] = {}
         if progress_callback:
             progress_callback(0.85, "Calibrating multi-channel signals in parallel...")
+
         def _extract_ch(item):
             i, ch = item
-            name = ch.get("name", f"Lead {i+1}")
+            name = ch.get("name", f"Lead {i + 1}")
             return name, signals_matrix[i]
+
         if channels:
             with ThreadPoolExecutor(max_workers=min(os.cpu_count() or 1, 4)) as pool:
                 for name, sig in pool.map(_extract_ch, enumerate(channels)):
                     signals[name] = sig
         else:
+
             def _extract_idx(i):
-                return f"Lead {i+1}", signals_matrix[i]
+                return f"Lead {i + 1}", signals_matrix[i]
+
             with ThreadPoolExecutor(max_workers=min(os.cpu_count() or 1, 4)) as pool:
                 for name, sig in pool.map(_extract_idx, range(signals_matrix.shape[0])):
                     signals[name] = sig
@@ -190,9 +202,11 @@ def load_ecg_dataset(
         rec = read_ishne(path)
         if progress_callback:
             progress_callback(0.80, "Calibrating Holter leads in parallel...")
+
         def _extract_ishne(item):
             i, name = item
             return name, rec.signals[i]
+
         with ThreadPoolExecutor(max_workers=min(os.cpu_count() or 1, 4)) as pool:
             signals = dict(pool.map(_extract_ishne, enumerate(rec.lead_names)))
         meta = {
@@ -214,7 +228,15 @@ def load_ecg_dataset(
 
     elif ext == ".e3c":
         e3c_res = read_e3c(path)
-        return e3c_res["signals"], float(e3c_res["fs"]), {"format": "Fukuda Excorde 3C (.e3c)", "duration_sec": e3c_res.get("duration_s", 0.0), "annotations": e3c_res.get("annotations", {})}
+        return (
+            e3c_res["signals"],
+            float(e3c_res["fs"]),
+            {
+                "format": "Fukuda Excorde 3C (.e3c)",
+                "duration_sec": e3c_res.get("duration_s", 0.0),
+                "annotations": e3c_res.get("annotations", {}),
+            },
+        )
 
     elif ext == ".edf":
         if progress_callback:
@@ -222,9 +244,11 @@ def load_ecg_dataset(
         rec = read_edf(path)
         if progress_callback:
             progress_callback(0.80, "Calibrating telemetry leads in parallel...")
+
         def _extract_edf(item):
             i, name = item
             return name, rec.signals[i]
+
         with ThreadPoolExecutor(max_workers=min(os.cpu_count() or 1, 4)) as pool:
             signals = dict(pool.map(_extract_edf, enumerate(rec.lead_names)))
         meta = {
@@ -243,12 +267,22 @@ def load_ecg_dataset(
         rec = read_wfdb(path)
         if progress_callback:
             progress_callback(0.80, "Calibrating WFDB channels in parallel...")
+
         def _extract_wfdb(item):
             i, name = item
             return name, rec.signals[i]
+
         with ThreadPoolExecutor(max_workers=min(os.cpu_count() or 1, 4)) as pool:
             signals = dict(pool.map(_extract_wfdb, enumerate(rec.lead_names)))
-        return signals, float(rec.sampling_rate), {"format": "PhysioNet WFDB (.hea / .dat)", "record_name": rec.record_name, "patient_id": rec.record_name}
+        return (
+            signals,
+            float(rec.sampling_rate),
+            {
+                "format": "PhysioNet WFDB (.hea / .dat)",
+                "record_name": rec.record_name,
+                "patient_id": rec.record_name,
+            },
+        )
 
     elif ext == ".npy":
         if progress_callback:
@@ -257,8 +291,10 @@ def load_ecg_dataset(
         if arr.ndim == 1:
             signals = {"Lead I": arr}
         else:
+
             def _extract_npy(i):
-                return f"Lead {i+1}", arr[i]
+                return f"Lead {i + 1}", arr[i]
+
             with ThreadPoolExecutor(max_workers=min(os.cpu_count() or 1, 4)) as pool:
                 signals = dict(pool.map(_extract_npy, range(arr.shape[0])))
         if progress_callback:
@@ -267,15 +303,19 @@ def load_ecg_dataset(
 
     elif ext in (".csv", ".txt"):
         if file_size > 250 * 1024 * 1024:
-            raise ValueError(f"Security Alert: Delimited text file '{path.name}' ({file_size / 1e6:.1f} MB) exceeds the 250 MB ceiling for text ingestion.")
+            raise ValueError(
+                f"Security Alert: Delimited text file '{path.name}' ({file_size / 1e6:.1f} MB) exceeds the 250 MB ceiling for text ingestion."
+            )
         if progress_callback:
             progress_callback(0.35, "Parsing delimited text matrix...")
         arr = np.loadtxt(str(path), delimiter="," if ext == ".csv" else None)
         if arr.ndim == 1:
             signals = {"Lead I": arr}
         else:
+
             def _extract_csv(i):
-                return f"Lead {i+1}", arr[:, i]
+                return f"Lead {i + 1}", arr[:, i]
+
             with ThreadPoolExecutor(max_workers=min(os.cpu_count() or 1, 4)) as pool:
                 signals = dict(pool.map(_extract_csv, range(arr.shape[1])))
         if progress_callback:

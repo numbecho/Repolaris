@@ -8,15 +8,13 @@ Circulation 1997).
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Tuple, Union
 import numpy as np
-import scipy.interpolate as intrp
 
 
 def resample_berger(
     rr_cum_times: np.ndarray,
     fs_resample: float = 4.0,
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """Resamples unevenly spaced RR event sequences onto a uniform grid using Berger's algorithm.
 
     Reference:
@@ -76,8 +74,8 @@ def resample_berger(
     # Forward/backward fill zeros
     if np.any(valid):
         first_val = resampled[valid][0]
-        last_val = resampled[valid][-1]
-        resampled[:np.argmax(valid)] = first_val
+        resampled[valid][-1]
+        resampled[: np.argmax(valid)] = first_val
         for idx in range(len(resampled)):
             if resampled[idx] == 0:
                 resampled[idx] = resampled[idx - 1] if idx > 0 else first_val

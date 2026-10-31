@@ -1,18 +1,14 @@
 import unittest
-import numpy as np
 
+from repolaris.detection.annotations import AnnotationManager
 from repolaris.detection.classifier import (
     BeatClass,
-    RhythmPattern,
     BeatFeatures,
     ClassifiedBeat,
+    RhythmPattern,
     classify_heartbeat,
     detect_rhythm_patterns,
-    classify_all_beats,
-    compute_median_template,
 )
-from repolaris.detection.annotations import ECGAnnotation, AnnotationManager
-from repolaris.utils.signal import generate_synthetic_ecg
 
 
 class TestClassifierAndAnnotations(unittest.TestCase):
@@ -73,13 +69,27 @@ class TestClassifierAndAnnotations(unittest.TestCase):
         # Synthetic sequence: N, V, V, N, V, N, V
         dummy_feat = BeatFeatures(0.8, 0.8, 1.0, 1.0, 1.0, 85.0, 1.0, 1.0, 0.95, 1)
         beats = [
-            ClassifiedBeat(0, 500, 1.0, BeatClass.NORMAL, RhythmPattern.NORMAL_SINUS, 0.9, dummy_feat, ""),
-            ClassifiedBeat(1, 1000, 2.0, BeatClass.PVC, RhythmPattern.ISOLATED_ECTOPIC, 0.9, dummy_feat, ""),
-            ClassifiedBeat(2, 1300, 2.6, BeatClass.PVC, RhythmPattern.ISOLATED_ECTOPIC, 0.9, dummy_feat, ""),
-            ClassifiedBeat(3, 1900, 3.8, BeatClass.NORMAL, RhythmPattern.NORMAL_SINUS, 0.9, dummy_feat, ""),
-            ClassifiedBeat(4, 2300, 4.6, BeatClass.PVC, RhythmPattern.ISOLATED_ECTOPIC, 0.9, dummy_feat, ""),
-            ClassifiedBeat(5, 2900, 5.8, BeatClass.NORMAL, RhythmPattern.NORMAL_SINUS, 0.9, dummy_feat, ""),
-            ClassifiedBeat(6, 3300, 6.6, BeatClass.PVC, RhythmPattern.ISOLATED_ECTOPIC, 0.9, dummy_feat, ""),
+            ClassifiedBeat(
+                0, 500, 1.0, BeatClass.NORMAL, RhythmPattern.NORMAL_SINUS, 0.9, dummy_feat, ""
+            ),
+            ClassifiedBeat(
+                1, 1000, 2.0, BeatClass.PVC, RhythmPattern.ISOLATED_ECTOPIC, 0.9, dummy_feat, ""
+            ),
+            ClassifiedBeat(
+                2, 1300, 2.6, BeatClass.PVC, RhythmPattern.ISOLATED_ECTOPIC, 0.9, dummy_feat, ""
+            ),
+            ClassifiedBeat(
+                3, 1900, 3.8, BeatClass.NORMAL, RhythmPattern.NORMAL_SINUS, 0.9, dummy_feat, ""
+            ),
+            ClassifiedBeat(
+                4, 2300, 4.6, BeatClass.PVC, RhythmPattern.ISOLATED_ECTOPIC, 0.9, dummy_feat, ""
+            ),
+            ClassifiedBeat(
+                5, 2900, 5.8, BeatClass.NORMAL, RhythmPattern.NORMAL_SINUS, 0.9, dummy_feat, ""
+            ),
+            ClassifiedBeat(
+                6, 3300, 6.6, BeatClass.PVC, RhythmPattern.ISOLATED_ECTOPIC, 0.9, dummy_feat, ""
+            ),
         ]
         result = detect_rhythm_patterns(beats)
         self.assertEqual(result[1].rhythm_pattern, RhythmPattern.COUPLET)
@@ -98,7 +108,9 @@ class TestClassifierAndAnnotations(unittest.TestCase):
         self.assertEqual(v_list[0].sample, 500)
 
         # Physician manual override
-        override = mgr.override_beat_label(sample=105, new_label="S", reviewer="Dr. Smith", notes="Reclassified to PAC")
+        override = mgr.override_beat_label(
+            sample=105, new_label="S", reviewer="Dr. Smith", notes="Reclassified to PAC"
+        )
         self.assertIsNotNone(override)
         self.assertTrue(override.is_manual_override)
         self.assertEqual(override.label, "S")

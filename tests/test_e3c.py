@@ -3,6 +3,7 @@ import struct
 import tempfile
 import unittest
 import zipfile
+
 import numpy as np
 
 from repolaris.io.e3c_reader import read_e3c

@@ -8,20 +8,20 @@ a compressed ZIP container.
 
 from __future__ import annotations
 
-import io
 import os
 import struct
 import zipfile
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
+
 import numpy as np
 
 
 def read_e3c(
-    filepath: Union[str, os.PathLike[str]],
+    filepath: str | os.PathLike[str],
     default_fs: float = 250.0,
     gain_scale: float = 2.65e-3,
     channels: int = 2,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Reads multi-lead ECG waveforms and QRS annotations from an Excorde 3C (.e3c) archive.
 
     Decompresses `current.ECG` and `current.QRS` directly in-memory from the container:
@@ -57,13 +57,29 @@ def read_e3c(
         raise FileNotFoundError(f"Excorde 3C file not found: {filepath}")
 
     if not (1 <= channels <= 16):
-        raise ValueError(f"Security Alert: Invalid Excorde 3C channel count ({channels}). Must be between 1 and 16.")
+        raise ValueError(
+            f"Security Alert: Invalid Excorde 3C channel count ({channels}). Must be between 1 and 16."
+        )
 
     try:
         with zipfile.ZipFile(filepath, "r") as zf:
             namelist = zf.namelist()
-            ecg_name = next((n for n in namelist if n.lower().endswith("current.ecg") or n.lower().endswith(".ecg")), None)
-            qrs_name = next((n for n in namelist if n.lower().endswith("current.qrs") or n.lower().endswith(".qrs")), None)
+            ecg_name = next(
+                (
+                    n
+                    for n in namelist
+                    if n.lower().endswith("current.ecg") or n.lower().endswith(".ecg")
+                ),
+                None,
+            )
+            qrs_name = next(
+                (
+                    n
+                    for n in namelist
+                    if n.lower().endswith("current.qrs") or n.lower().endswith(".qrs")
+                ),
+                None,
+            )
 
             if not ecg_name:
                 raise ValueError(f"No current.ECG data stream found inside {filepath}")
@@ -71,9 +87,13 @@ def read_e3c(
             # Mitigate decompression bombs by checking uncompressed file size
             ecg_info = zf.getinfo(ecg_name)
             if ecg_info.file_size == 0:
-                raise ValueError(f"Corrupt Excorde 3C archive: Data stream '{ecg_name}' contains 0 bytes.")
+                raise ValueError(
+                    f"Corrupt Excorde 3C archive: Data stream '{ecg_name}' contains 0 bytes."
+                )
             if ecg_info.file_size > 2 * 1024**3:
-                raise ValueError(f"Security Alert: Decompressed Excorde 3C stream ({ecg_info.file_size / 1e6:.1f} MB) exceeds 2 GB ceiling.")
+                raise ValueError(
+                    f"Security Alert: Decompressed Excorde 3C stream ({ecg_info.file_size / 1e6:.1f} MB) exceeds 2 GB ceiling."
+                )
 
             if qrs_name:
                 qrs_info = zf.getinfo(qrs_name)
@@ -91,13 +111,15 @@ def read_e3c(
     raw_data = np.frombuffer(ecg_bytes[: samples_per_ch * channels * 2], dtype=np.int16)
 
     # Reshape channels: Excorde stores samples in interleaved / column-major order
-    reshaped = raw_data.reshape((channels, samples_per_ch), order="F").astype(np.float64) * gain_scale
+    reshaped = (
+        raw_data.reshape((channels, samples_per_ch), order="F").astype(np.float64) * gain_scale
+    )
 
     lead_names = [f"Channel {i + 1}" for i in range(channels)]
     signals = {lead_names[i]: reshaped[i, :] for i in range(channels)}
 
     # Parse QRS annotations if available
-    annotations: Dict[str, np.ndarray] = {
+    annotations: dict[str, np.ndarray] = {
         "qrson": np.array([], dtype=np.int64),
         "qrsend": np.array([], dtype=np.int64),
         "pattern": np.array([], dtype=np.int64),
@@ -111,7 +133,7 @@ def read_e3c(
         record_size = 25  # 6 * 4 (uint32) + 1 (uint8)
         n_beats = len(qrs_bytes) // record_size
         if n_beats > 0:
-            fmt = f"<{n_beats * 6}I{n_beats}B"
+            f"<{n_beats * 6}I{n_beats}B"
             # Unpack record by record
             rec_fmt = "<6IB"
             q_on = []

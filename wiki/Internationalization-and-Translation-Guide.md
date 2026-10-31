@@ -74,7 +74,7 @@ SUPPORTED_LANGUAGES: Dict[str, str] = {
     "es": "Español",
     "fr": "Français",
     "de": "Deutsch",
-    "it": "Italiano",      # <-- Add your new language
+    "it": "Italiano",  # <-- Add your new language
 }
 ```
 

@@ -10,30 +10,30 @@ and episode-level annotations across automated AI detectors and clinical reviewe
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, asdict
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple, Union
-import numpy as np
+from dataclasses import asdict, dataclass, field
+from datetime import UTC, datetime
+from typing import Any
 
 
 @dataclass
 class ECGAnnotation:
     """Represents a single fiducial or diagnostic event annotation."""
+
     sample: int
     timestamp_sec: float
-    label: str                            # AAMI code: 'N', 'V', 'S', 'F', 'Q', or custom tag
-    sublabel: str = ""                    # e.g., 'PVC', 'PAC', 'Pause', 'Artifact'
-    author: str = "AI_DETECTOR"           # 'AI_DETECTOR' or physician username (e.g., 'Dr. Mercantete')
-    is_manual_override: bool = False      # True if reviewed/modified by clinician
-    notes: str = ""                       # Clinical rationale or caliper notes
-    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    label: str  # AAMI code: 'N', 'V', 'S', 'F', 'Q', or custom tag
+    sublabel: str = ""  # e.g., 'PVC', 'PAC', 'Pause', 'Artifact'
+    author: str = "AI_DETECTOR"  # 'AI_DETECTOR' or physician username (e.g., 'Dr. Mercantete')
+    is_manual_override: bool = False  # True if reviewed/modified by clinician
+    notes: str = ""  # Clinical rationale or caliper notes
+    created_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serializes annotation to dictionary."""
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ECGAnnotation:
+    def from_dict(cls, data: dict[str, Any]) -> ECGAnnotation:
         """Instantiates an ECGAnnotation from a serialized dictionary."""
         return cls(
             sample=int(data["sample"]),
@@ -43,15 +43,15 @@ class ECGAnnotation:
             author=str(data.get("author", "AI_DETECTOR")),
             is_manual_override=bool(data.get("is_manual_override", False)),
             notes=str(data.get("notes", "")),
-            created_at=str(data.get("created_at", datetime.now(timezone.utc).isoformat())),
+            created_at=str(data.get("created_at", datetime.now(UTC).isoformat())),
         )
 
 
 class AnnotationManager:
     """Manages collection, query, mutation, and serialization of study annotations."""
 
-    def __init__(self, annotations: Optional[List[ECGAnnotation]] = None) -> None:
-        self._annotations: List[ECGAnnotation] = list(annotations) if annotations else []
+    def __init__(self, annotations: list[ECGAnnotation] | None = None) -> None:
+        self._annotations: list[ECGAnnotation] = list(annotations) if annotations else []
 
     def __len__(self) -> int:
         return len(self._annotations)
@@ -60,7 +60,7 @@ class AnnotationManager:
         return iter(self._annotations)
 
     @property
-    def annotations(self) -> List[ECGAnnotation]:
+    def annotations(self) -> list[ECGAnnotation]:
         """Returns sorted list of annotations."""
         return sorted(self._annotations, key=lambda a: a.sample)
 
@@ -94,13 +94,13 @@ class AnnotationManager:
         reviewer: str = "Physician",
         notes: str = "",
         tolerance_samples: int = 25,
-    ) -> Optional[ECGAnnotation]:
+    ) -> ECGAnnotation | None:
         """Overrides an existing beat annotation with a manual physician diagnosis.
 
         Locates the nearest existing annotation within tolerance_samples and updates it,
         or creates a new override annotation if none exists nearby.
         """
-        target: Optional[ECGAnnotation] = None
+        target: ECGAnnotation | None = None
         min_dist = float("inf")
 
         for ann in self._annotations:
@@ -127,22 +127,22 @@ class AnnotationManager:
                 notes=notes,
             )
 
-    def get_by_label(self, label: str) -> List[ECGAnnotation]:
+    def get_by_label(self, label: str) -> list[ECGAnnotation]:
         """Filters annotations matching a specific AAMI label (e.g. 'V')."""
         l_upper = label.upper()
         return [a for a in self._annotations if a.label == l_upper]
 
-    def get_in_time_range(self, start_sec: float, end_sec: float) -> List[ECGAnnotation]:
+    def get_in_time_range(self, start_sec: float, end_sec: float) -> list[ECGAnnotation]:
         """Returns annotations falling inside a specific temporal window [start_sec, end_sec]."""
         return [a for a in self._annotations if start_sec <= a.timestamp_sec <= end_sec]
 
-    def get_manual_overrides(self) -> List[ECGAnnotation]:
+    def get_manual_overrides(self) -> list[ECGAnnotation]:
         """Returns all annotations that were manually created or overridden by a clinician."""
         return [a for a in self._annotations if a.is_manual_override]
 
-    def summary(self) -> Dict[str, Any]:
+    def summary(self) -> dict[str, Any]:
         """Generates statistical count summary of annotations."""
-        counts: Dict[str, int] = {}
+        counts: dict[str, int] = {}
         override_count = 0
 
         for a in self._annotations:
@@ -157,12 +157,12 @@ class AnnotationManager:
             "ai_detected": len(self._annotations) - override_count,
         }
 
-    def to_dict_list(self) -> List[Dict[str, Any]]:
+    def to_dict_list(self) -> list[dict[str, Any]]:
         """Serializes all annotations into a list of dictionaries for .pecg or JSON storage."""
         return [a.to_dict() for a in self.annotations]
 
     @classmethod
-    def from_dict_list(cls, dict_list: List[Dict[str, Any]]) -> AnnotationManager:
+    def from_dict_list(cls, dict_list: list[dict[str, Any]]) -> AnnotationManager:
         """Instantiates an AnnotationManager from a list of serialized dictionaries."""
         mgr = cls()
         for d in dict_list:
@@ -174,5 +174,7 @@ class AnnotationManager:
         lines = ["# Time (s)\tSample\tType\tSub\tReviewer\tNotes"]
         for a in self.annotations:
             over = "[OVERRIDE]" if a.is_manual_override else ""
-            lines.append(f"{a.timestamp_sec:10.3f}\t{a.sample:10d}\t{a.label:4s}\t{a.sublabel:6s}\t{a.author:15s}\t{a.notes} {over}".strip())
+            lines.append(
+                f"{a.timestamp_sec:10.3f}\t{a.sample:10d}\t{a.label:4s}\t{a.sublabel:6s}\t{a.author:15s}\t{a.notes} {over}".strip()
+            )
         return "\n".join(lines)

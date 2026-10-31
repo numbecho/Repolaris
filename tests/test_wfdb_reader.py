@@ -1,9 +1,11 @@
-import unittest
-import tempfile
 import os
-from pathlib import Path
+import tempfile
+import unittest
+
 import numpy as np
+
 from repolaris.io.wfdb_reader import read_wfdb
+
 
 class TestWFDBReader(unittest.TestCase):
     def setUp(self):
@@ -49,6 +51,7 @@ class TestWFDBReader(unittest.TestCase):
         self.assertEqual(rec.num_samples, 500)
         self.assertEqual(rec.lead_names, ["Lead_I", "Lead_II"])
         np.testing.assert_allclose(rec.signals, self.true_signals, atol=0.01)
+
 
 if __name__ == "__main__":
     unittest.main()

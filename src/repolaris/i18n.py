@@ -12,9 +12,10 @@ human-facing localized labels, tooltips, dialogs, and diagnostic descriptions.
 """
 
 from __future__ import annotations
-from typing import Dict, Any
 
-SUPPORTED_LANGUAGES: Dict[str, str] = {
+from typing import Any
+
+SUPPORTED_LANGUAGES: dict[str, str] = {
     "en": "English",
     "es": "Español",
     "fr": "Français",
@@ -22,7 +23,7 @@ SUPPORTED_LANGUAGES: Dict[str, str] = {
     "pt": "Português",
 }
 
-TRANSLATIONS: Dict[str, Dict[str, str]] = {
+TRANSLATIONS: dict[str, dict[str, str]] = {
     "en": {
         # App Header & Actions
         "app_title": "Repolaris",
@@ -35,25 +36,21 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "btn_demo_tooltip": "Generate realistic synthetic ECG rhythm (72 BPM)",
         "btn_export": "📤 Export Case (.pecg)",
         "btn_export_tooltip": "Export de-identified multi-channel study for colleague consultation",
-        
         # Caliper Strip
         "calipers_title": "🔍 Digital Calipers:",
         "cal_raw_qt": "Raw QT:",
         "cal_bazett": "Bazett QTc:",
         "cal_fridericia": "Fridericia QTc:",
         "cal_tip": "💡 Drag calipers along the waveform to measure any cardiac cycle.",
-
         # Tabs
         "tab_overview": "📊 Overview",
         "tab_events": "🚨 Events Diary",
         "tab_beats": "📋 All Beats",
-
         # KPI Card Titles
         "kpi_hr_title": "Mean Heart Rate",
         "kpi_qtc_title": "Ventricular Repolarization (QTc)",
         "kpi_ectopic_title": "Ectopic Burden (PVC / PAC)",
         "kpi_sqi_title": "Lead Signal Quality (SQI)",
-
         # KPI Subtexts
         "hr_sub_normal": "Normal resting range (60-100 BPM)",
         "hr_sub_brady": "Bradycardia detected (<50 BPM)",
@@ -68,7 +65,6 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "sqi_sub_clean": "Clean signal (SNR: {snr:.1f} dB)",
         "sqi_sub_mod": "Moderate noise (SNR: {snr:.1f} dB)",
         "sqi_sub_noisy": "Significant artifact (SNR: {snr:.1f} dB)",
-
         # Advanced Section
         "adv_group_title": "Repolarization Lability & Restitution",
         "adv_qtvi": "Berger QTVI: {val} (Normal: -1.6 to -1.0)",
@@ -76,19 +72,16 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "adv_qtrr": "QT-RR Restitution Slope: {val}",
         "adv_qtrr_na": "QT-RR Restitution Slope: N/A",
         "adv_total_cycles": "Total Analyzed Cycles: {count}",
-
         # Events Table Headers
         "hdr_time": "Time",
         "hdr_event": "Event",
         "hdr_value": "Value",
         "hdr_severity": "Severity",
-
         # Beat Table Headers
         "hdr_beat_num": "Beat #",
         "hdr_class": "Class",
         "hdr_qt": "QT (ms)",
         "hdr_qtc": "QTc (ms)",
-
         # Dialogs
         "override_title": "Override Beat #{num} Diagnosis",
         "override_prompt": "Current automated classification: {curr}\nSelect physician diagnostic override:",
@@ -106,7 +99,6 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "error_title": "Error Loading File",
         "no_rec_title": "No Recording",
         "no_rec_msg": "Please load an ECG recording before exporting.",
-
         # AAMI Options
         "opt_n": "N (Normal Sinus)",
         "opt_v": "V (Premature Ventricular Contraction / PVC)",
@@ -204,7 +196,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "help_dialog_title": "Repolaris Clinical User Guide",
         "help_dialog_text": "Repolaris Clinical ECG Workstation — Quick Reference:\n\n• File -> Open Study (Ctrl+O): Open clinical ECG records (.pecg, .ecg, .edf, .hea, .csv)\n• File -> Export Study (Ctrl+E): Export anonymized compressed study container\n• File -> Close Study (Ctrl+W): Close active study and clear workspace\n• Preferences -> Languages / Themes / Calipers: Configure workstation display\n• Help -> Documentation (F1): Open online wiki and clinical guides\n• Calipers: Drag the gold dashed line for Q-onset and fuchsia line for T-end\n• Zoom: Step through clinical sweep speeds (12.5-100 mm/s) and gains (2.5-20 mm/mV)\n• Time Axis: Formatted down to milliseconds (hh:mm:ss:xxx)",
         "license_dialog_title": "Repolaris License",
-        "license_dialog_text": "Repolaris is licensed under the Apache License, Version 2.0.\n\nLicensed under the Apache License, Version 2.0 (the \"License\"); you may not use this file except in compliance with the License. You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0.",
+        "license_dialog_text": 'Repolaris is licensed under the Apache License, Version 2.0.\n\nLicensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0.',
         "no_study_loaded": "No Active Study",
         "no_active_lead": "No Active Signal",
         "status_ready": "Ready",
@@ -212,7 +204,6 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "status_analyzing": "Analyzing ECG rhythm...",
         "status_exporting": "Exporting study archive...",
     },
-    
     "es": {
         # App Header & Actions
         "app_title": "Repolaris",
@@ -225,25 +216,21 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "btn_demo_tooltip": "Generar ritmo ECG sintético realista (72 LPM)",
         "btn_export": "📤 Exportar Caso (.pecg)",
         "btn_export_tooltip": "Exportar estudio anonimizado multicanal para consulta colegiada",
-        
         # Caliper Strip
         "calipers_title": "🔍 Calibradores Digitales:",
         "cal_raw_qt": "QT Medido:",
         "cal_bazett": "QTc Bazett:",
         "cal_fridericia": "QTc Fridericia:",
         "cal_tip": "💡 Arrastre los calibradores a lo largo de la señal para medir cualquier ciclo cardíaco.",
-
         # Tabs
         "tab_overview": "📊 Resumen Clínico",
         "tab_events": "🚨 Diario de Eventos",
         "tab_beats": "📋 Todos los Latidos",
-
         # KPI Card Titles
         "kpi_hr_title": "Frecuencia Cardíaca Media",
         "kpi_qtc_title": "Repolarización Ventricular (QTc)",
         "kpi_ectopic_title": "Carga Ectópica (CVP / CAP)",
         "kpi_sqi_title": "Calidad de Señal (SQI)",
-
         # KPI Subtexts
         "hr_sub_normal": "Rango sinusal en reposo (60-100 LPM)",
         "hr_sub_brady": "Bradicardia detectada (<50 LPM)",
@@ -258,7 +245,6 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "sqi_sub_clean": "Señal limpia (SNR: {snr:.1f} dB)",
         "sqi_sub_mod": "Ruido moderado (SNR: {snr:.1f} dB)",
         "sqi_sub_noisy": "Artefacto significativo (SNR: {snr:.1f} dB)",
-
         # Advanced Section
         "adv_group_title": "Labilidad de Repolarización y Restitución",
         "adv_qtvi": "QTVI de Berger: {val} (Normal: -1.6 a -1.0)",
@@ -266,19 +252,16 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "adv_qtrr": "Pendiente de Restitución QT-RR: {val}",
         "adv_qtrr_na": "Pendiente de Restitución QT-RR: N/D",
         "adv_total_cycles": "Total de Ciclos Analizados: {count}",
-
         # Events Table Headers
         "hdr_time": "Tiempo",
         "hdr_event": "Evento",
         "hdr_value": "Valor",
         "hdr_severity": "Severidad",
-
         # Beat Table Headers
         "hdr_beat_num": "Latido #",
         "hdr_class": "Clase",
         "hdr_qt": "QT (ms)",
         "hdr_qtc": "QTc (ms)",
-
         # Dialogs
         "override_title": "Modificar Diagnóstico del Latido #{num}",
         "override_prompt": "Clasificación automática actual: {curr}\nSeleccione el diagnóstico médico definitivo:",
@@ -296,7 +279,6 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "error_title": "Error al Cargar Archivo",
         "no_rec_title": "Sin Registro",
         "no_rec_msg": "Por favor cargue un registro de ECG antes de exportar.",
-
         # AAMI Options
         "opt_n": "N (Sinusal Normal)",
         "opt_v": "V (Contracción Ventricular Prematura / CVP)",
@@ -402,7 +384,6 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "status_analyzing": "Analizando ritmo ECG...",
         "status_exporting": "Exportando archivo de estudio...",
     },
-
     "fr": {
         # App Header & Actions
         "app_title": "Repolaris",
@@ -415,25 +396,21 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "btn_demo_tooltip": "Générer un tracé ECG synthétique réaliste (72 BPM)",
         "btn_export": "📤 Exporter Cas (.pecg)",
         "btn_export_tooltip": "Exporter l'étude anonymisée multicanaux pour consultation collégiale",
-        
         # Caliper Strip
         "calipers_title": "🔍 Pied à Coulisse Digital:",
         "cal_raw_qt": "QT Brut:",
         "cal_bazett": "QTc Bazett:",
         "cal_fridericia": "QTc Fridericia:",
         "cal_tip": "💡 Faites glisser les curseurs pour mesurer n'importe quel cycle cardiaque.",
-
         # Tabs
         "tab_overview": "📊 Vue d'Ensemble",
         "tab_events": "🚨 Journal des Événements",
         "tab_beats": "📋 Tous les Battements",
-
         # KPI Card Titles
         "kpi_hr_title": "Fréquence Cardiaque Moyenne",
         "kpi_qtc_title": "Repolarisation Ventriculaire (QTc)",
         "kpi_ectopic_title": "Charge Ectopique (ESV / ESSV)",
         "kpi_sqi_title": "Qualité du Signal (SQI)",
-
         # KPI Subtexts
         "hr_sub_normal": "Rythme sinusal au repos (60-100 BPM)",
         "hr_sub_brady": "Bradycardie détectée (<50 BPM)",
@@ -448,7 +425,6 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "sqi_sub_clean": "Signal clair (SNR: {snr:.1f} dB)",
         "sqi_sub_mod": "Bruit modéré (SNR: {snr:.1f} dB)",
         "sqi_sub_noisy": "Artefact significatif (SNR: {snr:.1f} dB)",
-
         # Advanced Section
         "adv_group_title": "Labilité de Repolarisation et Restitution",
         "adv_qtvi": "QTVI de Berger: {val} (Normal: -1.6 à -1.0)",
@@ -456,19 +432,16 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "adv_qtrr": "Pente de Restitution QT-RR: {val}",
         "adv_qtrr_na": "Pente de Restitution QT-RR: N/D",
         "adv_total_cycles": "Total des Cycles Analysés: {count}",
-
         # Events Table Headers
         "hdr_time": "Temps",
         "hdr_event": "Événement",
         "hdr_value": "Valeur",
         "hdr_severity": "Gravité",
-
         # Beat Table Headers
         "hdr_beat_num": "Battement #",
         "hdr_class": "Classe",
         "hdr_qt": "QT (ms)",
         "hdr_qtc": "QTc (ms)",
-
         # Dialogs
         "override_title": "Modifier le Diagnostic du Battement #{num}",
         "override_prompt": "Classification automatique actuelle: {curr}\nSélectionnez le diagnostic médical:",
@@ -486,7 +459,6 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "error_title": "Erreur de Chargement",
         "no_rec_title": "Aucun Enregistrement",
         "no_rec_msg": "Veuillez charger un enregistrement ECG avant d'exporter.",
-
         # AAMI Options
         "opt_n": "N (Sinusal Normal)",
         "opt_v": "V (Extrasystole Ventriculaire / ESV)",
@@ -592,7 +564,6 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "status_analyzing": "Analyse du rythme ECG...",
         "status_exporting": "Exportation de l'archive de l'étude...",
     },
-
     "de": {
         # App Header & Actions
         "app_title": "Repolaris",
@@ -605,25 +576,21 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "btn_demo_tooltip": "Realistischen synthetischen EKG-Rhythmus erzeugen (72 BPM)",
         "btn_export": "📤 Fall Exportieren (.pecg)",
         "btn_export_tooltip": "Anonymisierte Mehrkanalstudie für Kollegen exportieren",
-        
         # Caliper Strip
         "calipers_title": "🔍 Digitale Messzange:",
         "cal_raw_qt": "Gemessenes QT:",
         "cal_bazett": "Bazett QTc:",
         "cal_fridericia": "Fridericia QTc:",
         "cal_tip": "💡 Verschieben Sie die Messlinien, um jeden Herzzyklus zu vermessen.",
-
         # Tabs
         "tab_overview": "📊 Übersicht",
         "tab_events": "🚨 Ereignistagebuch",
         "tab_beats": "📋 Alle Schläge",
-
         # KPI Card Titles
         "kpi_hr_title": "Mittlere Herzfrequenz",
         "kpi_qtc_title": "Ventrikuläre Repolarisation (QTc)",
         "kpi_ectopic_title": "Ektopie-Belastung (VES / SVES)",
         "kpi_sqi_title": "Signalqualität (SQI)",
-
         # KPI Subtexts
         "hr_sub_normal": "Normaler Sinusrhythmus in Ruhe (60-100 BPM)",
         "hr_sub_brady": "Bradykardie erkannt (<50 BPM)",
@@ -638,7 +605,6 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "sqi_sub_clean": "Sauberes Signal (SNR: {snr:.1f} dB)",
         "sqi_sub_mod": "Mäßiges Rauschen (SNR: {snr:.1f} dB)",
         "sqi_sub_noisy": "Erhebliches Artefakt (SNR: {snr:.1f} dB)",
-
         # Advanced Section
         "adv_group_title": "Repolarisations-Labilität & Restitution",
         "adv_qtvi": "Berger QTVI: {val} (Normal: -1.6 bis -1.0)",
@@ -646,19 +612,16 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "adv_qtrr": "QT-RR Restitutions-Steigung: {val}",
         "adv_qtrr_na": "QT-RR Restitutions-Steigung: N/A",
         "adv_total_cycles": "Analysierte Zyklen Gesamt: {count}",
-
         # Events Table Headers
         "hdr_time": "Zeit",
         "hdr_event": "Ereignis",
         "hdr_value": "Wert",
         "hdr_severity": "Schweregrad",
-
         # Beat Table Headers
         "hdr_beat_num": "Schlag #",
         "hdr_class": "Klasse",
         "hdr_qt": "QT (ms)",
         "hdr_qtc": "QTc (ms)",
-
         # Dialogs
         "override_title": "Diagnose für Schlag #{num} anpassen",
         "override_prompt": "Aktuelle automatische Klassifikation: {curr}\nÄrztliche Diagnose auswählen:",
@@ -676,7 +639,6 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "error_title": "Fehler beim Laden der Datei",
         "no_rec_title": "Kein EKG Geladen",
         "no_rec_msg": "Bitte vor dem Export eine EKG-Aufzeichnung laden.",
-
         # AAMI Options
         "opt_n": "N (Normaler Sinus)",
         "opt_v": "V (Ventrikuläre Extrasystole / VES)",
@@ -782,7 +744,6 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "status_analyzing": "EKG-Rhythmus wird analysiert...",
         "status_exporting": "Studienarchiv wird exportiert...",
     },
-    
     "pt": {
         # App Header & Actions
         "app_title": "Repolaris",
@@ -795,25 +756,21 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "btn_demo_tooltip": "Gerar ritmo de ECG sintético realista (72 BPM)",
         "btn_export": "📤 Exportar Caso (.pecg)",
         "btn_export_tooltip": "Exportar estudo multicanal anonimizado para consulta colegiada",
-        
         # Caliper Strip
         "calipers_title": "🔍 Calibradores Digitais:",
         "cal_raw_qt": "QT Bruto:",
         "cal_bazett": "QTc Bazett:",
         "cal_fridericia": "QTc Fridericia:",
         "cal_tip": "💡 Arraste os calibradores ao longo do sinal para medir qualquer ciclo cardíaco.",
-
         # Tabs
         "tab_overview": "📊 Visão Geral",
         "tab_events": "🚨 Diário de Eventos",
         "tab_beats": "📋 Todos os Batimentos",
-
         # KPI Card Titles
         "kpi_hr_title": "Frequência Cardíaca Média",
         "kpi_qtc_title": "Repolarização Ventricular (QTc)",
         "kpi_ectopic_title": "Carga Ectópica (PVC / PAC)",
         "kpi_sqi_title": "Qualidade do Sinal da Derivação (SQI)",
-
         # KPI Subtexts
         "hr_sub_normal": "Faixa de repouso normal (60-100 BPM)",
         "hr_sub_brady": "Bradicardia detectada (<50 BPM)",
@@ -828,7 +785,6 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "sqi_sub_clean": "Sinal limpo (SNR: {snr:.1f} dB)",
         "sqi_sub_mod": "Ruído moderado (SNR: {snr:.1f} dB)",
         "sqi_sub_noisy": "Artefato significativo (SNR: {snr:.1f} dB)",
-
         # Advanced Section
         "adv_group_title": "Labilidade de Repolarização e Restituição",
         "adv_qtvi": "QTVI de Berger: {val} (Normal: -1.6 a -1.0)",
@@ -836,19 +792,16 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "adv_qtrr": "Inclinação de Restituição QT-RR: {val}",
         "adv_qtrr_na": "Inclinação de Restituição QT-RR: N/D",
         "adv_total_cycles": "Total de Ciclos Analisados: {count}",
-
         # Events Table Headers
         "hdr_time": "Tempo",
         "hdr_event": "Evento",
         "hdr_value": "Valor",
         "hdr_severity": "Gravidade",
-
         # Beat Table Headers
         "hdr_beat_num": "Batimento #",
         "hdr_class": "Classe",
         "hdr_qt": "QT (ms)",
         "hdr_qtc": "QTc (ms)",
-
         # Dialogs
         "override_title": "Alterar Diagnóstico do Batimento #{num}",
         "override_prompt": "Classificação automatizada atual: {curr}\nSelecione a alteração diagnóstica do médico:",
@@ -866,7 +819,6 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "error_title": "Erro ao Carregar Arquivo",
         "no_rec_title": "Nenhum Registro",
         "no_rec_msg": "Por favor, carregue um registro de ECG antes de exportar.",
-
         # AAMI Options
         "opt_n": "N (Sinusal Normal)",
         "opt_v": "V (Contração Ventricular Prematura / PVC)",
@@ -971,7 +923,7 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "status_loading": "Carregando estudo...",
         "status_analyzing": "Analisando ritmo de ECG...",
         "status_exporting": "Exportando arquivo de estudo...",
-    }
+    },
 }
 
 
@@ -1019,6 +971,6 @@ def get_current_locale() -> str:
     return _i18n.current_lang
 
 
-def get_supported_locales() -> Dict[str, str]:
+def get_supported_locales() -> dict[str, str]:
     """Returns dictionary of supported language codes and display names."""
     return SUPPORTED_LANGUAGES

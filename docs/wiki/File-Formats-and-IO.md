@@ -52,21 +52,21 @@ import numpy as np
 # Export an anonymized study package
 save_pecg(
     filepath="patient_case_001.pecg",
-    signals=lead_matrix,            # Shape: (num_leads, num_samples) in mV
+    signals=lead_matrix,  # Shape: (num_leads, num_samples) in mV
     sampling_rate=500.0,
     lead_names=["Lead I", "Lead II", "V5"],
     patient_info={
         "age": 58,
         "sex": "Female",
         "race": "Caucasian",
-        "indication": "Suspected drug-induced LQTS"
+        "indication": "Suspected drug-induced LQTS",
     },
     annotations={
         "physician_notes": [
             {"author": "Dr. S. Mercantete", "comment": "T-wave inversion observed on beat 84"}
         ]
     },
-    compression="zstd"              # Options: "zstd", "deflate", or "none"
+    compression="zstd",  # Options: "zstd", "deflate", or "none"
 )
 
 # Open instantly with zero RAM overhead via memory-mapping (if compression="none"):

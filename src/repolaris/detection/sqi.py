@@ -7,7 +7,6 @@ baseline-wandering recordings prior to diagnostic repolarization analysis.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 from scipy.signal import welch
 
@@ -89,7 +88,7 @@ def compute_bassqi(signal: np.ndarray, fs: float) -> float:
 def evaluate_lead_quality(
     signal: np.ndarray,
     fs: float,
-) -> Dict[str, Union[float, str]]:
+) -> dict[str, float | str]:
     """Evaluates multi-metric quality parameters for an ECG lead.
 
     Args:
@@ -110,10 +109,7 @@ def evaluate_lead_quality(
     p_qrs = compute_band_power(signal, fs, 5.0, 40.0)
     p_noise = compute_band_power(signal, fs, 40.0, min(fs / 2.0 - 1.0, 100.0))
 
-    if p_noise <= 1e-12:
-        snr_db = 40.0
-    else:
-        snr_db = float(10.0 * np.log10(max(p_qrs / p_noise, 1e-3)))
+    snr_db = 40.0 if p_noise <= 1e-12 else float(10.0 * np.log10(max(p_qrs / p_noise, 0.001)))
 
     if psqi_val >= 0.5 and bassqi_val >= 0.7:
         verdict = "EXCELLENT"

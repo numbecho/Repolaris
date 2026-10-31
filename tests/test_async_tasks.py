@@ -6,11 +6,10 @@ import sys
 import tempfile
 import unittest
 import xml.etree.ElementTree as ET
-import numpy as np
 
-from repolaris.api import StudyAPI, AnalysisAPI, ExportAPI
+from repolaris.api import AnalysisAPI, ExportAPI, StudyAPI
+from repolaris.app import MainWindow
 from repolaris.cli import print_cli_progress
-from repolaris.app import MainWindow, BackgroundTaskWorker
 
 
 class TestAsyncTasksAndProgress(unittest.TestCase):
@@ -53,6 +52,7 @@ class TestAsyncTasksAndProgress(unittest.TestCase):
             t, sig, r_peaks = StudyAPI.generate_demo_study(duration_sec=2.0, fs=500.0)
 
             export_progress = []
+
             def _exp_cb(fraction: float, message: str) -> None:
                 export_progress.append((fraction, message))
 
@@ -70,6 +70,7 @@ class TestAsyncTasksAndProgress(unittest.TestCase):
 
             # Test load_study_dataset progress
             load_progress = []
+
             def _load_cb(fraction: float, message: str) -> None:
                 load_progress.append((fraction, message))
 
@@ -80,7 +81,9 @@ class TestAsyncTasksAndProgress(unittest.TestCase):
             self.assertEqual(load_progress[-1][0], 1.0)
 
             # Test load_study_file progress
-            single_sig, single_fs = StudyAPI.load_study_file(out_path, lead="Lead II", progress_callback=_load_cb)
+            single_sig, single_fs = StudyAPI.load_study_file(
+                out_path, lead="Lead II", progress_callback=_load_cb
+            )
             self.assertEqual(len(single_sig), len(sig))
             self.assertEqual(single_fs, 500.0)
 
@@ -111,10 +114,10 @@ class TestAsyncTasksAndProgress(unittest.TestCase):
         self.assertEqual(len(statusbars), 1)
         self.assertEqual(statusbars[0].get("name"), "statusbar")
 
-
     def test_precompile_ui(self):
         """Verify app.ui can be precompiled into ui_app.py."""
-        from repolaris.resources import compile_ui, Ui_MainWindow, get_ui_path
+        from repolaris.resources import Ui_MainWindow, compile_ui, get_ui_path
+
         ui_path = get_ui_path("app.ui")
         self.assertTrue(ui_path.exists())
 
@@ -143,6 +146,7 @@ class TestAsyncTasksAndProgress(unittest.TestCase):
 
         # Test _run_background_task
         task_executed = False
+
         def _dummy_task(progress_callback=None):
             nonlocal task_executed
             task_executed = True
@@ -151,6 +155,7 @@ class TestAsyncTasksAndProgress(unittest.TestCase):
             return 42
 
         result_received = None
+
         def _on_success(val):
             nonlocal result_received
             result_received = val

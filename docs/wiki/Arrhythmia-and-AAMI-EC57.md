@@ -71,7 +71,7 @@ mgr.add_annotation(sample=15024, symbol="N", comment="Algorithmic classification
 mgr.override_annotation(
     sample=15024,
     new_symbol="V",
-    physician_id="Dr. Mercantete",
+    physician_id="Dr. Reviewer",
     notes="Widened QRS with compensatory pause",
 )
 

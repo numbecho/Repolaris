@@ -23,7 +23,7 @@ class ECGAnnotation:
     timestamp_sec: float
     label: str  # AAMI code: 'N', 'V', 'S', 'F', 'Q', or custom tag
     sublabel: str = ""  # e.g., 'PVC', 'PAC', 'Pause', 'Artifact'
-    author: str = "AI_DETECTOR"  # 'AI_DETECTOR' or physician username (e.g., 'Dr. Mercantete')
+    author: str = "AI_DETECTOR"  # 'AI_DETECTOR' or physician username (e.g., 'Dr. Reviewer')
     is_manual_override: bool = False  # True if reviewed/modified by clinician
     notes: str = ""  # Clinical rationale or caliper notes
     created_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())

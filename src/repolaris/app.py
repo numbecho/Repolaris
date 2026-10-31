@@ -1919,7 +1919,7 @@ class MainWindow(QMainWindow):
 
     def _open_wiki(self) -> None:
         """Opens workstation documentation wiki via desktop browser or accessible modal guide."""
-        wiki_url = "https://github.com/repolaris/repolaris/wiki"
+        wiki_url = "https://github.com/numbecho/repolaris/wiki"
         try:
             from PyQt6.QtCore import QUrl
             from PyQt6.QtGui import QDesktopServices

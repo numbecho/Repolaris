@@ -30,7 +30,7 @@ class TestPECGFormat(unittest.TestCase):
         self.annotations = {
             "physician_notes": [
                 {
-                    "author": "Dr. Sergio Sanchez",
+                    "author": "Dr. Cardiologist",
                     "comment": "Review prolonged repolarization around beat 5",
                 }
             ],

@@ -63,7 +63,7 @@ save_pecg(
     },
     annotations={
         "physician_notes": [
-            {"author": "Dr. S. Mercantete", "comment": "T-wave inversion observed on beat 84"}
+            {"author": "Dr. Clinical Reviewer", "comment": "T-wave inversion observed on beat 84"}
         ]
     },
     compression="zstd",  # Options: "zstd", "deflate", or "none"

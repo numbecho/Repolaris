@@ -354,7 +354,7 @@ Single diagnostic event or beat annotation with review tracking:
 - `timestamp_sec` (*float*): Timestamp in seconds.
 - `label` (*str*): Primary AAMI code (`'N'``'V'``'S'``'F'``'Q'`).
 - `sublabel` (*str*): Secondary clinical subtype (`'PVC'``'Bigeminy'``'Pause'`).
-- `author` (*str*): `'AI_DETECTOR'` or reviewer name (e.g.`'Dr. Mercantete'`).
+- `author` (*str*): `'AI_DETECTOR'` or reviewer name (e.g.`'Dr. Reviewer'`).
 - `is_manual_override` (*bool*): `True` if manually modified or verified by a physician.
 - `notes` (*str*): Free-form clinical observations or caliper justification.
 

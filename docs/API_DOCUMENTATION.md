@@ -28,8 +28,7 @@ src/pyecg/
 │   ├── pecg_format.py        # Single-file exchange container (CBOR/JSON + Zstd/Deflate)
 │   ├── ishne_reader.py       # Official ISHNE 1.0 Holter (.ecg) binary parser & writer
 │   ├── wfdb_reader.py        # PhysioNet WFDB (.hea + .dat) Format 16/212 parser
-│   ├── edf_reader.py         # European Data Format (EDF / EDF+) parser
-│   └── db.py                 # SQLite relational + JSON schema adapter
+│   └── edf_reader.py         # European Data Format (EDF / EDF+) parser
 ├── gui/
 │   └── (app.py)              # PyQtGraph 60fps viewercalipersand Events Diary
 ├── cli.py                    # Command-line interface with formatted clinical tables

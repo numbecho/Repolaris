@@ -1,0 +1,137 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "repolaris"
+version = "0.6.0"
+description = "Modern Python framework for continuous ECG waveform analysis, ventricular repolarization, and arrhythmia triage"
+readme = "README.md"
+requires-python = ">=3.14"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [
+    {name = "Repolaris Contributors"}
+]
+keywords = ["ecg", "cardiology", "qt-interval", "repolarization", "qtvi", "holter", "signal-processing", "pyqtgraph", "zstd", "biomedical"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Healthcare Industry",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Scientific/Engineering :: Medical Science Apps."
+]
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "matplotlib>=3.7",
+    "pandas>=2.0",
+    "zstandard>=0.22",
+    "cbor2>=5.6"
+]
+
+[project.optional-dependencies]
+gui = [
+    "PyQt6>=6.5",
+    "pyqtgraph>=0.13"
+]
+wfdb = [
+    "wfdb>=4.1",
+    "pydicom>=2.4"
+]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.4",
+    "mypy>=1.9"
+]
+packaging = [
+    "briefcase>=0.3.18",
+    "zstandard>=0.22"
+]
+
+[project.scripts]
+repolaris = "repolaris.cli:main"
+repolaris-gui = "repolaris.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"repolaris.resources" = ["*.ui", "*.qss", "*.png", "*.svg", "*.py"]
+
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+
+# --- Modern Astral Tooling Configuration (https://astral.sh/) ---
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+]
+ignore = ["E501"]  # line length handled by formatter
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+
+# --- Briefcase Distribution Packaging Configuration (BeeWare) ---
+[tool.briefcase]
+project_name = "Repolaris"
+bundle = "org.repolaris"
+version = "0.6.0"
+url = "https://github.com/numbecho/repolaris"
+license = "Apache-2.0"
+license_file = "LICENSE"
+author = "Repolaris Contributors"
+author_email = "ssdnam7t@pm.me"
+
+[tool.briefcase.app.repolaris]
+formal_name = "Repolaris"
+description = "Clinical and Research ECG Ventricular Repolarization Workstation"
+long_description = """Repolaris is an open-source clinical and research software framework for continuous electrocardiogram (ECG) waveform segmentation, automated arrhythmia triage, and high-precision ventricular repolarization (QT interval) analysis."""
+sources = [
+    "src/repolaris"
+]
+requires = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "matplotlib>=3.7",
+    "pandas>=2.0",
+    "zstandard>=0.22",
+    "cbor2>=5.6",
+    "PyQt6>=6.5",
+    "pyqtgraph>=0.13"
+]
+
+[tool.briefcase.app.repolaris.macOS]
+universal_build = false
+min_os_version = "13.0"
+requires = [
+    "std-nslog~=1.0.0"
+]
+
+[tool.briefcase.app.repolaris.linux]
+requires = []
+
+[tool.briefcase.app.repolaris.linux.system.debian]
+system_requires = [
+    "libgl1",
+    "libxkbcommon-x11-0"
+]
+
+[tool.briefcase.app.repolaris.windows]
+requires = []

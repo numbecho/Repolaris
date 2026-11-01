@@ -5,10 +5,9 @@ Exposes unified controllers for study loading, analysis, and export consumed by 
 
 from __future__ import annotations
 
-import importlib.util
 import sys
 from pathlib import Path
-
+import importlib.util
 
 def _load_submodule(sub_name: str):
     full_name = f"repolaris.api.{sub_name}"
@@ -22,7 +21,6 @@ def _load_submodule(sub_name: str):
         spec.loader.exec_module(mod)
         return mod
     raise ImportError(f"Could not load {full_name} from {path}")
-
 
 _study_mod = _load_submodule("study")
 _analysis_mod = _load_submodule("analysis")

@@ -1,8 +1,6 @@
 import unittest
-
-from repolaris.app import CLINICAL_GAINS, CLINICAL_SPEEDS
-from repolaris.i18n import set_locale, tr
-
+from repolaris.app import CLINICAL_SPEEDS, CLINICAL_GAINS
+from repolaris.i18n import tr, set_locale
 
 class TestCanvasControls(unittest.TestCase):
     def test_constants(self):

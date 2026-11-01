@@ -1,18 +1,15 @@
-import os
-import tempfile
 import unittest
+import tempfile
+import os
 from datetime import date, time
-
 import numpy as np
-
-from repolaris.io.ishne_reader import read_ishne, write_ishne
-
+from repolaris.io.ishne_reader import write_ishne, read_ishne
 
 class TestISHNEReader(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.filepath = os.path.join(self.temp_dir.name, "test_holter.ecg")
-
+        
         # 3 leads: Lead I (code 5), Lead II (code 6), V5 (code 15)
         # 1000 samples at 200 Hz = 5 seconds
         self.fs = 200
@@ -36,10 +33,10 @@ class TestISHNEReader(unittest.TestCase):
             first_name="John",
             last_name="Doe",
             sex_code=1,  # Male
-            race_code=1,  # Caucasian
+            race_code=1, # Caucasian
             record_date=date(2026, 10, 27),
             start_time=time(14, 30, 0),
-            clinical_notes="24-hour ambulatory Holter recording.",
+            clinical_notes="24-hour ambulatory Holter recording."
         )
         self.assertTrue(os.path.exists(out))
 
@@ -56,7 +53,6 @@ class TestISHNEReader(unittest.TestCase):
 
         # Check signal values with quantization tolerance (5 uV = 0.005 mV resolution)
         np.testing.assert_allclose(record.signals, self.signals, atol=0.01)
-
 
 if __name__ == "__main__":
     unittest.main()

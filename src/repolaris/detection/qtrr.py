@@ -8,12 +8,12 @@ Exponential, and Arcus-Tangent formulations.
 
 from __future__ import annotations
 
-from typing import Any
-
+from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 from scipy.stats import pearsonr
 
-SUPPORTED_QTRR_MODELS: list[str] = [
+
+SUPPORTED_QTRR_MODELS: List[str] = [
     "linear",
     "hyperbolic",
     "parabolic_log",
@@ -27,7 +27,7 @@ def fit_qtrr_model(
     rr_intervals: np.ndarray,
     qt_intervals: np.ndarray,
     model: str = "linear",
-) -> dict[str, Any]:
+) -> Dict[str, Any]:
     """Fits an empirical QT-RR restitution model to paired beat observations.
 
     Args:
@@ -50,7 +50,9 @@ def fit_qtrr_model(
     """
     model_lower = model.lower()
     if model_lower not in SUPPORTED_QTRR_MODELS:
-        raise ValueError(f"Unsupported QT-RR model '{model}'. Choose from: {SUPPORTED_QTRR_MODELS}")
+        raise ValueError(
+            f"Unsupported QT-RR model '{model}'. Choose from: {SUPPORTED_QTRR_MODELS}"
+        )
 
     rr = np.asarray(rr_intervals, dtype=np.float64)
     qt = np.asarray(qt_intervals, dtype=np.float64)
@@ -76,7 +78,6 @@ def fit_qtrr_model(
         y = qt
         poly = np.polyfit(x, y, 1)
         slope, intercept = float(poly[0]), float(poly[1])
-
         def predict_fn(r_in):
             return slope * np.asarray(r_in) + intercept
 
@@ -85,7 +86,6 @@ def fit_qtrr_model(
         y = qt
         poly = np.polyfit(x, y, 1)
         slope, intercept = float(poly[0]), float(poly[1])
-
         def predict_fn(r_in):
             return slope / np.asarray(r_in) + intercept
 
@@ -95,7 +95,6 @@ def fit_qtrr_model(
         poly = np.polyfit(x, y, 1)
         slope, intercept_log = float(poly[0]), float(poly[1])
         intercept = float(np.exp(intercept_log))
-
         def predict_fn(r_in):
             return intercept * (np.asarray(r_in) ** slope)
 
@@ -104,7 +103,6 @@ def fit_qtrr_model(
         y = qt
         poly = np.polyfit(x, y, 1)
         slope, intercept = float(poly[0]), float(poly[1])
-
         def predict_fn(r_in):
             return slope * np.log(np.asarray(r_in)) + intercept
 
@@ -113,7 +111,6 @@ def fit_qtrr_model(
         y = qt
         poly = np.polyfit(x, y, 1)
         slope, intercept = float(poly[0]), float(poly[1])
-
         def predict_fn(r_in):
             return slope * np.exp(-np.asarray(r_in)) + intercept
 
@@ -122,7 +119,6 @@ def fit_qtrr_model(
         y = qt
         poly = np.polyfit(x, y, 1)
         slope, intercept = float(poly[0]), float(poly[1])
-
         def predict_fn(r_in):
             return slope * np.arctan(np.asarray(r_in)) + intercept
 

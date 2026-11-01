@@ -35,10 +35,10 @@ Binary Structure:
 """
 
 import struct
-from dataclasses import dataclass
-from datetime import date, time
 from pathlib import Path
-
+from dataclasses import dataclass, field
+from datetime import datetime, date, time
+from typing import Optional, List, Dict, Any, Tuple
 import numpy as np
 
 MAGIC = b"ISHNE1.0"
@@ -66,11 +66,27 @@ LEAD_CODE_MAP = {
     19: "AI",
 }
 
-RACE_CODE_MAP = {0: "Unknown", 1: "Caucasian", 2: "Black / African", 3: "Asian / Oriental"}
+RACE_CODE_MAP = {
+    0: "Unknown",
+    1: "Caucasian",
+    2: "Black / African",
+    3: "Asian / Oriental"
+}
 
-PACEMAKER_CODE_MAP = {0: "NO", 1: "YES (Unknown type)", 2: "VVI", 3: "AAI", 4: "DDD", 5: "OTHER"}
+PACEMAKER_CODE_MAP = {
+    0: "NO",
+    1: "YES (Unknown type)",
+    2: "VVI",
+    3: "AAI",
+    4: "DDD",
+    5: "OTHER"
+}
 
-SEX_CODE_MAP = {0: "Unknown", 1: "Male", 2: "Female"}
+SEX_CODE_MAP = {
+    0: "Unknown",
+    1: "Male",
+    2: "Female"
+}
 
 
 @dataclass
@@ -80,13 +96,13 @@ class ISHNERecord:
     last_name: str
     sex: str
     race: str
-    birth_date: date | None
-    record_date: date | None
-    start_time: time | None
+    birth_date: Optional[date]
+    record_date: Optional[date]
+    start_time: Optional[time]
     sampling_rate: float
     num_leads: int
-    lead_names: list[str]
-    resolutions_nv: list[int]
+    lead_names: List[str]
+    resolutions_nv: List[int]
     total_samples: int
     duration_sec: float
     clinical_notes: str
@@ -98,15 +114,10 @@ class ISHNERecord:
         return PACEMAKER_CODE_MAP.get(self.pacemaker, f"Code_{self.pacemaker}")
 
     @property
-    def age_years(self) -> int | None:
+    def age_years(self) -> Optional[int]:
         if self.birth_date and self.record_date:
-            return (
-                self.record_date.year
-                - self.birth_date.year
-                - (
-                    (self.record_date.month, self.record_date.day)
-                    < (self.birth_date.month, self.birth_date.day)
-                )
+            return self.record_date.year - self.birth_date.year - (
+                (self.record_date.month, self.record_date.day) < (self.birth_date.month, self.birth_date.day)
             )
         return None
 
@@ -119,16 +130,14 @@ def read_ishne(filepath: str | Path) -> ISHNERecord:
 
     file_size = filepath.stat().st_size
     if file_size < 522:
-        raise ValueError(
-            f"Corrupt ISHNE file: File size ({file_size} B) is smaller than the 522-byte header."
-        )
+        raise ValueError(f"Corrupt ISHNE file: File size ({file_size} B) is smaller than the 522-byte header.")
 
     with open(filepath, "rb") as f:
         magic = f.read(8)
         if not magic.startswith(b"ISHNE"):
             raise ValueError(f"Invalid ISHNE file: expected magic b'ISHNE1.0', got {magic}")
-
-        struct.unpack("<H", f.read(2))[0]
+            
+        _crc = struct.unpack("<H", f.read(2))[0]
         fixed_block = f.read(512)
         if len(fixed_block) < 512:
             raise ValueError("Corrupt ISHNE file: header is smaller than 522 bytes.")
@@ -137,12 +146,12 @@ def read_ishne(filepath: str | Path) -> ISHNERecord:
         fmt_prefix = "<4i h 40s 40s 20s 2h 3h 3h 3h 3h h"
         prefix_size = struct.calcsize(fmt_prefix)
         prefix_data = struct.unpack(fmt_prefix, fixed_block[:prefix_size])
-
+        
         var_block_size = prefix_data[0]
         sample_size_ecg = prefix_data[1]  # Samples per channel
         offset_var_block = prefix_data[2]
         offset_ecg_block = prefix_data[3]
-        prefix_data[4]
+        _file_version = prefix_data[4]
         first_name = prefix_data[5].decode("latin1", errors="ignore").strip("\x00 \t\r\n")
         last_name = prefix_data[6].decode("latin1", errors="ignore").strip("\x00 \t\r\n")
         patient_id = prefix_data[7].decode("latin1", errors="ignore").strip("\x00 \t\r\n")
@@ -156,37 +165,25 @@ def read_ishne(filepath: str | Path) -> ISHNERecord:
 
         # Defensive bounds validation
         if not (1 <= n_leads <= 12):
-            raise ValueError(
-                f"Security Alert: Invalid ISHNE lead count ({n_leads}). Standard ISHNE specifies 1 to 12 leads."
-            )
+            raise ValueError(f"Security Alert: Invalid ISHNE lead count ({n_leads}). Standard ISHNE specifies 1 to 12 leads.")
         if var_block_size < 0 or var_block_size > 10 * 1024 * 1024:
-            raise ValueError(
-                f"Security Alert: ISHNE variable text block ({var_block_size} B) exceeds the 10 MB safety ceiling."
-            )
-        if var_block_size > 0 and (
-            offset_var_block < 522 or offset_var_block + var_block_size > file_size
-        ):
-            raise ValueError(
-                "Corrupt ISHNE file: Variable text block extends beyond file boundary."
-            )
+            raise ValueError(f"Security Alert: ISHNE variable text block ({var_block_size} B) exceeds the 10 MB safety ceiling.")
+        if var_block_size > 0 and (offset_var_block < 522 or offset_var_block + var_block_size > file_size):
+            raise ValueError("Corrupt ISHNE file: Variable text block extends beyond file boundary.")
         if not (1 <= sample_size_ecg <= 100_000_000):
-            raise ValueError(
-                f"Security Alert: Invalid ISHNE sample count ({sample_size_ecg}). Must be between 1 and 100,000,000."
-            )
+            raise ValueError(f"Security Alert: Invalid ISHNE sample count ({sample_size_ecg}). Must be between 1 and 100,000,000.")
         if offset_ecg_block < 522 or offset_ecg_block >= file_size:
-            raise ValueError(
-                f"Corrupt ISHNE file: ECG waveform offset ({offset_ecg_block}) is invalid."
-            )
+            raise ValueError(f"Corrupt ISHNE file: ECG waveform offset ({offset_ecg_block}) is invalid.")
 
         # Remaining fixed block: 12 lead_spec, 12 lead_qual, 12 res, 1 pacemaker, 40s recorder, 1 sampling_rate, 80s, 80s, 88s
         fmt_suffix = "<12h 12h 12h h 40s h 80s 80s 88s"
         suffix_data = struct.unpack(fmt_suffix, fixed_block[prefix_size:])
-
+        
         lead_specs = suffix_data[0:12]
-        suffix_data[12:24]
+        _lead_quals = suffix_data[12:24]
         resolutions = suffix_data[24:36]
         pacemaker = suffix_data[36]
-        suffix_data[37].decode("latin1", errors="ignore").strip("\x00 ")
+        _recorder = suffix_data[37].decode("latin1", errors="ignore").strip("\x00 ")
         sampling_rate = suffix_data[38]
 
         # Variable text block
@@ -215,16 +212,14 @@ def read_ishne(filepath: str | Path) -> ISHNERecord:
     resolutions_nv = []
 
     for i in range(n_leads):
-        res_nv = (
-            resolutions[i] if (i < len(resolutions) and resolutions[i] > 0) else 5000
-        )  # Default 5 uV
+        res_nv = resolutions[i] if (i < len(resolutions) and resolutions[i] > 0) else 5000  # Default 5 uV
         resolutions_nv.append(res_nv)
-
+        
         # Scale: raw * nV / 1,000,000 = mV
         signals_mv[i] = (multiplexed_matrix[i].astype(np.float32) * res_nv) / 1_000_000.0
-
+        
         spec_code = lead_specs[i] if i < len(lead_specs) else 0
-        name = LEAD_CODE_MAP.get(spec_code, f"Channel_{i + 1}")
+        name = LEAD_CODE_MAP.get(spec_code, f"Channel_{i+1}")
         lead_names.append(name)
 
     # Safe date constructions
@@ -257,7 +252,7 @@ def read_ishne(filepath: str | Path) -> ISHNERecord:
         duration_sec=float(sample_size_ecg / (sampling_rate or 200.0)),
         clinical_notes=clinical_notes,
         signals=signals_mv,
-        pacemaker=int(pacemaker),
+        pacemaker=int(pacemaker)
     )
 
 
@@ -266,22 +261,22 @@ def write_ishne(
     signals_mv: np.ndarray,
     sampling_rate: int,
     lead_codes: list[int],
-    resolutions_nv: list[int] | None = None,
+    resolutions_nv: Optional[list[int]] = None,
     patient_id: str = "ANONYMOUS",
     first_name: str = "",
     last_name: str = "",
     sex_code: int = 0,
     race_code: int = 0,
-    record_date: date | None = None,
-    start_time: time | None = None,
-    clinical_notes: str = "",
+    record_date: Optional[date] = None,
+    start_time: Optional[time] = None,
+    clinical_notes: str = ""
 ) -> str:
     """Creates a standards-compliant ISHNE 1.0 Holter (.ecg) binary file."""
     filepath = Path(filepath)
     signals_mv = np.asarray(signals_mv, dtype=np.float32)
     if signals_mv.ndim == 1:
         signals_mv = signals_mv.reshape(1, -1)
-
+        
     n_leads, sample_size = signals_mv.shape
     if n_leads > 12:
         raise ValueError("ISHNE 1.0 format supports a maximum of 12 simultaneous leads.")
@@ -331,19 +326,11 @@ def write_ishne(
         patient_id.encode("latin1")[:20].ljust(20, b"\x00"),
         sex_code,
         race_code,
-        0,
-        0,
-        0,  # Birth date
-        r_d,
-        r_m,
-        r_y,
-        r_d,
-        r_m,
-        r_y,  # File date
-        s_h,
-        s_mi,
-        s_s,
-        n_leads,
+        0, 0, 0,  # Birth date
+        r_d, r_m, r_y,
+        r_d, r_m, r_y,  # File date
+        s_h, s_mi, s_s,
+        n_leads
     )
 
     fmt_suffix = "<12h 12h 12h h 40s h 80s 80s 88s"
@@ -357,7 +344,7 @@ def write_ishne(
         sampling_rate,
         b"".ljust(80, b"\x00"),
         b"".ljust(80, b"\x00"),
-        b"".ljust(88, b"\x00"),
+        b"".ljust(88, b"\x00")
     )
 
     fixed_header = prefix + suffix

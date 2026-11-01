@@ -1,13 +1,15 @@
+from __future__ import annotations
+
+from typing import Optional
 import numpy as np
 from scipy import signal
-
 from repolaris.config import FilterConfig
 
 
-def bandpass_filter(data: np.ndarray, fs: float, cfg: FilterConfig | None = None) -> np.ndarray:
+def bandpass_filter(data: np.ndarray, fs: float, cfg: Optional[FilterConfig] = None) -> np.ndarray:
+    """Zero-phase Butterworth bandpass filter."""
     if cfg is None:
         cfg = FilterConfig()
-    """Zero-phase Butterworth bandpass filter."""
     nyq = 0.5 * fs
     low = max(cfg.lowcut / nyq, 1e-4)
     high = min(cfg.highcut / nyq, 0.999)

@@ -14,60 +14,29 @@ from __future__ import annotations
 
 import os
 import sys
-from collections.abc import Callable
-from typing import Any
-
+import contextlib
+from typing import Any, Callable, Dict, List, Optional
 import numpy as np
 
 try:
     import pyqtgraph as pg
-    from PyQt6.QtCore import Qt, QThread, QUrl, pyqtSignal
-    from PyQt6.QtGui import QAction, QActionGroup, QColor, QDesktopServices, QKeySequence
     from PyQt6.QtWidgets import (
-        QApplication,
-        QButtonGroup,
-        QComboBox,
-        QDialog,
-        QFileDialog,
-        QFrame,
-        QGroupBox,
-        QHBoxLayout,
-        QHeaderView,
-        QInputDialog,
-        QLabel,
-        QMainWindow,
-        QMenu,
-        QMenuBar,
-        QMessageBox,
-        QProgressBar,
-        QPushButton,
-        QScrollArea,
-        QSplitter,
-        QStatusBar,
-        QTableWidget,
-        QTableWidgetItem,
-        QTabWidget,
-        QVBoxLayout,
-        QWidget,
+        QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+        QPushButton, QLabel, QFileDialog, QTableWidget, QTableWidgetItem,
+        QHeaderView, QGroupBox, QMessageBox, QTabWidget,
+        QInputDialog, QSplitter, QComboBox, QFrame, QScrollArea, QDialog,
+        QButtonGroup, QMenuBar, QMenu, QProgressBar, QStatusBar
     )
-
+    from PyQt6.QtCore import Qt, pyqtSignal, QUrl, QThread
+    from PyQt6.QtGui import QColor, QAction, QKeySequence, QDesktopServices, QActionGroup
     HAS_GUI = True
 except ImportError:
     HAS_GUI = False
-
     class _SignalMock:
-        def __init__(self, *args: Any, **kwargs: Any) -> None:
-            pass
-
-        def connect(self, slot: Any) -> None:
-            pass
-
-        def emit(self, *args: Any, **kwargs: Any) -> None:
-            pass
-
-        def blockSignals(self, b: bool) -> None:
-            pass
-
+        def __init__(self, *args: Any, **kwargs: Any) -> None: pass
+        def connect(self, slot: Any) -> None: pass
+        def emit(self, *args: Any, **kwargs: Any) -> None: pass
+        def blockSignals(self, b: bool) -> None: pass
     def pyqtSignal(*args: Any, **kwargs: Any) -> Any:
         return _SignalMock()
 
@@ -88,120 +57,87 @@ except ImportError:
             self.currentIndexChanged = _SignalMock()
             self.currentTextChanged = _SignalMock()
             self.cellClicked = _SignalMock()
-
-        def setText(self, text: str) -> None:
-            self._text = str(text)
-
-        def text(self) -> str:
-            return self._text
-
-        def setValue(self, val: int) -> None:
-            self._val = val
-
-        def value(self) -> int:
-            return self._val
-
-        def show(self) -> None:
-            self._hidden = False
-
-        def hide(self) -> None:
-            self._hidden = True
-
-        def isHidden(self) -> bool:
-            return self._hidden
-
-        def blockSignals(self, b: bool) -> None:
-            pass
-
+        def setText(self, text: str) -> None: self._text = str(text)
+        def text(self) -> str: return self._text
+        def setValue(self, val: int) -> None: self._val = val
+        def value(self) -> int: return self._val
+        def show(self) -> None: self._hidden = False
+        def hide(self) -> None: self._hidden = True
+        def isHidden(self) -> bool: return self._hidden
+        def blockSignals(self, b: bool) -> None: pass
         def __getattr__(self, name: str) -> Any:
             mock = _QMock()
             setattr(self, name, mock)
             return mock
-
         def __call__(self, *args: Any, **kwargs: Any) -> Any:
             return _QMock()
 
     QMainWindow = _QMock  # type: ignore
-    QWidget = _QMock  # type: ignore
+    QWidget = _QMock      # type: ignore
     QVBoxLayout = _QMock  # type: ignore
     QHBoxLayout = _QMock  # type: ignore
     QPushButton = _QMock  # type: ignore
-    QLabel = _QMock  # type: ignore
+    QLabel = _QMock       # type: ignore
     QFileDialog = _QMock  # type: ignore
-    QTableWidget = _QMock  # type: ignore
-    QTableWidgetItem = _QMock  # type: ignore
+    QTableWidget = _QMock # type: ignore
+    QTableWidgetItem = _QMock # type: ignore
     QHeaderView = _QMock  # type: ignore
-    QGroupBox = _QMock  # type: ignore
+    QGroupBox = _QMock    # type: ignore
     QMessageBox = _QMock  # type: ignore
-    QTabWidget = _QMock  # type: ignore
-    QInputDialog = _QMock  # type: ignore
-    QSplitter = _QMock  # type: ignore
-    QComboBox = _QMock  # type: ignore
-    QFrame = _QMock  # type: ignore
+    QTabWidget = _QMock   # type: ignore
+    QInputDialog = _QMock # type: ignore
+    QSplitter = _QMock    # type: ignore
+    QComboBox = _QMock    # type: ignore
+    QFrame = _QMock       # type: ignore
     QScrollArea = _QMock  # type: ignore
-    QDialog = _QMock  # type: ignore
-    QButtonGroup = _QMock  # type: ignore
-    QMenuBar = _QMock  # type: ignore
-    QMenu = _QMock  # type: ignore
-    QProgressBar = _QMock  # type: ignore
-    QStatusBar = _QMock  # type: ignore
-    QAction = _QMock  # type: ignore
-    QActionGroup = _QMock  # type: ignore
-    QDesktopServices = _QMock  # type: ignore
-    QApplication = _QMock  # type: ignore
-
+    QDialog = _QMock      # type: ignore
+    QButtonGroup = _QMock # type: ignore
+    QMenuBar = _QMock     # type: ignore
+    QMenu = _QMock        # type: ignore
+    QProgressBar = _QMock # type: ignore
+    QStatusBar = _QMock   # type: ignore
+    QAction = _QMock      # type: ignore
+    QActionGroup = _QMock # type: ignore
+    QDesktopServices = _QMock # type: ignore
+    QApplication = _QMock # type: ignore
     class _QThreadMock:
-        def __init__(self, *args: Any, **kwargs: Any) -> None:
-            pass
-
-        def start(self) -> None:
-            pass
-
-        def wait(self) -> None:
-            pass
-
-    QThread = _QThreadMock  # type: ignore
-
+        def __init__(self, *args: Any, **kwargs: Any) -> None: pass
+        def start(self) -> None: pass
+        def wait(self) -> None: pass
+    QThread = _QThreadMock # type: ignore
     class _QKeySequenceMock:
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             pass
-
     QKeySequence = _QKeySequenceMock  # type: ignore
-
     class _QUrlMock:
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             pass
-
         @staticmethod
         def fromLocalFile(path: str) -> Any:
             return _QUrlMock(path)
-
-    QUrl = _QUrlMock  # type: ignore
-
+    QUrl = _QUrlMock          # type: ignore
     class _QtMock:
         class Orientation:
             Horizontal = 1
             Vertical = 2
-
         class PenStyle:
             SolidLine = 1
             DashLine = 2
             DotLine = 3
             DashDotLine = 4
-
     Qt = _QtMock  # type: ignore
-    pg = _QMock()  # type: ignore
+    pg = _QMock() # type: ignore
 
-import contextlib
-
-from repolaris.api import AnalysisAPI, ExportAPI, StudyAPI
+from repolaris.api import StudyAPI, AnalysisAPI, ExportAPI
+from repolaris.detection.classifier import BeatClass
 from repolaris.detection.annotations import AnnotationManager
-from repolaris.i18n import SUPPORTED_LANGUAGES, get_current_locale, set_locale, tr
+from repolaris.i18n import tr, set_locale, get_current_locale, SUPPORTED_LANGUAGES
+
+
 
 
 class BackgroundTaskWorker(QThread):
     """Executes long-running API tasks in a dedicated background worker thread."""
-
     progress = pyqtSignal(float, str)
     finished = pyqtSignal(object)
     error = pyqtSignal(str)
@@ -214,7 +150,6 @@ class BackgroundTaskWorker(QThread):
 
     def run(self) -> None:
         try:
-
             def _callback(pct: float, msg: str) -> None:
                 self.progress.emit(pct, msg)
 
@@ -224,11 +159,10 @@ class BackgroundTaskWorker(QThread):
         except Exception as exc:
             self.error.emit(str(exc))
 
-
 # -----------------------------------------------------------------------------
 # THEME SPECIFICATIONS (Dark, Light, Color Blind Friendly)
 # -----------------------------------------------------------------------------
-THEMES: dict[str, dict[str, Any]] = {
+THEMES: Dict[str, Dict[str, Any]] = {
     "dark": {
         "id": "dark",
         "name_key": "theme_dark",
@@ -282,7 +216,7 @@ THEMES: dict[str, dict[str, Any]] = {
             QGroupBox { font-weight: bold; border: 1px solid #2e3650; border-radius: 6px; margin-top: 8px; padding-top: 10px; color: #60a5fa; }
             QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 4px; }
             QDialog { background-color: #0f111a; color: #cbd5e1; }
-        """,
+        """
     },
     "light": {
         "id": "light",
@@ -337,7 +271,7 @@ THEMES: dict[str, dict[str, Any]] = {
             QGroupBox { font-weight: bold; border: 1px solid #cbd5e1; border-radius: 6px; margin-top: 8px; padding-top: 10px; color: #0284c7; }
             QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 4px; }
             QDialog { background-color: #f1f5f9; color: #1e293b; }
-        """,
+        """
     },
     "colorblind": {
         "id": "colorblind",
@@ -392,18 +326,18 @@ THEMES: dict[str, dict[str, Any]] = {
             QGroupBox { font-weight: bold; border: 2px solid #555555; border-radius: 6px; margin-top: 8px; padding-top: 10px; color: #56b4e9; }
             QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 4px; }
             QDialog { background-color: #121212; color: #ffffff; }
-        """,
-    },
+        """
+    }
 }
 
 
 # -----------------------------------------------------------------------------
 # INDEPENDENT CANVAS THEMES (Contrasting Waveform, Calipers & Grid)
 # -----------------------------------------------------------------------------
-CLINICAL_SPEEDS: list[float] = [12.5, 25.0, 50.0, 100.0]  # Standard ECG sweep speeds (mm/s)
-CLINICAL_GAINS: list[float] = [2.5, 5.0, 10.0, 20.0]  # Standard ECG voltage sensitivities (mm/mV)
+CLINICAL_SPEEDS: List[float] = [12.5, 25.0, 50.0, 100.0]  # Standard ECG sweep speeds (mm/s)
+CLINICAL_GAINS: List[float] = [2.5, 5.0, 10.0, 20.0]      # Standard ECG voltage sensitivities (mm/mV)
 
-CANVAS_THEMES: dict[str, dict[str, Any]] = {
+CANVAS_THEMES: Dict[str, Dict[str, Any]] = {
     "dark": {
         "id": "dark",
         "name_key": "canvas_dark",
@@ -412,13 +346,13 @@ CANVAS_THEMES: dict[str, dict[str, Any]] = {
         "axis_text": "#94a3b8",
         "grid_color": "#2e3650",
         "grid_alpha": 0.22,
-        "curve_color": "#38bdf8",  # Bright Medical Cyan (contrasts on dark canvas)
+        "curve_color": "#38bdf8",         # Bright Medical Cyan (contrasts on dark canvas)
         "curve_width": 1.8,
-        "r_peak_brush": "#f87171",  # Coral Salmon
+        "r_peak_brush": "#f87171",        # Coral Salmon
         "r_peak_symbol": "t1",
-        "q_caliper_color": "#fbbf24",  # Vibrant Gold/Amber (contrasts with cyan curve)
+        "q_caliper_color": "#fbbf24",     # Vibrant Gold/Amber (contrasts with cyan curve)
         "q_caliper_style": Qt.PenStyle.DashLine,
-        "t_caliper_color": "#e879f9",  # Vivid Fuchsia/Magenta (contrasts with cyan & gold)
+        "t_caliper_color": "#e879f9",     # Vivid Fuchsia/Magenta (contrasts with cyan & gold)
         "t_caliper_style": Qt.PenStyle.DashLine,
         "caliper_label_fill": (26, 30, 44, 220),
         "badge_bg": "rgba(26, 30, 44, 0.90)",
@@ -428,18 +362,18 @@ CANVAS_THEMES: dict[str, dict[str, Any]] = {
     "light": {
         "id": "light",
         "name_key": "canvas_light",
-        "plot_bg": "#ffffff",  # Pure Paper White
+        "plot_bg": "#ffffff",             # Pure Paper White
         "axis_pen": "#94a3b8",
         "axis_text": "#334155",
         "grid_color": "#cbd5e1",
         "grid_alpha": 0.40,
-        "curve_color": "#0369a1",  # Deep Ocean Blue (sharp contrast on white)
+        "curve_color": "#0369a1",         # Deep Ocean Blue (sharp contrast on white)
         "curve_width": 2.0,
-        "r_peak_brush": "#dc2626",  # Crimson Red
+        "r_peak_brush": "#dc2626",        # Crimson Red
         "r_peak_symbol": "t1",
-        "q_caliper_color": "#d97706",  # Deep Amber Orange (contrasts with blue curve & white bg)
+        "q_caliper_color": "#d97706",     # Deep Amber Orange (contrasts with blue curve & white bg)
         "q_caliper_style": Qt.PenStyle.DashLine,
-        "t_caliper_color": "#7c3aed",  # Vivid Purple/Violet (contrasts with amber & blue)
+        "t_caliper_color": "#7c3aed",     # Vivid Purple/Violet (contrasts with amber & blue)
         "t_caliper_style": Qt.PenStyle.DashLine,
         "caliper_label_fill": (241, 245, 249, 230),
         "badge_bg": "rgba(241, 245, 249, 0.95)",
@@ -449,18 +383,18 @@ CANVAS_THEMES: dict[str, dict[str, Any]] = {
     "ecg_pink": {
         "id": "ecg_pink",
         "name_key": "canvas_ecg_pink",
-        "plot_bg": "#fff1f2",  # Traditional ECG Thermal Paper Pink
+        "plot_bg": "#fff1f2",             # Traditional ECG Thermal Paper Pink
         "axis_pen": "#9f1239",
         "axis_text": "#881337",
-        "grid_color": "#fda4af",  # Classic Millimeter Red/Pink Grid
+        "grid_color": "#fda4af",         # Classic Millimeter Red/Pink Grid
         "grid_alpha": 0.50,
-        "curve_color": "#0f172a",  # Jet Black Trace (Standard clinical print appearance)
+        "curve_color": "#0f172a",         # Jet Black Trace (Standard clinical print appearance)
         "curve_width": 2.0,
-        "r_peak_brush": "#e11d48",  # Deep Rose
+        "r_peak_brush": "#e11d48",        # Deep Rose
         "r_peak_symbol": "t1",
-        "q_caliper_color": "#2563eb",  # Electric Royal Blue (pops out from black trace & pink grid)
+        "q_caliper_color": "#2563eb",     # Electric Royal Blue (pops out from black trace & pink grid)
         "q_caliper_style": Qt.PenStyle.DashLine,
-        "t_caliper_color": "#d97706",  # Bold Amber/Orange (pops out from blue & black)
+        "t_caliper_color": "#d97706",     # Bold Amber/Orange (pops out from blue & black)
         "t_caliper_style": Qt.PenStyle.DashLine,
         "caliper_label_fill": (255, 228, 230, 230),
         "badge_bg": "rgba(255, 228, 230, 0.95)",
@@ -470,18 +404,18 @@ CANVAS_THEMES: dict[str, dict[str, Any]] = {
     "colorblind": {
         "id": "colorblind",
         "name_key": "canvas_colorblind",
-        "plot_bg": "#000000",  # Pitch Black (Maximum luminance separation)
+        "plot_bg": "#000000",             # Pitch Black (Maximum luminance separation)
         "axis_pen": "#b0bec5",
         "axis_text": "#ffffff",
         "grid_color": "#525252",
         "grid_alpha": 0.35,
-        "curve_color": "#56b4e9",  # Okabe-Ito Sky Blue
+        "curve_color": "#56b4e9",         # Okabe-Ito Sky Blue
         "curve_width": 2.2,
-        "r_peak_brush": "#f0e442",  # Okabe-Ito Bright Yellow (stands out on black)
-        "r_peak_symbol": "d",  # Diamond symbol for shape-based distinction
-        "q_caliper_color": "#e69f00",  # Okabe-Ito Vermilion/Orange
+        "r_peak_brush": "#f0e442",        # Okabe-Ito Bright Yellow (stands out on black)
+        "r_peak_symbol": "d",             # Diamond symbol for shape-based distinction
+        "q_caliper_color": "#e69f00",     # Okabe-Ito Vermilion/Orange
         "q_caliper_style": Qt.PenStyle.DashLine,
-        "t_caliper_color": "#ffffff",  # High-luminance White (distinct line style & color)
+        "t_caliper_color": "#ffffff",     # High-luminance White (distinct line style & color)
         "t_caliper_style": Qt.PenStyle.DashDotLine,
         "caliper_label_fill": (0, 0, 0, 230),
         "badge_bg": "rgba(20, 20, 20, 0.95)",
@@ -491,34 +425,30 @@ CANVAS_THEMES: dict[str, dict[str, Any]] = {
     "green_phosphor": {
         "id": "green_phosphor",
         "name_key": "canvas_green_phosphor",
-        "plot_bg": "#021a0f",  # Deep Night Emerald
+        "plot_bg": "#021a0f",             # Deep Night Emerald
         "axis_pen": "#16a34a",
         "axis_text": "#86efac",
         "grid_color": "#14532d",
         "grid_alpha": 0.35,
-        "curve_color": "#22c55e",  # Neon Phosphor Green
+        "curve_color": "#22c55e",         # Neon Phosphor Green
         "curve_width": 2.0,
-        "r_peak_brush": "#facc15",  # Phosphor Amber
+        "r_peak_brush": "#facc15",        # Phosphor Amber
         "r_peak_symbol": "t1",
-        "q_caliper_color": "#fb923c",  # Vivid Orange (contrasts with green trace & dark bg)
+        "q_caliper_color": "#fb923c",     # Vivid Orange (contrasts with green trace & dark bg)
         "q_caliper_style": Qt.PenStyle.DashLine,
-        "t_caliper_color": "#f43f5e",  # Hot Coral/Pink (contrasts with orange & green)
+        "t_caliper_color": "#f43f5e",     # Hot Coral/Pink (contrasts with orange & green)
         "t_caliper_style": Qt.PenStyle.DashLine,
         "caliper_label_fill": (5, 46, 22, 230),
         "badge_bg": "rgba(5, 46, 22, 0.95)",
         "badge_border": "#22c55e",
         "badge_text": "#86efac",
-    },
+    }
 }
 
 if HAS_GUI:
-
     class TimeAxisItem(pg.AxisItem):
         """Custom AxisItem formatting timestamps into clinical hh:mm:ss:xxx format with millisecond precision."""
-
-        def __init__(
-            self, orientation: str = "bottom", millisecond_separator: str = ":", **kwargs: Any
-        ) -> None:
+        def __init__(self, orientation: str = "bottom", millisecond_separator: str = ":", **kwargs: Any) -> None:
             super().__init__(orientation=orientation, **kwargs)
             self.millisecond_separator = millisecond_separator
 
@@ -555,13 +485,9 @@ if HAS_GUI:
                 strings.append(self.format_timestamp(val, include_millis=include_millis))
             return strings
 else:
-
     class TimeAxisItem:  # type: ignore
         """Mock TimeAxisItem for headless testing environment with clinical millisecond precision."""
-
-        def __init__(
-            self, orientation: str = "bottom", millisecond_separator: str = ":", **kwargs: Any
-        ) -> None:
+        def __init__(self, orientation: str = "bottom", millisecond_separator: str = ":", **kwargs: Any) -> None:
             self.millisecond_separator = millisecond_separator
 
         def format_timestamp(self, val: float, include_millis: bool = True) -> str:
@@ -597,12 +523,11 @@ else:
                 strings.append(self.format_timestamp(val, include_millis=include_millis))
             return strings
 
-
 class ECGPlotWidget:
     """PyQtGraph-based high-performance interactive ECG waveform viewer with draggable calipers,
     independent canvas color schemes, hh:mm:ss clinical time axis, and scale overlays."""
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
         if not HAS_GUI:
             raise ImportError("PyQt6 and pyqtgraph are required for GUI components.")
 
@@ -613,14 +538,18 @@ class ECGPlotWidget:
         # Clinical axis labels
         self.plot_widget.setLabel("bottom", tr("axis_time"))
         self.plot_widget.setLabel("left", tr("axis_voltage"))
-        self.plot_widget.setTitle("ECG Waveform — Lead II (Standard)", color="#93c5fd", size="11pt")
+        self.plot_widget.setTitle(
+            "ECG Waveform — Lead II (Standard)",
+            color="#93c5fd",
+            size="11pt"
+        )
 
         self.current_canvas_theme = CANVAS_THEMES["dark"]
         self.current_grid_mode = "lines"
         self.current_speed = 25.0
         self.current_gain = 10.0
         self.calipers_visible = True
-        self.extra_vertical_lines: list[Any] = []
+        self.extra_vertical_lines: List[Any] = []
 
         # Plot curves: Soft medical cyan-blue waveform
         self.signal_curve = self.plot_widget.plot(pen=pg.mkPen(color="#38bdf8", width=1.8))
@@ -631,20 +560,16 @@ class ECGPlotWidget:
 
         # Interactive draggable caliper lines for QT measurement
         self.q_line = pg.InfiniteLine(
-            pos=0.0,
-            angle=90,
-            movable=True,
+            pos=0.0, angle=90, movable=True,
             pen=pg.mkPen(color="#fbbf24", width=2.2, style=Qt.PenStyle.DashLine),
             label="Q-Onset: {value:.3f}s",
-            labelOpts={"position": 0.92, "color": "#fbbf24", "fill": (26, 30, 44, 220)},
+            labelOpts={"position": 0.92, "color": "#fbbf24", "fill": (26, 30, 44, 220)}
         )
         self.t_line = pg.InfiniteLine(
-            pos=0.0,
-            angle=90,
-            movable=True,
+            pos=0.0, angle=90, movable=True,
             pen=pg.mkPen(color="#e879f9", width=2.2, style=Qt.PenStyle.DashLine),
             label="T-End: {value:.3f}s",
-            labelOpts={"position": 0.78, "color": "#e879f9", "fill": (26, 30, 44, 220)},
+            labelOpts={"position": 0.78, "color": "#e879f9", "fill": (26, 30, 44, 220)}
         )
 
         self.plot_widget.addItem(self.q_line)
@@ -665,16 +590,14 @@ class ECGPlotWidget:
             }
         """)
 
-        self.on_caliper_moved: Callable[[float, float], None] | None = None
+        self.on_caliper_moved: Optional[Callable[[float, float], None]] = None
         self.q_line.sigPositionChanged.connect(self._notify_caliper_change)
         self.t_line.sigPositionChanged.connect(self._notify_caliper_change)
 
         # Apply initial canvas scheme and grid
         self.apply_canvas_theme(self.current_canvas_theme)
 
-    def display_signal(
-        self, time_data: np.ndarray, signal_data: np.ndarray, r_peaks: np.ndarray
-    ) -> None:
+    def display_signal(self, time_data: np.ndarray, signal_data: np.ndarray, r_peaks: np.ndarray) -> None:
         """Updates the plot waveform curve and R-peak markers."""
         self.signal_curve.setData(time_data, signal_data)
         if len(r_peaks) > 0:
@@ -700,22 +623,14 @@ class ECGPlotWidget:
 
     def get_scale_text(self) -> str:
         """Returns localized scale description based on active sweep speed and gain."""
-        s_str = (
-            f"{int(self.current_speed)}"
-            if self.current_speed.is_integer()
-            else f"{self.current_speed}"
-        )
-        g_str = (
-            f"{int(self.current_gain)}"
-            if self.current_gain.is_integer()
-            else f"{self.current_gain}"
-        )
+        s_str = f"{int(self.current_speed)}" if self.current_speed.is_integer() else f"{self.current_speed}"
+        g_str = f"{int(self.current_gain)}" if self.current_gain.is_integer() else f"{self.current_gain}"
         return tr("canvas_scale_fmt", speed=s_str, gain=g_str)
 
     def update_corner_badge(self) -> None:
         """Ensures the clinical scale badge stays pinned to the top-right corner.
         Scale badge is ONLY visible when the grid is enabled."""
-        if hasattr(self, "scale_corner_label") and self.scale_corner_label is not None:
+        if hasattr(self, 'scale_corner_label') and self.scale_corner_label is not None:
             if self.current_grid_mode == "none":
                 self.scale_corner_label.setVisible(False)
                 return
@@ -725,7 +640,7 @@ class ECGPlotWidget:
             self.scale_corner_label.move(max(10, self.plot_widget.width() - w - 16), 10)
             self.scale_corner_label.raise_()
 
-    def apply_canvas_theme(self, theme: dict[str, Any]) -> None:
+    def apply_canvas_theme(self, theme: Dict[str, Any]) -> None:
         """Applies independent canvas color scheme to plot, curves, calipers, and scale badge."""
         self.current_canvas_theme = theme
         self.plot_widget.setBackground(theme["plot_bg"])
@@ -739,9 +654,7 @@ class ECGPlotWidget:
         left_axis.setTextPen(pg.mkPen(color=theme["axis_text"]))
 
         # Style lead curve & R-peak markers
-        self.signal_curve.setPen(
-            pg.mkPen(color=theme["curve_color"], width=theme.get("curve_width", 1.8))
-        )
+        self.signal_curve.setPen(pg.mkPen(color=theme["curve_color"], width=theme.get("curve_width", 1.8)))
         self.r_peak_scatter.setBrush(pg.mkBrush(theme["r_peak_brush"]))
         if "r_peak_symbol" in theme:
             self.r_peak_scatter.setSymbol(theme["r_peak_symbol"])
@@ -759,7 +672,7 @@ class ECGPlotWidget:
         self.t_line.label.fill = pg.mkBrush(*theme["caliper_label_fill"])
 
         # Style on-canvas corner scale badge
-        if hasattr(self, "scale_corner_label") and self.scale_corner_label is not None:
+        if hasattr(self, 'scale_corner_label') and self.scale_corner_label is not None:
             self.scale_corner_label.setStyleSheet(f"""
                 QLabel#cornerScaleBadge {{
                     background-color: {theme.get("badge_bg", "rgba(26, 30, 44, 0.90)")};
@@ -782,7 +695,7 @@ class ECGPlotWidget:
         self.current_grid_mode = mode
         if mode == "none":
             self.plot_widget.showGrid(x=False, y=False)
-            if hasattr(self, "scale_corner_label") and self.scale_corner_label is not None:
+            if hasattr(self, 'scale_corner_label') and self.scale_corner_label is not None:
                 self.scale_corner_label.setVisible(False)
             return
 
@@ -793,17 +706,14 @@ class ECGPlotWidget:
         left_axis = self.plot_widget.getAxis("left")
 
         pen_style = Qt.PenStyle.DotLine if mode == "dots" else Qt.PenStyle.SolidLine
-        pg.mkPen(
-            color=self.current_canvas_theme.get("grid_color", "#2e3650"), style=pen_style, width=1
-        )
         bottom_axis.setGrid(alpha)
         left_axis.setGrid(alpha)
 
-        if hasattr(self, "scale_corner_label") and self.scale_corner_label is not None:
+        if hasattr(self, 'scale_corner_label') and self.scale_corner_label is not None:
             self.scale_corner_label.setVisible(True)
             self.update_corner_badge()
 
-    def set_scale(self, speed: float, gain: float, center_time: float | None = None) -> None:
+    def set_scale(self, speed: float, gain: float, center_time: Optional[float] = None) -> None:
         """Applies standardized clinical ECG sweep speed (mm/s) and voltage gain (mm/mV).
         Adjusts visible time window and amplitude span around the current viewport center."""
         self.current_speed = float(speed)
@@ -835,14 +745,8 @@ class ECGPlotWidget:
 
     def zoom_in(self) -> None:
         """Increases zoom level by stepping to the next clinical speed or gain."""
-        s_idx = (
-            CLINICAL_SPEEDS.index(self.current_speed)
-            if self.current_speed in CLINICAL_SPEEDS
-            else 1
-        )
-        g_idx = (
-            CLINICAL_GAINS.index(self.current_gain) if self.current_gain in CLINICAL_GAINS else 2
-        )
+        s_idx = CLINICAL_SPEEDS.index(self.current_speed) if self.current_speed in CLINICAL_SPEEDS else 1
+        g_idx = CLINICAL_GAINS.index(self.current_gain) if self.current_gain in CLINICAL_GAINS else 2
 
         if s_idx < len(CLINICAL_SPEEDS) - 1:
             self.set_scale(CLINICAL_SPEEDS[s_idx + 1], self.current_gain)
@@ -851,14 +755,8 @@ class ECGPlotWidget:
 
     def zoom_out(self) -> None:
         """Decreases zoom level by stepping to the previous clinical speed or gain."""
-        s_idx = (
-            CLINICAL_SPEEDS.index(self.current_speed)
-            if self.current_speed in CLINICAL_SPEEDS
-            else 1
-        )
-        g_idx = (
-            CLINICAL_GAINS.index(self.current_gain) if self.current_gain in CLINICAL_GAINS else 2
-        )
+        s_idx = CLINICAL_SPEEDS.index(self.current_speed) if self.current_speed in CLINICAL_SPEEDS else 1
+        g_idx = CLINICAL_GAINS.index(self.current_gain) if self.current_gain in CLINICAL_GAINS else 2
 
         if s_idx > 0:
             self.set_scale(CLINICAL_SPEEDS[s_idx - 1], self.current_gain)
@@ -895,9 +793,7 @@ class ECGPlotWidget:
         except Exception:
             pass
 
-    def add_draggable_vertical_line(
-        self, pos: float | None = None, label: str | None = None
-    ) -> Any:
+    def add_draggable_vertical_line(self, pos: Optional[float] = None, label: Optional[str] = None) -> Any:
         """Adds an additional interactive draggable vertical measurement line."""
         if pos is None:
             try:
@@ -911,16 +807,10 @@ class ECGPlotWidget:
         theme = self.current_canvas_theme
         color = theme.get("curve_color", "#38bdf8")
         line = pg.InfiniteLine(
-            pos=pos,
-            angle=90,
-            movable=True,
+            pos=pos, angle=90, movable=True,
             pen=pg.mkPen(color=color, width=2.0, style=Qt.PenStyle.DashDotLine),
             label=f"{tag}: " + "{value:.3f}s",
-            labelOpts={
-                "position": max(0.2, 0.70 - (idx * 0.12)),
-                "color": color,
-                "fill": theme.get("caliper_label_fill", (26, 30, 44, 200)),
-            },
+            labelOpts={"position": max(0.2, 0.70 - (idx * 0.12)), "color": color, "fill": theme.get("caliper_label_fill", (26, 30, 44, 200))}
         )
         line.setVisible(self.calipers_visible)
         self.plot_widget.addItem(line)
@@ -934,9 +824,11 @@ class ECGPlotWidget:
                 self.plot_widget.removeItem(line)
         self.extra_vertical_lines.clear()
 
-    def apply_theme(self, theme: dict[str, Any]) -> None:
+    def apply_theme(self, theme: Dict[str, Any]) -> None:
         """Backward-compatibility helper; delegates to apply_canvas_theme."""
         self.apply_canvas_theme(theme)
+
+
 
 
 class SettingsDialog(QDialog):
@@ -988,9 +880,7 @@ class SettingsDialog(QDialog):
 
         # 3. Independent Waveform Canvas Scheme Section
         self.lbl_canvas_section = QLabel(tr("settings_canvas_theme"))
-        self.lbl_canvas_section.setStyleSheet(
-            "font-weight: bold; font-size: 10pt; margin-top: 4px;"
-        )
+        self.lbl_canvas_section.setStyleSheet("font-weight: bold; font-size: 10pt; margin-top: 4px;")
         layout.addWidget(self.lbl_canvas_section)
 
         self.combo_canvas = QComboBox()
@@ -1010,11 +900,7 @@ class SettingsDialog(QDialog):
         layout.addWidget(self.lbl_grid_section)
 
         self.combo_grid = QComboBox()
-        self.grid_modes = [
-            ("lines", tr("grid_lines")),
-            ("dots", tr("grid_dots")),
-            ("none", tr("grid_none")),
-        ]
+        self.grid_modes = [("lines", tr("grid_lines")), ("dots", tr("grid_dots")), ("none", tr("grid_none"))]
         grid_idx = 0
         for idx, (gid, gname) in enumerate(self.grid_modes):
             self.combo_grid.addItem(gname, gid)
@@ -1027,9 +913,7 @@ class SettingsDialog(QDialog):
         # Description Cue
         self.lbl_theme_desc = QLabel(tr(THEMES[self.main_window.current_theme_id]["desc_key"]))
         self.lbl_theme_desc.setWordWrap(True)
-        self.lbl_theme_desc.setStyleSheet(
-            "color: #94a3b8; font-size: 8.5pt; font-style: italic; margin-top: 4px;"
-        )
+        self.lbl_theme_desc.setStyleSheet("color: #94a3b8; font-size: 8.5pt; font-style: italic; margin-top: 4px;")
         layout.addWidget(self.lbl_theme_desc)
 
         layout.addSpacing(10)
@@ -1078,11 +962,7 @@ class SettingsDialog(QDialog):
         self.combo_grid.blockSignals(True)
         curr_g_idx = self.combo_grid.currentIndex()
         self.combo_grid.clear()
-        for gid, gname in [
-            ("lines", tr("grid_lines")),
-            ("dots", tr("grid_dots")),
-            ("none", tr("grid_none")),
-        ]:
+        for gid, gname in [("lines", tr("grid_lines")), ("dots", tr("grid_dots")), ("none", tr("grid_none"))]:
             self.combo_grid.addItem(gname, gid)
         self.combo_grid.setCurrentIndex(curr_g_idx)
         self.combo_grid.blockSignals(False)
@@ -1109,7 +989,6 @@ class SettingsDialog(QDialog):
         if grid_id:
             self.main_window.set_grid_mode(grid_id)
 
-
 class MainWindow(QMainWindow):
     """Clinical Electrocardiogram Analysis & Colleague Exchange Workstation."""
 
@@ -1119,21 +998,21 @@ class MainWindow(QMainWindow):
         self.resize(1420, 880)
 
         self.fs = 500.0
-        self.time_data: np.ndarray | None = None
-        self.signal_data: np.ndarray | None = None
-        self.multi_lead_signals: dict[str, np.ndarray] = {}
+        self.time_data: Optional[np.ndarray] = None
+        self.signal_data: Optional[np.ndarray] = None
+        self.multi_lead_signals: Dict[str, np.ndarray] = {}
         self.current_lead_name: str = "Lead II"
         self.current_filename: str = tr("demo_filename")
-        self.analysis_results: dict[str, Any] | None = None
-        self.annotation_manager: AnnotationManager | None = None
+        self.analysis_results: Optional[Dict[str, Any]] = None
+        self.annotation_manager: Optional[AnnotationManager] = None
         self.current_beat_rr = 0.85
-        self.current_metadata: dict[str, Any] = {}
+        self.current_metadata: Dict[str, Any] = {}
         self.current_theme_id: str = "dark"
         self.current_canvas_theme_id: str = "dark"
         self.current_grid_mode: str = "lines"
         self.current_speed: float = 25.0
         self.current_gain: float = 10.0
-        self._active_worker: Any | None = None
+        self._active_worker: Optional[Any] = None
 
         self._setup_ui()
         self._load_synthetic_demo()
@@ -1220,7 +1099,7 @@ class MainWindow(QMainWindow):
         self.menu_languages = self.menu_preferences.addMenu(tr("menu_languages"))
         self.lang_group = QActionGroup(self)
         self.lang_group.setExclusive(True)
-        self.lang_actions: dict[str, QAction] = {}
+        self.lang_actions: Dict[str, QAction] = {}
         curr_lang = get_current_locale()
         for code, name in SUPPORTED_LANGUAGES.items():
             act = QAction(name, self)
@@ -1235,7 +1114,7 @@ class MainWindow(QMainWindow):
         self.menu_interface_theme = self.menu_preferences.addMenu(tr("menu_interface_theme"))
         self.theme_group = QActionGroup(self)
         self.theme_group.setExclusive(True)
-        self.theme_actions: dict[str, QAction] = {}
+        self.theme_actions: Dict[str, QAction] = {}
         for tid, tspec in THEMES.items():
             act = QAction(tr(tspec["name_key"]), self)
             act.setCheckable(True)
@@ -1249,7 +1128,7 @@ class MainWindow(QMainWindow):
         self.menu_canvas_theme = self.menu_preferences.addMenu(tr("menu_canvas_theme"))
         self.canvas_theme_group = QActionGroup(self)
         self.canvas_theme_group.setExclusive(True)
-        self.canvas_theme_actions: dict[str, QAction] = {}
+        self.canvas_theme_actions: Dict[str, QAction] = {}
         for cid, cspec in CANVAS_THEMES.items():
             act = QAction(tr(cspec["name_key"]), self)
             act.setCheckable(True)
@@ -1471,9 +1350,7 @@ class MainWindow(QMainWindow):
         c_layout.addWidget(self.lbl_canvas_scheme)
 
         self.combo_canvas_theme = QComboBox()
-        self.combo_canvas_theme.setToolTip(
-            "Select independent color scheme for the ECG waveform canvas"
-        )
+        self.combo_canvas_theme.setToolTip("Select independent color scheme for the ECG waveform canvas")
         self.combo_canvas_theme.setStyleSheet("font-size: 8.5pt; min-width: 120px;")
         for cid, ctheme in CANVAS_THEMES.items():
             self.combo_canvas_theme.addItem(tr(ctheme["name_key"]), cid)
@@ -1522,9 +1399,7 @@ class MainWindow(QMainWindow):
         self.btn_calipers_toggle.setProperty("class", "toggleBtn")
         self.btn_calipers_toggle.setCheckable(True)
         self.btn_calipers_toggle.setChecked(True)
-        self.btn_calipers_toggle.setToolTip(
-            "Toggle visibility of draggable vertical measurement lines"
-        )
+        self.btn_calipers_toggle.setToolTip("Toggle visibility of draggable vertical measurement lines")
         self.btn_calipers_toggle.toggled.connect(self._on_calipers_toggled)
         c_layout.addWidget(self.btn_calipers_toggle)
 
@@ -1684,14 +1559,10 @@ class MainWindow(QMainWindow):
         self.card_qtc = self._create_kpi_card(tr("kpi_qtc_title"), "-- ms", tr("qtc_sub_normal"))
         ov_layout.addWidget(self.card_qtc)
 
-        self.card_ectopic = self._create_kpi_card(
-            tr("kpi_ectopic_title"), "0.0%", tr("ect_sub_normal")
-        )
+        self.card_ectopic = self._create_kpi_card(tr("kpi_ectopic_title"), "0.0%", tr("ect_sub_normal"))
         ov_layout.addWidget(self.card_ectopic)
 
-        self.card_sqi = self._create_kpi_card(
-            tr("kpi_sqi_title"), "Good", tr("sqi_sub_clean", snr=20.0)
-        )
+        self.card_sqi = self._create_kpi_card(tr("kpi_sqi_title"), "Good", tr("sqi_sub_clean", snr=20.0))
         ov_layout.addWidget(self.card_sqi)
 
         # Advanced Section
@@ -1716,9 +1587,9 @@ class MainWindow(QMainWindow):
         ev_layout = QVBoxLayout(events_tab)
         ev_layout.setContentsMargins(8, 8, 8, 8)
         self.events_table = QTableWidget(0, 4)
-        self.events_table.setHorizontalHeaderLabels(
-            [tr("hdr_time"), tr("hdr_event"), tr("hdr_value"), tr("hdr_severity")]
-        )
+        self.events_table.setHorizontalHeaderLabels([
+            tr("hdr_time"), tr("hdr_event"), tr("hdr_value"), tr("hdr_severity")
+        ])
         self.events_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.events_table.cellClicked.connect(self._on_event_selected)
         ev_layout.addWidget(self.events_table)
@@ -1731,9 +1602,9 @@ class MainWindow(QMainWindow):
         b_layout = QVBoxLayout(beats_tab)
         b_layout.setContentsMargins(8, 8, 8, 8)
         self.beat_table = QTableWidget(0, 5)
-        self.beat_table.setHorizontalHeaderLabels(
-            [tr("hdr_beat_num"), tr("hdr_time"), tr("hdr_class"), tr("hdr_qt"), tr("hdr_qtc")]
-        )
+        self.beat_table.setHorizontalHeaderLabels([
+            tr("hdr_beat_num"), tr("hdr_time"), tr("hdr_class"), tr("hdr_qt"), tr("hdr_qtc")
+        ])
         self.beat_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.beat_table.cellClicked.connect(self._on_beat_selected)
         self.beat_table.cellDoubleClicked.connect(self._on_beat_double_clicked)
@@ -1764,9 +1635,7 @@ class MainWindow(QMainWindow):
         grp_a_vbox.setContentsMargins(8, 8, 8, 8)
         self.meta_table_a = QTableWidget(0, 2)
         self.meta_table_a.setHorizontalHeaderLabels([tr("hdr_field"), tr("hdr_value")])
-        self.meta_table_a.horizontalHeader().setSectionResizeMode(
-            0, QHeaderView.ResizeMode.ResizeToContents
-        )
+        self.meta_table_a.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         self.meta_table_a.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.meta_table_a.verticalHeader().setVisible(False)
         self.meta_table_a.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
@@ -1781,9 +1650,7 @@ class MainWindow(QMainWindow):
         grp_b_vbox.setContentsMargins(8, 8, 8, 8)
         self.meta_table_b = QTableWidget(0, 2)
         self.meta_table_b.setHorizontalHeaderLabels([tr("hdr_field"), tr("hdr_value")])
-        self.meta_table_b.horizontalHeader().setSectionResizeMode(
-            0, QHeaderView.ResizeMode.ResizeToContents
-        )
+        self.meta_table_b.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         self.meta_table_b.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.meta_table_b.verticalHeader().setVisible(False)
         self.meta_table_b.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
@@ -1921,9 +1788,8 @@ class MainWindow(QMainWindow):
         """Opens workstation documentation wiki via desktop browser or accessible modal guide."""
         wiki_url = "https://github.com/numbecho/repolaris/wiki"
         try:
-            from PyQt6.QtCore import QUrl
             from PyQt6.QtGui import QDesktopServices
-
+            from PyQt6.QtCore import QUrl
             QDesktopServices.openUrl(QUrl(wiki_url))
         except Exception:
             pass
@@ -1931,13 +1797,11 @@ class MainWindow(QMainWindow):
 
     def _show_license_dialog(self) -> None:
         """Displays Apache-2.0 open-source software license dialog."""
-        license_path = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "..", "LICENSE"
-        )
+        license_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "..", "LICENSE")
         license_text = ""
         if os.path.exists(license_path):
             try:
-                with open(license_path, encoding="utf-8") as f:
+                with open(license_path, "r", encoding="utf-8") as f:
                     license_text = f.read()
             except Exception:
                 pass
@@ -2010,12 +1874,9 @@ class MainWindow(QMainWindow):
         self.ecg_plot.apply_grid(grid_mode)
 
         # Scale label and value visibility
-        is_grid_enabled = grid_mode != "none"
+        is_grid_enabled = (grid_mode != "none")
         self.lbl_scale_badge.setVisible(is_grid_enabled)
-        if (
-            hasattr(self.ecg_plot, "scale_corner_label")
-            and self.ecg_plot.scale_corner_label is not None
-        ):
+        if hasattr(self.ecg_plot, "scale_corner_label") and self.ecg_plot.scale_corner_label is not None:
             self.ecg_plot.scale_corner_label.setVisible(is_grid_enabled)
 
         # Sync toggle buttons
@@ -2124,12 +1985,9 @@ class MainWindow(QMainWindow):
     def _update_scale_badge_display(self) -> None:
         scale_text = f"📐 {self.ecg_plot.get_scale_text()}"
         self.lbl_scale_badge.setText(scale_text)
-        is_grid_enabled = self.current_grid_mode != "none"
+        is_grid_enabled = (self.current_grid_mode != "none")
         self.lbl_scale_badge.setVisible(is_grid_enabled)
-        if (
-            hasattr(self.ecg_plot, "scale_corner_label")
-            and self.ecg_plot.scale_corner_label is not None
-        ):
+        if hasattr(self.ecg_plot, "scale_corner_label") and self.ecg_plot.scale_corner_label is not None:
             self.ecg_plot.scale_corner_label.setVisible(is_grid_enabled)
 
     def set_language(self, lang_code: str) -> None:
@@ -2256,16 +2114,17 @@ class MainWindow(QMainWindow):
         self.adv_group.setTitle(tr("adv_group_title"))
 
         # Table Headers
-        self.events_table.setHorizontalHeaderLabels(
-            [tr("hdr_time"), tr("hdr_event"), tr("hdr_value"), tr("hdr_severity")]
-        )
-        self.beat_table.setHorizontalHeaderLabels(
-            [tr("hdr_beat_num"), tr("hdr_time"), tr("hdr_class"), tr("hdr_qt"), tr("hdr_qtc")]
-        )
+        self.events_table.setHorizontalHeaderLabels([
+            tr("hdr_time"), tr("hdr_event"), tr("hdr_value"), tr("hdr_severity")
+        ])
+        self.beat_table.setHorizontalHeaderLabels([
+            tr("hdr_beat_num"), tr("hdr_time"), tr("hdr_class"), tr("hdr_qt"), tr("hdr_qtc")
+        ])
 
         # Re-render current metric evaluations
         if self.analysis_results:
             self._update_cards_and_tables()
+
 
     def set_task_progress(self, fraction: float, message: str) -> None:
         """Updates status bar message and progress indicator."""
@@ -2289,17 +2148,16 @@ class MainWindow(QMainWindow):
         self,
         task_func: Callable[..., Any],
         on_success: Callable[[Any], None],
-        on_error: Callable[[str], None] | None = None,
+        on_error: Optional[Callable[[str], None]] = None,
         initial_msg: str = "Processing...",
         *args: Any,
-        **kwargs: Any,
+        **kwargs: Any
     ) -> None:
         """Runs a heavy API task either in a QThread (GUI mode) or synchronously (mock mode)."""
         self.set_task_progress(0.0, initial_msg)
 
         if not HAS_GUI:
             try:
-
                 def _prog(pct: float, msg: str) -> None:
                     self.set_task_progress(pct, msg)
 
@@ -2347,10 +2205,7 @@ class MainWindow(QMainWindow):
 
         def _task(progress_callback=None):
             return StudyAPI.generate_demo_study(
-                duration_sec=12.0,
-                fs=self.fs,
-                heart_rate_bpm=72.0,
-                progress_callback=progress_callback,
+                duration_sec=12.0, fs=self.fs, heart_rate_bpm=72.0, progress_callback=progress_callback
             )
 
         def _on_done(demo_res):
@@ -2389,7 +2244,11 @@ class MainWindow(QMainWindow):
             self.signal_data = self.multi_lead_signals[self.current_lead_name]
             self._run_pipeline_and_display()
 
-        self._run_background_task(_task, _on_done, initial_msg=tr("status_loading"))
+        self._run_background_task(
+            _task,
+            _on_done,
+            initial_msg=tr("status_loading")
+        )
 
     def _open_file_dialog(self) -> None:
         """Opens any clinical recording, detects all available channels, and sets active lead."""
@@ -2407,7 +2266,6 @@ class MainWindow(QMainWindow):
         )
         if not path:
             return
-
         def _task(progress_callback=None):
             return StudyAPI.load_study_dataset(path, progress_callback=progress_callback)
 
@@ -2423,10 +2281,7 @@ class MainWindow(QMainWindow):
                 if len(sig) == 0 or np.all(sig == 0) or np.std(sig) < 1e-6:
                     zeroed_leads.append(name)
 
-            if (
-                len(zeroed_leads) == len(self.multi_lead_signals)
-                and len(self.multi_lead_signals) > 0
-            ):
+            if len(zeroed_leads) == len(self.multi_lead_signals) and len(self.multi_lead_signals) > 0:
                 QMessageBox.warning(
                     self,
                     tr("warning_title"),
@@ -2468,7 +2323,11 @@ class MainWindow(QMainWindow):
             self.time_data = np.arange(len(self.signal_data)) / self.fs
             self._run_pipeline_and_display()
 
-        self._run_background_task(_task, _on_done, initial_msg=tr("status_loading"))
+        self._run_background_task(
+            _task,
+            _on_done,
+            initial_msg=tr("status_loading")
+        )
 
     def _on_lead_changed(self, index: int) -> None:
         """Dynamically re-analyzes and renders the newly selected lead."""
@@ -2524,7 +2383,11 @@ class MainWindow(QMainWindow):
             elif beats:
                 self._select_beat(0)
 
-        self._run_background_task(_task, _on_done, initial_msg=tr("status_analyzing"))
+        self._run_background_task(
+            _task,
+            _on_done,
+            initial_msg=tr("status_analyzing")
+        )
 
     def _update_cards_and_tables(self) -> None:
         """Refreshes KPI cards and tables with current localized descriptions."""
@@ -2614,13 +2477,11 @@ class MainWindow(QMainWindow):
             self.lbl_adv_qtvi.setText(tr("adv_qtvi_na"))
 
         if qtrr is not None:
-            self.lbl_adv_qtrr.setText(
-                tr("adv_qtrr", val=f"{qtrr['slope']:.2f} (r={qtrr['pearson_r']:.2f})")
-            )
+            self.lbl_adv_qtrr.setText(tr("adv_qtrr", val=f"{qtrr['slope']:.2f} (r={qtrr['pearson_r']:.2f})"))
         else:
             self.lbl_adv_qtrr.setText(tr("adv_qtrr_na"))
 
-        self.lbl_adv_total.setText(tr("adv_total_cycles", count=summary["total_beats"]))
+        self.lbl_adv_total.setText(tr("adv_total_cycles", count=summary['total_beats']))
 
         # Populate Beat Table
         self.beat_table.setRowCount(len(beats))
@@ -2761,14 +2622,10 @@ class MainWindow(QMainWindow):
         if not path:
             return
 
-        age, ok = QInputDialog.getInt(
-            self, tr("patient_age_title"), tr("patient_age_prompt"), 55, 0, 120
-        )
+        age, ok = QInputDialog.getInt(self, tr("patient_age_title"), tr("patient_age_prompt"), 55, 0, 120)
         if not ok:
             return
-        race, ok = QInputDialog.getText(
-            self, tr("patient_race_title"), tr("patient_race_prompt"), text="Unspecified"
-        )
+        race, ok = QInputDialog.getText(self, tr("patient_race_title"), tr("patient_race_prompt"), text="Unspecified")
         if not ok:
             return
         pm_items = ["NO", "YES (Unspecified)", "VVI", "AAI", "DDD", "BIVENTRICULAR / CRT"]
@@ -2798,13 +2655,7 @@ class MainWindow(QMainWindow):
                 signals=lead_matrix,
                 sampling_rate=self.fs,
                 lead_names=lead_names,
-                patient_info={
-                    "age": age,
-                    "race": race,
-                    "sex": "UNKNOWN",
-                    "indication": notes,
-                    "pacemaker": pacemaker,
-                },
+                patient_info={"age": age, "race": race, "sex": "UNKNOWN", "indication": notes, "pacemaker": pacemaker},
                 annotations=ann_payload,
                 events=self.analysis_results.get("events", []) if self.analysis_results else [],
                 compression="zstd",
@@ -2812,11 +2663,13 @@ class MainWindow(QMainWindow):
             )
 
         def _on_done(saved_path):
-            QMessageBox.information(
-                self, tr("export_success_title"), tr("export_success_msg", path=saved_path)
-            )
+            QMessageBox.information(self, tr("export_success_title"), tr("export_success_msg", path=saved_path))
 
-        self._run_background_task(_task, _on_done, initial_msg=tr("status_exporting"))
+        self._run_background_task(
+            _task,
+            _on_done,
+            initial_msg=tr("status_exporting")
+        )
 
 
 def main() -> None:

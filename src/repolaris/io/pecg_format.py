@@ -20,26 +20,22 @@ Architecture:
     - If zstd/deflate: Compressed byte stream for compact export and sharing.
 """
 
-import json
-import os
 import struct
+import json
 import zlib
-from collections.abc import Callable
 from pathlib import Path
-from typing import Any
-
+import os
+from typing import Optional, Dict, Any, Tuple, Callable
 import numpy as np
 
 try:
     import cbor2
-
     HAS_CBOR = True
 except ImportError:
     HAS_CBOR = False
 
 try:
     import zstandard as zstd
-
     HAS_ZSTD = True
 except ImportError:
     HAS_ZSTD = False
@@ -58,10 +54,10 @@ COMPRESSION_DEFLATE = 2
 COMPRESSION_ZLIB = 2  # Alias for DEFLATE
 
 # Security & Sanitization Constants (DoS & Decompression Bomb Mitigation)
-MAX_METADATA_BYTES = 10 * 1024 * 1024  # 10 MB maximum metadata header block
-MAX_ALLOWABLE_CHANNELS = 64  # Maximum plausible clinical/BSPM channels
-MAX_ALLOWABLE_SAMPLES = 100_000_000  # Maximum ~27 hours at 1000 Hz or ~115 hours at 240 Hz
-MAX_UNCOMPRESSED_PAYLOAD = 2 * 1024**3  # 2 GB maximum in-memory waveform payload
+MAX_METADATA_BYTES = 10 * 1024 * 1024       # 10 MB maximum metadata header block
+MAX_ALLOWABLE_CHANNELS = 64                 # Maximum plausible clinical/BSPM channels
+MAX_ALLOWABLE_SAMPLES = 100_000_000         # Maximum ~27 hours at 1000 Hz or ~115 hours at 240 Hz
+MAX_UNCOMPRESSED_PAYLOAD = 2 * 1024**3      # 2 GB maximum in-memory waveform payload
 
 
 def save_pecg(
@@ -69,29 +65,29 @@ def save_pecg(
     signals: np.ndarray,
     sampling_rate: float,
     lead_names: list[str],
-    patient_info: dict[str, Any] | None = None,
-    annotations: dict[str, Any] | None = None,
-    events: list | None = None,
-    adc_gains: list[float] | None = None,
-    adc_baselines: list[int] | None = None,
+    patient_info: Optional[Dict[str, Any]] = None,
+    annotations: Optional[Dict[str, Any]] = None,
+    events: Optional[list] = None,
+    adc_gains: Optional[list[float]] = None,
+    adc_baselines: Optional[list[int]] = None,
     use_cbor: bool = False,
     compression: str = "zstd",  # "zstd", "deflate", "zlib", or "none"
-    progress_callback: Callable[[float, str], None] | None = None,
+    progress_callback: Optional[Callable[[float, str], None]] = None
 ) -> str:
     """
     Saves a multi-channel ECG study to a single portable .pecg file.
-
+    
     Parameters:
         compression: "zstd" (fastest & highest ratio), "deflate" / "zlib" (standard universal), or "none" (enables mmap).
     """
     filepath = Path(filepath)
     signals = np.asarray(signals)
-
+    
     if signals.ndim == 1:
         signals = signals.reshape(1, -1)
-
+        
     num_channels, num_samples = signals.shape
-
+    
     # Ensure correct dtype for storage (int16 or float32)
     if np.issubdtype(signals.dtype, np.floating):
         dtype_str = "float32"
@@ -101,9 +97,7 @@ def save_pecg(
         storage_signals = signals.astype(np.int16)
 
     if progress_callback:
-        progress_callback(
-            0.15, "Preparing de-identified patient demographics and channel specifications..."
-        )
+        progress_callback(0.15, "Preparing de-identified patient demographics and channel specifications...")
     # 1. Prepare de-identified metadata dictionary (preserving age, race, sex, indication, pacemaker)
     raw_pm = patient_info.get("pacemaker") if patient_info else None
     if raw_pm is None:
@@ -118,30 +112,24 @@ def save_pecg(
         "race": patient_info.get("race") if patient_info else None,
         "sex": patient_info.get("sex", "UNKNOWN") if patient_info else "UNKNOWN",
         "indication": patient_info.get("indication", "") if patient_info else "",
-        "pacemaker": pm_status,
+        "pacemaker": pm_status
     }
 
     channels_spec = []
     for i in range(num_channels):
-        name = lead_names[i] if i < len(lead_names) else f"Lead_{i + 1}"
-        gain = (
-            adc_gains[i]
-            if (adc_gains and i < len(adc_gains))
-            else (200.0 if dtype_str == "int16" else 1.0)
-        )
+        name = lead_names[i] if i < len(lead_names) else f"Lead_{i+1}"
+        gain = adc_gains[i] if (adc_gains and i < len(adc_gains)) else (200.0 if dtype_str == "int16" else 1.0)
         base = adc_baselines[i] if (adc_baselines and i < len(adc_baselines)) else 0
-        channels_spec.append(
-            {
-                "index": i,
-                "name": name,
-                "sampling_rate": float(sampling_rate),
-                "adc_gain": float(gain),
-                "adc_baseline": int(base),
-                "unit": "mV",
-                "data_type": dtype_str,
-                "num_samples": int(num_samples),
-            }
-        )
+        channels_spec.append({
+            "index": i,
+            "name": name,
+            "sampling_rate": float(sampling_rate),
+            "adc_gain": float(gain),
+            "adc_baseline": int(base),
+            "unit": "mV",
+            "data_type": dtype_str,
+            "num_samples": int(num_samples)
+        })
 
     metadata = {
         "format": "PECG",
@@ -151,11 +139,11 @@ def save_pecg(
             "num_samples": int(num_samples),
             "sampling_rate": float(sampling_rate),
             "duration_sec": float(num_samples / sampling_rate),
-            "channels": channels_spec,
+            "channels": channels_spec
         },
         "patient": patient_dict,
         "annotations": annotations or {},
-        "events": events or [],
+        "events": events or []
     }
 
     # 2. Serialize metadata block (CBOR or JSON)
@@ -190,12 +178,17 @@ def save_pecg(
         waveform_payload = raw_waveform_bytes
         comp_flag = COMPRESSION_NONE
     else:
-        raise ValueError(
-            f"Unknown compression format: '{compression}'. Choose 'zstd', 'deflate', or 'none'."
-        )
+        raise ValueError(f"Unknown compression format: '{compression}'. Choose 'zstd', 'deflate', or 'none'.")
 
     # 4. Pack 12-byte container header
-    header = struct.pack("<4sHBB I", MAGIC, CURRENT_VERSION, enc_type, comp_flag, meta_length)
+    header = struct.pack(
+        "<4sHBB I",
+        MAGIC,
+        CURRENT_VERSION,
+        enc_type,
+        comp_flag,
+        meta_length
+    )
 
     if progress_callback:
         progress_callback(0.80, f"Writing .pecg binary container to {filepath.name}...")
@@ -210,14 +203,10 @@ def save_pecg(
     return str(filepath)
 
 
-def load_pecg(
-    filepath: str | Path,
-    mmap: bool = False,
-    progress_callback: Callable[[float, str], None] | None = None,
-) -> tuple[dict[str, Any], np.ndarray]:
+def load_pecg(filepath: str | Path, mmap: bool = False, progress_callback: Optional[Callable[[float, str], None]] = None) -> Tuple[Dict[str, Any], np.ndarray]:
     """
     Loads a .pecg study package with comprehensive security and sanity checks.
-
+    
     Guards against:
     - Truncated or over-length binary container headers.
     - Massive metadata allocations (> 10 MB ceiling).
@@ -232,9 +221,7 @@ def load_pecg(
 
     file_size = filepath.stat().st_size
     if file_size < 12:
-        raise ValueError(
-            f"Corrupt .pecg container: File size ({file_size} B) is smaller than the 12-byte header."
-        )
+        raise ValueError(f"Corrupt .pecg container: File size ({file_size} B) is smaller than the 12-byte header.")
 
     if progress_callback:
         progress_callback(0.15, f"Reading container header for {filepath.name}...")
@@ -242,19 +229,15 @@ def load_pecg(
         magic = f.read(4)
         if magic != MAGIC:
             raise ValueError(f"Invalid .pecg file: Expected magic b'PECG', got {magic}")
-
+            
         version, enc_type, comp_flag, meta_length = struct.unpack("<HBB I", f.read(8))
-
+        
         # 1. Validate metadata boundary & memory allocation ceiling
         if meta_length > MAX_METADATA_BYTES:
-            raise ValueError(
-                f"Security Alert: Metadata block size ({meta_length} B) exceeds the 10 MB safety ceiling."
-            )
+            raise ValueError(f"Security Alert: Metadata block size ({meta_length} B) exceeds the 10 MB safety ceiling.")
         if 12 + meta_length > file_size:
-            raise ValueError(
-                f"Corrupt .pecg container: Declared metadata offset (12 + {meta_length} B) extends beyond end-of-file ({file_size} B)."
-            )
-
+            raise ValueError(f"Corrupt .pecg container: Declared metadata offset (12 + {meta_length} B) extends beyond end-of-file ({file_size} B).")
+            
         meta_bytes = f.read(meta_length)
 
     if progress_callback:
@@ -280,13 +263,9 @@ def load_pecg(
 
     # 3. Enforce physiological and sanity bounds
     if not (1 <= num_channels <= MAX_ALLOWABLE_CHANNELS):
-        raise ValueError(
-            f"Security Alert: Invalid channel count ({num_channels}). Must be between 1 and {MAX_ALLOWABLE_CHANNELS}."
-        )
+        raise ValueError(f"Security Alert: Invalid channel count ({num_channels}). Must be between 1 and {MAX_ALLOWABLE_CHANNELS}.")
     if not (1 <= num_samples <= MAX_ALLOWABLE_SAMPLES):
-        raise ValueError(
-            f"Security Alert: Invalid sample count ({num_samples}). Must be between 1 and {MAX_ALLOWABLE_SAMPLES}."
-        )
+        raise ValueError(f"Security Alert: Invalid sample count ({num_samples}). Must be between 1 and {MAX_ALLOWABLE_SAMPLES}.")
     if fs <= 0.0 or not np.isfinite(fs):
         raise ValueError(f"Invalid sampling rate: {fs} Hz.")
 
@@ -297,9 +276,7 @@ def load_pecg(
     expected_bytes = num_channels * num_samples * itemsize
 
     if expected_bytes > MAX_UNCOMPRESSED_PAYLOAD:
-        raise ValueError(
-            f"Security Alert: Expected waveform allocation ({expected_bytes / 1e6:.1f} MB) exceeds the 2 GB safety ceiling."
-        )
+        raise ValueError(f"Security Alert: Expected waveform allocation ({expected_bytes / 1e6:.1f} MB) exceeds the 2 GB safety ceiling.")
 
     data_offset = 12 + meta_length
     remaining_file_bytes = file_size - data_offset
@@ -309,38 +286,30 @@ def load_pecg(
     # 4. Decompress / Read Waveform with exact byte verification
     if comp_flag == COMPRESSION_NONE:
         if remaining_file_bytes < expected_bytes:
-            raise ValueError(
-                f"Corrupt .pecg file: Raw payload is truncated ({remaining_file_bytes} B available, expected {expected_bytes} B)."
-            )
+            raise ValueError(f"Corrupt .pecg file: Raw payload is truncated ({remaining_file_bytes} B available, expected {expected_bytes} B).")
         if mmap:
             signals = np.memmap(
                 filepath,
                 dtype=dtype,
                 mode="r",
                 offset=data_offset,
-                shape=(num_channels, num_samples),
+                shape=(num_channels, num_samples)
             )
         else:
             with open(filepath, "rb") as f:
                 f.seek(data_offset)
                 raw_bytes = f.read(expected_bytes)
             if len(raw_bytes) != expected_bytes:
-                raise ValueError(
-                    f"Truncated read: Expected {expected_bytes} bytes, received {len(raw_bytes)}."
-                )
-            signals = (
-                np.frombuffer(raw_bytes, dtype=dtype).reshape((num_channels, num_samples)).copy()
-            )
+                raise ValueError(f"Truncated read: Expected {expected_bytes} bytes, received {len(raw_bytes)}.")
+            signals = np.frombuffer(raw_bytes, dtype=dtype).reshape((num_channels, num_samples)).copy()
 
     elif comp_flag == COMPRESSION_ZSTD:
         if not HAS_ZSTD:
-            raise ImportError(
-                "File is compressed with Zstandard (zstd). Install it via: pip install zstandard"
-            )
+            raise ImportError("File is compressed with Zstandard (zstd). Install it via: pip install zstandard")
         with open(filepath, "rb") as f:
             f.seek(data_offset)
             compressed_bytes = f.read()
-
+        
         # Enforce exact expected decompressed output size to neutralize decompression bombs
         dctx = zstd.ZstdDecompressor()
         try:
@@ -349,16 +318,14 @@ def load_pecg(
             raise ValueError(f"Zstandard decompression failed: {e}") from e
 
         if len(raw_bytes) != expected_bytes:
-            raise ValueError(
-                f"Decompression size mismatch: Expected {expected_bytes} bytes, got {len(raw_bytes)} bytes."
-            )
+            raise ValueError(f"Decompression size mismatch: Expected {expected_bytes} bytes, got {len(raw_bytes)} bytes.")
         signals = np.frombuffer(raw_bytes, dtype=dtype).reshape((num_channels, num_samples)).copy()
 
     elif comp_flag in (COMPRESSION_DEFLATE, COMPRESSION_ZLIB):
         with open(filepath, "rb") as f:
             f.seek(data_offset)
             compressed_bytes = f.read()
-
+        
         # Stream decompress with bounded byte ceiling to neutralize decompression bombs
         decompressor = zlib.decompressobj()
         try:
@@ -367,9 +334,7 @@ def load_pecg(
             raise ValueError(f"Deflate decompression failed: {e}") from e
 
         if len(raw_bytes) != expected_bytes or decompressor.unconsumed_tail:
-            raise ValueError(
-                f"Security Alert: Decompressed payload does not match expected dimensions ({expected_bytes} B expected)."
-            )
+            raise ValueError(f"Security Alert: Decompressed payload does not match expected dimensions ({expected_bytes} B expected).")
         signals = np.frombuffer(raw_bytes, dtype=dtype).reshape((num_channels, num_samples)).copy()
 
     else:

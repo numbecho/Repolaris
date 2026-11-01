@@ -5,9 +5,7 @@ Orchestrates beat classification, repolarization interval calculations, and auto
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import Any
-
+from typing import Any, Callable, Dict, Optional
 import numpy as np
 
 from repolaris.config import ECGConfig
@@ -22,13 +20,13 @@ class AnalysisAPI:
     def analyze_signal(
         signal: np.ndarray,
         fs: float = 500.0,
-        config: ECGConfig | None = None,
-        progress_callback: Callable[[float, str], None] | None = None,
-    ) -> dict[str, Any]:
+        config: Optional[ECGConfig] = None,
+        progress_callback: Optional[Callable[[float, str], None]] = None
+    ) -> Dict[str, Any]:
         """Executes full electrophysiology analysis pipeline on an ECG signal."""
         return analyze_ecg(signal, fs=fs, config=config, progress_callback=progress_callback)
 
     @staticmethod
-    def calculate_qtc(raw_qt_sec: float, rr_sec: float) -> dict[str, float]:
+    def calculate_qtc(raw_qt_sec: float, rr_sec: float) -> Dict[str, float]:
         """Calculates Bazett, Fridericia, and Framingham rate-corrected QTc intervals in milliseconds."""
         return compute_qtc(raw_qt_sec, rr_sec)

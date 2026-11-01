@@ -16,32 +16,30 @@ Coordinates end-to-end processing of electrocardiogram recordings:
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import Any
-
+from typing import Any, Callable, Dict, List, Optional, Union
 import numpy as np
 
 from repolaris.config import ECGConfig
-from repolaris.detection.annotations import AnnotationManager
-from repolaris.detection.classifier import classify_all_beats
-from repolaris.detection.events import detect_clinical_events
-from repolaris.detection.pulse_metrics import compute_qtc, summarize_beats
-from repolaris.detection.q_onset import detect_q_onset
-from repolaris.detection.qrs import detect_r_peaks
-from repolaris.detection.qtrr import fit_qtrr_model
-from repolaris.detection.qtvi import compute_qtvi
-from repolaris.detection.sqi import evaluate_lead_quality
-from repolaris.detection.t_end import detect_t_end
+from repolaris.preprocessing.filter import bandpass_filter, notch_filter
 from repolaris.preprocessing.baseline import remove_baseline_wander
-from repolaris.preprocessing.filter import bandpass_filter
+from repolaris.detection.qrs import detect_r_peaks
+from repolaris.detection.q_onset import detect_q_onset
+from repolaris.detection.t_end import detect_t_end
+from repolaris.detection.pulse_metrics import compute_qtc, summarize_beats
+from repolaris.detection.events import detect_clinical_events, ECGEvent
+from repolaris.detection.qtvi import compute_qtvi
+from repolaris.detection.qtrr import fit_qtrr_model
+from repolaris.detection.sqi import evaluate_lead_quality
+from repolaris.detection.classifier import classify_all_beats, ClassifiedBeat
+from repolaris.detection.annotations import AnnotationManager
 
 
 def analyze_ecg(
     raw_signal: np.ndarray,
     fs: float = 500.0,
-    config: ECGConfig | None = None,
-    progress_callback: Callable[[float, str], None] | None = None,
-) -> dict[str, Any]:
+    config: Optional[ECGConfig] = None,
+    progress_callback: Optional[Callable[[float, str], None]] = None,
+) -> Dict[str, Any]:
     """Executes the master diagnostic analysis pipeline on a raw ECG signal.
 
     Args:
@@ -82,22 +80,20 @@ def analyze_ecg(
     # 3. QRS Detection
     r_peaks = detect_r_peaks(clean_signal, fs, config.detection_cfg.refractory_period_ms)
 
-    beats: list[dict[str, Any]] = []
+    beats: List[Dict[str, Any]] = []
     n_peaks = len(r_peaks)
 
     if progress_callback:
         progress_callback(0.60, f"Segmenting fiducials ({n_peaks} cardiac cycles)...")
     # 4. Waveform Fiducial Segmentation
-    rr_list: list[float] = []
-    qt_list: list[float] = []
-    q_onsets_list: list[int] = []
-    t_ends_list: list[int] = []
+    rr_list: List[float] = []
+    qt_list: List[float] = []
+    q_onsets_list: List[int] = []
+    t_ends_list: List[int] = []
 
     for i, r_idx in enumerate(r_peaks):
         q_idx = detect_q_onset(clean_signal, r_idx, fs, config.detection_cfg.q_search_window_ms)
-        t_peak_idx, t_end_idx = detect_t_end(
-            clean_signal, r_idx, fs, config.detection_cfg.t_search_window_ms
-        )
+        t_peak_idx, t_end_idx = detect_t_end(clean_signal, r_idx, fs, config.detection_cfg.t_search_window_ms)
 
         qt_sec = (t_end_idx - q_idx) / fs
 
@@ -117,20 +113,18 @@ def analyze_ecg(
         q_onsets_list.append(int(q_idx))
         t_ends_list.append(int(t_end_idx))
 
-        beats.append(
-            {
-                "beat_index": i,
-                "q_onset_sample": int(q_idx),
-                "r_peak_sample": int(r_idx),
-                "t_peak_sample": int(t_peak_idx),
-                "t_end_sample": int(t_end_idx),
-                "time_sec": float(r_idx / fs),
-                "rr_sec": float(rr_sec),
-                "hr_bpm": float(hr_bpm),
-                "qt_ms": float(qt_sec * 1000.0),
-                "qtc": qtc_dict,
-            }
-        )
+        beats.append({
+            "beat_index": i,
+            "q_onset_sample": int(q_idx),
+            "r_peak_sample": int(r_idx),
+            "t_peak_sample": int(t_peak_idx),
+            "t_end_sample": int(t_end_idx),
+            "time_sec": float(r_idx / fs),
+            "rr_sec": float(rr_sec),
+            "hr_bpm": float(hr_bpm),
+            "qt_ms": float(qt_sec * 1000.0),
+            "qtc": qtc_dict,
+        })
 
     if progress_callback:
         progress_callback(0.75, "Classifying beats and ectopic rhythm sequences...")
@@ -170,13 +164,13 @@ def analyze_ecg(
     if progress_callback:
         progress_callback(0.90, "Assessing repolarization lability (QTVI & restitution)...")
     # 6. Advanced Repolarization Lability: QTVI & QT-RR Restitution
-    qtvi_score: float | None = None
-    qtrr_metrics: dict[str, Any] | None = None
+    qtvi_score: Optional[float] = None
+    qtrr_metrics: Optional[Dict[str, Any]] = None
 
     if len(beats) >= 5:
         try:
             qtvi_score = compute_qtvi(np.array(rr_list), np.array(qt_list))
-        except ValueError, ZeroDivisionError:
+        except (ValueError, ZeroDivisionError):
             qtvi_score = None
 
         try:
@@ -188,7 +182,7 @@ def analyze_ecg(
                 "pearson_r": fit_res["pearson_r"],
                 "p_value": fit_res["p_value"],
             }
-        except ValueError, ZeroDivisionError:
+        except (ValueError, ZeroDivisionError):
             qtrr_metrics = None
 
     if progress_callback:

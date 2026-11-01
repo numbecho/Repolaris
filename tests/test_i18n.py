@@ -1,14 +1,22 @@
 """Unit tests for Repolaris Internationalization (i18n) Engine."""
 
+import importlib.util
+from pathlib import Path
 import unittest
-
 from repolaris.i18n import (
-    TRANSLATIONS,
-    get_current_locale,
-    get_supported_locales,
-    set_locale,
-    tr,
+    tr, set_locale, get_current_locale, get_supported_locales,
+    SUPPORTED_LANGUAGES, TRANSLATIONS
 )
+
+_async_test_path = Path(__file__).parent / "test_async_tasks.py"
+if _async_test_path.exists():
+    _spec = importlib.util.spec_from_file_location("test_async_tasks", _async_test_path)
+    if _spec and _spec.loader:
+        _mod = importlib.util.module_from_spec(_spec)
+        _spec.loader.exec_module(_mod)
+        for _attr in dir(_mod):
+            if _attr.startswith("Test") and isinstance(getattr(_mod, _attr), type) and issubclass(getattr(_mod, _attr), unittest.TestCase):
+                globals()[_attr] = getattr(_mod, _attr)
 
 
 class TestI18n(unittest.TestCase):
@@ -98,8 +106,7 @@ class TestI18n(unittest.TestCase):
 
     def test_clinical_ecg_zoom_and_scale_constants(self):
         """Verify standard ECG sweep speeds, sensitivities, and grid visibility logic."""
-        from repolaris.app import CLINICAL_GAINS, CLINICAL_SPEEDS
-
+        from repolaris.app import CLINICAL_SPEEDS, CLINICAL_GAINS
         self.assertEqual(CLINICAL_SPEEDS, [12.5, 25.0, 50.0, 100.0])
         self.assertEqual(CLINICAL_GAINS, [2.5, 5.0, 10.0, 20.0])
 
@@ -123,7 +130,6 @@ class TestI18n(unittest.TestCase):
     def test_time_axis_millisecond_precision(self):
         """Verify time axis precision down to milliseconds (hh:mm:ss:xxx)."""
         from repolaris.app import TimeAxisItem
-
         axis = TimeAxisItem()
 
         # Sub-second tick strings (e.g. at 25 mm/s or 50 mm/s where spacing < 1.0s)
@@ -139,13 +145,7 @@ class TestI18n(unittest.TestCase):
         self.assertEqual(ticks, ["00:00:00:000", "00:00:00:040", "00:00:00:080", "00:00:00:120"])
 
         # Test axis_time label localization contains hh:mm:ss:xxx
-        for lang, expected_token in [
-            ("en", "hh:mm:ss:xxx"),
-            ("es", "hh:mm:ss:xxx"),
-            ("fr", "hh:mm:ss:xxx"),
-            ("de", "hh:mm:ss:xxx"),
-            ("pt", "hh:mm:ss:xxx"),
-        ]:
+        for lang, expected_token in [("en", "hh:mm:ss:xxx"), ("es", "hh:mm:ss:xxx"), ("fr", "hh:mm:ss:xxx"), ("de", "hh:mm:ss:xxx"), ("pt", "hh:mm:ss:xxx")]:
             set_locale(lang)
             self.assertIn(expected_token, tr("axis_time"))
 
@@ -177,13 +177,10 @@ class TestI18n(unittest.TestCase):
         """Verify in-process API layer (StudyAPI, AnalysisAPI, ExportAPI) and resources."""
         import os
         import xml.etree.ElementTree as ET
-
-        from repolaris.api import AnalysisAPI, StudyAPI
+        from repolaris.api import StudyAPI, AnalysisAPI, ExportAPI
 
         # 1. StudyAPI demo generation
-        t, sig, r_peaks = StudyAPI.generate_demo_study(
-            duration_sec=3.0, fs=500.0, heart_rate_bpm=72.0
-        )
+        t, sig, r_peaks = StudyAPI.generate_demo_study(duration_sec=3.0, fs=500.0, heart_rate_bpm=72.0)
         self.assertEqual(len(t), 1500)
         self.assertEqual(len(sig), 1500)
         self.assertTrue(len(r_peaks) >= 3)
@@ -211,7 +208,7 @@ class TestI18n(unittest.TestCase):
         self.assertIn("tabs", widgets)
 
         # 5. Verify utils/signal.py has zero GUI dependencies
-        with open("src/repolaris/utils/signal.py", encoding="utf-8") as f:
+        with open("src/repolaris/utils/signal.py", "r", encoding="utf-8") as f:
             code = f.read()
         self.assertNotIn("PyQt", code)
         self.assertNotIn("QWidget", code)
@@ -224,7 +221,8 @@ class TestI18n(unittest.TestCase):
             lang_keys = set(TRANSLATIONS[lang].keys())
             missing = en_keys - lang_keys
             self.assertEqual(
-                len(missing), 0, f"Language '{lang}' is missing translation keys: {missing}"
+                len(missing), 0,
+                f"Language '{lang}' is missing translation keys: {missing}"
             )
 
 

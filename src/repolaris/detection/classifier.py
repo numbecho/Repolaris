@@ -17,26 +17,23 @@ Also detects structural ectopic rhythm sequences:
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
-from enum import StrEnum
-from typing import Any
-
+from dataclasses import dataclass, asdict
+from enum import Enum, StrEnum
+from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 
 
 class BeatClass(StrEnum):
     """Standard ANSI/AAMI EC57 heartbeat classification codes."""
-
-    NORMAL = "N"  # Normal, LBBB, RBBB, nodal escape
-    PVC = "V"  # Premature Ventricular Contraction / Ventricular Ectopic
-    PAC = "S"  # Premature Atrial Contraction / Supraventricular Ectopic
-    FUSION = "F"  # Fusion of normal and ventricular beat
-    UNKNOWN = "Q"  # Unclassifiable / Paced / Artifact
+    NORMAL = "N"          # Normal, LBBB, RBBB, nodal escape
+    PVC = "V"             # Premature Ventricular Contraction / Ventricular Ectopic
+    PAC = "S"             # Premature Atrial Contraction / Supraventricular Ectopic
+    FUSION = "F"          # Fusion of normal and ventricular beat
+    UNKNOWN = "Q"         # Unclassifiable / Paced / Artifact
 
 
 class RhythmPattern(StrEnum):
     """Repetitive cardiac rhythm and ectopic coupling sequences."""
-
     NORMAL_SINUS = "NSR"
     BIGEMINY = "BIGEMINY"
     TRIGEMINY = "TRIGEMINY"
@@ -51,23 +48,18 @@ class RhythmPattern(StrEnum):
 @dataclass
 class BeatFeatures:
     """Quantitative morphological and timing features for a single heartbeat."""
-
     pre_rr_sec: float
     post_rr_sec: float
-    pre_rr_ratio: float  # RR_i / median(RR) - measures prematurity (<0.8 = premature)
-    post_rr_ratio: float  # RR_{i+1} / median(RR) - measures compensatory pause (>1.1 = pause)
-    compensatory_ratio: (
-        float  # (RR_i + RR_{i+1}) / (2 * median(RR)) - ~1.0 for full compensatory pause
-    )
-    qrs_duration_ms: float  # Width of depolarization complex (>120 ms suggests ventricular origin)
-    qrs_peak_to_peak_mv: float  # Peak-to-peak voltage within QRS window
-    qrs_energy: float  # Sum of squared derivative/voltage samples
-    template_correlation: (
-        float  # Pearson correlation with patient's dominant median normal template
-    )
-    polarity: int  # Dominant polarity (+1 positive R, -1 negative QS)
+    pre_rr_ratio: float           # RR_i / median(RR) - measures prematurity (<0.8 = premature)
+    post_rr_ratio: float          # RR_{i+1} / median(RR) - measures compensatory pause (>1.1 = pause)
+    compensatory_ratio: float     # (RR_i + RR_{i+1}) / (2 * median(RR)) - ~1.0 for full compensatory pause
+    qrs_duration_ms: float        # Width of depolarization complex (>120 ms suggests ventricular origin)
+    qrs_peak_to_peak_mv: float    # Peak-to-peak voltage within QRS window
+    qrs_energy: float             # Sum of squared derivative/voltage samples
+    template_correlation: float   # Pearson correlation with patient's dominant median normal template
+    polarity: int                 # Dominant polarity (+1 positive R, -1 negative QS)
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> Dict[str, Any]:
         """Serializes features to a dictionary."""
         return asdict(self)
 
@@ -75,7 +67,6 @@ class BeatFeatures:
 @dataclass
 class ClassifiedBeat:
     """Enriched diagnostic beat record containing classifications and metrics."""
-
     beat_index: int
     r_peak_sample: int
     time_sec: float
@@ -85,7 +76,7 @@ class ClassifiedBeat:
     features: BeatFeatures
     diagnostic_rationale: str
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> Dict[str, Any]:
         """Serializes classified beat to a JSON-compatible dictionary."""
         d = asdict(self)
         d["beat_class"] = self.beat_class.value
@@ -170,16 +161,15 @@ def extract_beat_features(
 
     # 2. QRS morphology features
     q_on = q_onsets[beat_idx] if beat_idx < len(q_onsets) else r_curr - int(0.04 * fs)
-    t_ends[beat_idx] if beat_idx < len(t_ends) else r_curr + int(0.3 * fs)
 
     # Estimate QRS offset as inflection ~40-60ms after R peak
     qrs_off_est = min(len(signal) - 1, r_curr + int(0.06 * fs))
     qrs_dur_ms = max(20.0, float(qrs_off_est - q_on) / fs * 1000.0)
 
-    qrs_segment = signal[max(0, q_on) : min(len(signal), qrs_off_est + 1)]
+    qrs_segment = signal[max(0, q_on): min(len(signal), qrs_off_est + 1)]
     if len(qrs_segment) > 1:
         p2p = float(np.max(qrs_segment) - np.min(qrs_segment))
-        energy = float(np.sum(qrs_segment**2))
+        energy = float(np.sum(qrs_segment ** 2))
         polarity = 1 if signal[r_curr] >= np.mean(qrs_segment) else -1
     else:
         p2p = 1.0
@@ -195,7 +185,7 @@ def extract_beat_features(
     if t_start >= 0 and t_end_samp <= len(signal) and np.std(median_template) > 1e-6:
         candidate = signal[t_start:t_end_samp]
         cand_std = np.std(candidate)
-        corr = float(np.corrcoef(median_template, candidate)[0, 1]) if cand_std > 1e-06 else 0.0
+        corr = float(np.corrcoef(median_template, candidate)[0, 1]) if cand_std > 1e-6 else 0.0
     else:
         corr = 1.0
 
@@ -218,7 +208,7 @@ def classify_heartbeat(
     pvc_pre_rr_threshold: float = 0.82,
     pvc_width_threshold_ms: float = 110.0,
     pvc_corr_threshold: float = 0.75,
-) -> tuple[BeatClass, float, str]:
+) -> Tuple[BeatClass, float, str]:
     """Classifies a heartbeat using AAMI EC57 diagnostic criteria.
 
     Decision Rules:
@@ -277,9 +267,7 @@ def classify_heartbeat(
     # Rule 4: Severely corrupted / unclassifiable beat (Q)
     if features.template_correlation < 0.30 and not is_premature:
         conf = 0.60
-        rationale = (
-            f"Unclassifiable waveform or artifact (corr: {features.template_correlation:.2f})"
-        )
+        rationale = f"Unclassifiable waveform or artifact (corr: {features.template_correlation:.2f})"
         return BeatClass.UNKNOWN, conf, rationale
 
     # Rule 5: Normal Sinus Beat (N)
@@ -288,7 +276,7 @@ def classify_heartbeat(
     return BeatClass.NORMAL, conf, rationale
 
 
-def detect_rhythm_patterns(classified_beats: list[ClassifiedBeat]) -> list[ClassifiedBeat]:
+def detect_rhythm_patterns(classified_beats: List[ClassifiedBeat]) -> List[ClassifiedBeat]:
     """Identifies multi-beat rhythm structures (Bigeminy, Trigeminy, Couplets, VT runs).
 
     Args:
@@ -364,7 +352,7 @@ def classify_all_beats(
     q_onsets: np.ndarray,
     t_ends: np.ndarray,
     fs: float,
-) -> tuple[list[ClassifiedBeat], dict[str, Any]]:
+) -> Tuple[List[ClassifiedBeat], Dict[str, Any]]:
     """Master workflow: extracts features, classifies every beat, and detects rhythm patterns.
 
     Args:
@@ -388,7 +376,7 @@ def classify_all_beats(
     median_rr = float(np.median(rr_intervals))
     median_template = compute_median_template(signal, r_peaks, fs)
 
-    classified_beats: list[ClassifiedBeat] = []
+    classified_beats: List[ClassifiedBeat] = []
 
     # 2. Extract features and classify each beat
     for idx in range(n_peaks):
@@ -404,11 +392,7 @@ def classify_all_beats(
         )
 
         b_class, conf, rationale = classify_heartbeat(features)
-        r_pattern = (
-            RhythmPattern.NORMAL_SINUS
-            if b_class == BeatClass.NORMAL
-            else RhythmPattern.ISOLATED_ECTOPIC
-        )
+        r_pattern = RhythmPattern.NORMAL_SINUS if b_class == BeatClass.NORMAL else RhythmPattern.ISOLATED_ECTOPIC
 
         classified_beats.append(
             ClassifiedBeat(
@@ -427,14 +411,14 @@ def classify_all_beats(
     classified_beats = detect_rhythm_patterns(classified_beats)
 
     # 4. Generate epidemiological burden summary
-    counts: dict[str, int] = {
+    counts: Dict[str, int] = {
         BeatClass.NORMAL.value: 0,
         BeatClass.PVC.value: 0,
         BeatClass.PAC.value: 0,
         BeatClass.FUSION.value: 0,
         BeatClass.UNKNOWN.value: 0,
     }
-    rhythm_counts: dict[str, int] = {
+    rhythm_counts: Dict[str, int] = {
         RhythmPattern.BIGEMINY.value: 0,
         RhythmPattern.TRIGEMINY.value: 0,
         RhythmPattern.COUPLET.value: 0,

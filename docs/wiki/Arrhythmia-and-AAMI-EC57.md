@@ -72,7 +72,7 @@ mgr.override_annotation(
     sample=15024,
     new_symbol="V",
     physician_id="Dr. Reviewer",
-    notes="Widened QRS with compensatory pause",
+    notes="Widened QRS with compensatory pause"
 )
 
 # Export audit log

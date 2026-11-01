@@ -6,14 +6,13 @@ Supports:
 - Native fallback with zero required dependencies, plus optional 'wfdb' package support.
 """
 
-from dataclasses import dataclass
 from pathlib import Path
-
+from dataclasses import dataclass
+from typing import Optional, List, Tuple
 import numpy as np
 
 try:
     import wfdb
-
     HAS_WFDB = True
 except ImportError:
     HAS_WFDB = False
@@ -25,8 +24,8 @@ class WFDBRecord:
     sampling_rate: float
     num_signals: int
     num_samples: int
-    lead_names: list[str]
-    units: list[str]
+    lead_names: List[str]
+    units: List[str]
     signals: np.ndarray  # Shape: (num_signals, num_samples) in physical mV
 
 
@@ -88,13 +87,13 @@ def read_wfdb(record_path_or_header: str | Path) -> WFDBRecord:
                 num_samples=record.sig_len,
                 lead_names=record.sig_name,
                 units=record.units,
-                signals=signals,
+                signals=signals
             )
         except Exception:
             pass  # Fall back to native reader below
 
     # Pure-Python Native WFDB Parser
-    with open(header_path, encoding="utf-8", errors="ignore") as f:
+    with open(header_path, "r", encoding="utf-8", errors="ignore") as f:
         lines = [line.strip() for line in f if line.strip() and not line.startswith("#")]
 
     if not lines:
@@ -108,9 +107,7 @@ def read_wfdb(record_path_or_header: str | Path) -> WFDBRecord:
     sig_len = int(first_tokens[3]) if len(first_tokens) > 3 else 0
 
     if not (1 <= num_signals <= 64):
-        raise ValueError(
-            f"Security Alert: Invalid WFDB signal count ({num_signals}). Must be between 1 and 64."
-        )
+        raise ValueError(f"Security Alert: Invalid WFDB signal count ({num_signals}). Must be between 1 and 64.")
     if sig_len < 0 or sig_len > 100_000_000:
         raise ValueError(f"Security Alert: Invalid WFDB sample count ({sig_len}).")
 
@@ -133,7 +130,7 @@ def read_wfdb(record_path_or_header: str | Path) -> WFDBRecord:
         gain_str = tokens[2] if len(tokens) > 2 else "200.0"
         baseline = 0
         unit = "mV"
-
+        
         if "(" in gain_str and ")" in gain_str:
             g_part, rest = gain_str.split("(")
             b_part = rest.split(")")[0]
@@ -166,9 +163,7 @@ def read_wfdb(record_path_or_header: str | Path) -> WFDBRecord:
         raw_bytes = f.read()
 
     if len(raw_bytes) == 0:
-        raise ValueError(
-            f"Corrupt WFDB record: Binary data file '{dat_path.name}' contains 0 bytes."
-        )
+        raise ValueError(f"Corrupt WFDB record: Binary data file '{dat_path.name}' contains 0 bytes.")
 
     main_format = formats[0] if formats else 16
     if main_format == 16:
@@ -177,13 +172,9 @@ def read_wfdb(record_path_or_header: str | Path) -> WFDBRecord:
         actual_samples = len(raw_arr) // num_signals
         matrix = raw_arr[: actual_samples * num_signals].reshape(actual_samples, num_signals).T
     elif main_format == 212:
-        matrix = _read_format_212(
-            raw_bytes, num_signals, sig_len or (len(raw_bytes) * 2 // 3 // num_signals)
-        )
+        matrix = _read_format_212(raw_bytes, num_signals, sig_len or (len(raw_bytes) * 2 // 3 // num_signals))
     else:
-        raise ValueError(
-            f"Unsupported WFDB format {main_format}. (Supported: Format 16 and Format 212)"
-        )
+        raise ValueError(f"Unsupported WFDB format {main_format}. (Supported: Format 16 and Format 212)")
 
     # Convert to physical millivolts
     physical_signals = np.zeros_like(matrix, dtype=np.float32)
@@ -199,5 +190,5 @@ def read_wfdb(record_path_or_header: str | Path) -> WFDBRecord:
         num_samples=physical_signals.shape[1],
         lead_names=lead_names,
         units=units,
-        signals=physical_signals,
+        signals=physical_signals
     )

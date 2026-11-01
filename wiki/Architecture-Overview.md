@@ -21,7 +21,8 @@ src/repolaris/
 │   ├── ishne_reader.py       # ISHNE 1.0 (.ecg) binary parser and writer
 │   ├── e3c_reader.py         # Excorde 3C (.e3c) in-memory zip & binary parser
 │   ├── wfdb_reader.py        # PhysioNet WFDB (.hea/.dat) Format 16/212 parser
-│   └── edf_reader.py         # European Data Format (.edf / .edf+) parser
+│   ├── edf_reader.py         # European Data Format (.edf / .edf+) parser
+│   └── db.py                 # SQLite relational + JSON document persistence adapter
 │
 ├── detection/                # Electrophysiological Algorithms & Classification
 │   ├── qrs.py                # Derivative-energy R-peak detector (Pan-Tompkins)

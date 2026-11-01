@@ -1,7 +1,5 @@
 import unittest
-
-from repolaris.detection.events import detect_clinical_events
-
+from repolaris.detection.events import detect_clinical_events, ECGEvent
 
 class TestEventsDetection(unittest.TestCase):
     def test_detect_pause_and_qtc(self):
@@ -13,7 +11,7 @@ class TestEventsDetection(unittest.TestCase):
                 "rr_sec": 0.8,
                 "hr_bpm": 75.0,
                 "qt_ms": 380.0,
-                "qtc": {"bazett_ms": 425.0},
+                "qtc": {"bazett_ms": 425.0}
             },
             {
                 "beat_index": 1,
@@ -21,7 +19,7 @@ class TestEventsDetection(unittest.TestCase):
                 "rr_sec": 2.6,  # Sinus pause > 2.5s
                 "hr_bpm": 23.0,
                 "qt_ms": 380.0,
-                "qtc": {"bazett_ms": 400.0},
+                "qtc": {"bazett_ms": 400.0}
             },
             {
                 "beat_index": 2,
@@ -29,7 +27,7 @@ class TestEventsDetection(unittest.TestCase):
                 "rr_sec": 0.8,
                 "hr_bpm": 75.0,
                 "qt_ms": 520.0,
-                "qtc": {"bazett_ms": 535.0},  # Severe QTc prolongation > 500ms
+                "qtc": {"bazett_ms": 535.0}  # Severe QTc prolongation > 500ms
             },
             {
                 "beat_index": 3,
@@ -37,8 +35,8 @@ class TestEventsDetection(unittest.TestCase):
                 "rr_sec": 0.45,  # Tachycardia 133 BPM
                 "hr_bpm": 133.3,
                 "qt_ms": 300.0,
-                "qtc": {"bazett_ms": 447.0},
-            },
+                "qtc": {"bazett_ms": 447.0}
+            }
         ]
 
         events = detect_clinical_events(beats)
@@ -59,7 +57,6 @@ class TestEventsDetection(unittest.TestCase):
         qtc_ev = [ev for ev in events if ev.event_type == "CRITICAL_QTC"][0]
         self.assertEqual(qtc_ev.severity, "CRITICAL")
         self.assertGreaterEqual(qtc_ev.metric_value, 500.0)
-
 
 if __name__ == "__main__":
     unittest.main()

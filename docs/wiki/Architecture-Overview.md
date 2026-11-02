@@ -6,7 +6,7 @@ Repolaris adopts a modular, decoupled architecture where signal conditioning, el
 
 ## 1. Package Decomposition
 
-All modern source code resides in `src/repolaris/`, accompanied by a 100% backward compatibility shim in `src/pyecg/`:
+All modern source code resides in `src/repolaris/`:
 
 ```
 src/repolaris/
@@ -22,7 +22,6 @@ src/repolaris/
 │   ├── e3c_reader.py         # Excorde 3C (.e3c) in-memory zip & binary parser
 │   ├── wfdb_reader.py        # PhysioNet WFDB (.hea/.dat) Format 16/212 parser
 │   ├── edf_reader.py         # European Data Format (.edf / .edf+) parser
-│   └── db.py                 # SQLite relational + JSON document persistence adapter
 │
 ├── detection/                # Electrophysiological Algorithms & Classification
 │   ├── qrs.py                # Derivative-energy R-peak detector (Pan-Tompkins)

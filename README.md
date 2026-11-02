@@ -2,10 +2,10 @@
 
 **Modernized ECG Analysis, Ventricular Repolarization & Universal Holter Framework**
 
-[![Version](https://img.shields.io/badge/Version-v0.5.0-cyan.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-v0.6.0-cyan.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.14%2B-brightgreen.svg)](pyproject.toml)
-[![Tests](https://img.shields.io/badge/Tests-51%20Passed-success.svg)](tests/)
+[![Tests](https://img.shields.io/badge/Tests-65%20Passed-success.svg)](tests/)
 [![GUI](https://img.shields.io/badge/GUI-PyQt6%20%2B%20PyQtGraph-purple.svg)](src/repolaris/app.py)
 [![Wiki](https://img.shields.io/badge/Documentation-Wiki-orange.svg)](wiki/Home.md)
 
@@ -40,6 +40,7 @@ Exhaustive guides, algorithmic specifications, format references, and GUI tutori
 - **Automated Clinical Events Triage:** Automatically scans multi-hour recordings and indexes critical episodes: severe QTc prolongation (QTc >= 500 ms), borderline prolongation (QTc >= 480 ms), short QT (QTc <= 340 ms), sinus pauses (RR >= 2.0 s), rate extremes (max/min HR, tachycardia, bradycardia), and ventricular ectopics (PVCs).
 - **Interactive 60fps GUI (`pyqtgraph`):** Hardware-accelerated desktop viewer providing smooth panning across 24-hour recordings, draggable Q-onset and T-end calipers with live Bazett/Fridericia recalculation, a one-click click-to-seek Events Diary, and conditional channel-sensing gating that automatically adapts between single-lead patches and 12-lead Holters.
 - **De-Identified Colleague Study Exchange (`.pecg`):** A custom single-file container bundling continuous waveforms with clinical review notes and caliper overrides. Automatically strips direct patient identifiers while strictly preserving **Age**, **Race/Ethnicity**, **Sex**, **Pacemaker Status**, and **Clinical Indication** for accurate diagnostic review. Supports **Zstandard (`zstd`)**, **Deflate**, and raw zero-copy `np.memmap` storage.
+- **Type-Safe & Decoupled:** Strict type annotations (PEP 484/585/604) across all modules, allowing the signal engine to run headlessly in scripts, automated pipelines, or Docker containers without GUI overhead.
 
 ---
 

@@ -58,7 +58,7 @@ The workstation incorporates a native desktop menu bar organized into three dedi
 * **Help (`Help(shortcut link to wiki | License | about)`):**
   * **Documentation & Wiki (`F1`):** Direct shortcut link opening the official Repolaris documentation wiki and clinical user guide.
   * **License:** Displays the open-source Apache-2.0 software license terms and conditions.
-  * **About Repolaris:** Displays the About dialog featuring brand identity, electrophysiology credits (AHA/ACC/HRS, FDA E14, AAMI EC57), and release version (v0.5.0).
+  * **About Repolaris:** Displays the About dialog featuring brand identity, electrophysiology credits (AHA/ACC/HRS, FDA E14, AAMI EC57), and release version (v0.6.0).
 
 ### 3.1 Dynamic Multi-Lead Dropdown & Lead Switching
 * Located in the **Study Controls** panel directly under the Open/Reload buttons.

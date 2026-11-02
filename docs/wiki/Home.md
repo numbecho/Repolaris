@@ -37,7 +37,7 @@ Originally introduced as **PyECG** (*Suárez-León et al., 2018; Universidad de 
 
 ---
 
-## Primary Highlights of Repolaris 0.5.0
+## Primary Highlights of Repolaris 0.6.0
 
 * **Universal Format Ingestion:** Zero external proprietary software required to ingest ISHNE 1.0 `.ecg`, Excorde 3C `.e3c`, European Data Format `.edf`, PhysioNet WFDB `.hea`/`.dat`, or delimited `.csv`.
 * **Spatial Repolarization Heterogeneity:** Synchronous multi-lead QT Dispersion ($QT_d$) and transmural repolarization dispersion ($T_{pe,d}$) across qualified diagnostic leads ($\ge 3$ channels).

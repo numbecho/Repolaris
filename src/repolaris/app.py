@@ -1565,6 +1565,9 @@ class MainWindow(QMainWindow):
         self.card_sqi = self._create_kpi_card(tr("kpi_sqi_title"), "Good", tr("sqi_sub_clean", snr=20.0))
         ov_layout.addWidget(self.card_sqi)
 
+        self.card_qtd = self._create_kpi_card("Spatial QT Dispersion (QTd)", "N/A", "Single-Lead Wearable Mode")
+        ov_layout.addWidget(self.card_qtd)
+
         # Advanced Section
         self.adv_group = QGroupBox(tr("adv_group_title"))
         adv_layout = QVBoxLayout(self.adv_group)
@@ -2340,6 +2343,21 @@ class MainWindow(QMainWindow):
             self.time_data = np.arange(len(self.signal_data)) / self.fs
             self._run_pipeline_and_display()
 
+    def _evaluate_channel_capabilities(self) -> Dict[str, Any]:
+        """Dynamic channel-sensing state machine adapting UI between single-lead and multi-lead modes."""
+        n_channels = len(self.multi_lead_signals)
+        is_multilead = n_channels >= 3
+        if hasattr(self, "card_qtd"):
+            self.card_qtd.setEnabled(is_multilead)
+            if not is_multilead:
+                self.card_qtd.val_lbl.setText("N/A")
+                self.card_qtd.sub_lbl.setText("Single-Lead Mode (<3 channels)")
+        return {
+            "channel_count": n_channels,
+            "is_multilead_quorum": is_multilead,
+            "mode": "MULTI_LEAD_HOLTER" if is_multilead else "SINGLE_LEAD_PATCH",
+        }
+
     def _run_pipeline_and_display(self) -> None:
         if self.signal_data is None or len(self.signal_data) == 0:
             QMessageBox.warning(self, tr("warning_title"), tr("warn_signal_missing"))
@@ -2354,8 +2372,16 @@ class MainWindow(QMainWindow):
         sig = self.signal_data
         fs = self.fs
 
+        self._evaluate_channel_capabilities()
+        multi_sigs = self.multi_lead_signals if len(self.multi_lead_signals) >= 3 else None
+
         def _task(progress_callback=None):
-            return AnalysisAPI.analyze_signal(sig, fs=fs, progress_callback=progress_callback)
+            return AnalysisAPI.analyze_signal(
+                sig,
+                fs=fs,
+                progress_callback=progress_callback,
+                multi_lead_signals=multi_sigs,
+            )
 
         def _on_done(results):
             self.analysis_results = results
@@ -2469,6 +2495,19 @@ class MainWindow(QMainWindow):
         self.card_sqi.val_lbl.setText(verdict)
         self.card_sqi.val_lbl.setStyleSheet(f"color: {sqi_color};")
         self.card_sqi.sub_lbl.setText(sqi_sub)
+
+        # 4b. Spatial QT Dispersion Card (Multi-Lead Gated)
+        disp = self.analysis_results.get("dispersion")
+        if hasattr(self, "card_qtd"):
+            if disp and "summary" in disp:
+                mean_qtd = disp["summary"].get("mean_qtd_ms", 0.0)
+                mean_tped = disp["summary"].get("mean_tped_ms", 0.0)
+                valid_cnt = disp["summary"].get("valid_lead_count", 0)
+                self.card_qtd.setEnabled(True)
+                self.card_qtd.val_lbl.setText(f"{mean_qtd:.1f} ms")
+                self.card_qtd.sub_lbl.setText(f"Tpe,d: {mean_tped:.1f} ms ({valid_cnt} valid leads)")
+            else:
+                self._evaluate_channel_capabilities()
 
         # 5. Advanced Repolarization section
         if qtvi is not None:

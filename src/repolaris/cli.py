@@ -1,4 +1,4 @@
-"""Command-line interface (CLI) for the PyECG analysis workstation."""
+"""Command-line interface (CLI) for the Repolaris analysis workstation."""
 
 from __future__ import annotations
 
@@ -24,10 +24,10 @@ def print_cli_progress(fraction: float, message: str) -> None:
 
 
 def main(argv: Optional[list[str]] = None) -> None:
-    """Entrypoint for the PyECG command-line tool."""
+    """Entrypoint for the Repolaris command-line tool."""
     parser = argparse.ArgumentParser(
         prog="repolaris",
-        description="PyECG: Modern ECG, QT interval, and ventricular repolarization CLI",
+        description="Repolaris: Modern ECG, QT interval, and ventricular repolarization CLI",
     )
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
 
@@ -137,33 +137,53 @@ def main(argv: Optional[list[str]] = None) -> None:
     qtvi = results.get("qtvi")
     qtrr = results.get("qtrr")
     sqi = results.get("sqi", {})
+    hrv = results.get("hrv")
+    twa = results.get("twa")
+    hyst = results.get("hysteresis")
     events = results.get("events", [])
 
     print("========================================")
-    print("      PyECG Repolarization Report       ")
+    print("    Repolaris Repolarization Report     ")
     print("========================================")
     print(f"Heart Rate:          {summary['mean_hr_bpm']:.1f} BPM")
     print(f"Total Beats:         {summary['total_beats']}")
     print(f"Mean QT:             {summary['mean_qt_ms']:.1f} ms")
     print(f"Mean QTc Bazett:     {summary['mean_qtc_bazett_ms']:.1f} ms")
     print(f"Mean QTc Fridericia: {summary['mean_qtc_fridericia_ms']:.1f} ms")
+    if "mean_qtc_framingham_ms" in summary:
+        print(f"Mean QTc Framingham: {summary['mean_qtc_framingham_ms']:.1f} ms")
+    if "mean_qtc_hodges_ms" in summary:
+        print(f"Mean QTc Hodges:     {summary['mean_qtc_hodges_ms']:.1f} ms")
     if ectopic:
         print(f"PVC Count:           {ectopic.get('pvc_count', 0)} ({ectopic.get('pvc_percentage', 0.0):.1f}%)")
         print(f"PAC Count:           {ectopic.get('pac_count', 0)}")
     if qtvi is not None:
         print(f"QTVI:                {qtvi:.2f}")
     if qtrr:
-        print(f"QT-RR Slope (Beta):  {qtrr.get('linear_slope', 0):.4f}")
+        slope_val = qtrr.get("slope", qtrr.get("linear_slope", 0.0))
+        print(f"QT-RR Slope (Beta):  {slope_val:.4f}")
+    if hyst:
+        print(f"Hysteresis Lambda*:  {hyst.get('optimal_lambda', 0.0):.4f} (t90: {hyst.get('t90_sec', 0.0):.1f}s)")
+    if hrv and "time_domain" in hrv:
+        td = hrv["time_domain"]
+        print(f"HRV (SDNN / RMSSD):  {td.get('sdnn', 0.0):.1f} ms / {td.get('rmssd', 0.0):.1f} ms")
+    if twa and "mma" in twa:
+        print(f"Peak MMA TWA:        {twa['mma'].get('max_v_mma_uv', 0.0):.1f} uV ({twa['mma'].get('risk_level', 'NORMAL')})")
     if sqi:
         print(f"SQI (pSQI/basSQI):   {sqi.get('psqi', 0):.2f} / {sqi.get('bassqi', 0):.2f}")
-        print(f"Quality Status:      {sqi.get('status', 'Unknown')}")
+        print(f"Quality Status:      {sqi.get('verdict', sqi.get('status', 'Unknown'))}")
     if events:
         print(f"Clinical Events:     {len(events)} detected")
         for ev in events[:5]:
-            t_sec = getattr(ev, "time_offset_sec", ev.get("time_offset_sec", ev.get("time_sec", 0.0)) if isinstance(ev, dict) else 0.0)
-            etype = getattr(ev, "event_type", ev.get("event_type", "Event") if isinstance(ev, dict) else "Event")
+            if isinstance(ev, dict):
+                t_sec = ev.get("timestamp_sec", ev.get("time_offset_sec", ev.get("time_sec", 0.0)))
+                etype = ev.get("event_type", "Event")
+                desc = ev.get("description", "")
+            else:
+                t_sec = getattr(ev, "timestamp_sec", getattr(ev, "time_offset_sec", 0.0))
+                etype = getattr(ev, "event_type", "Event")
+                desc = getattr(ev, "description", "")
             etype_str = etype.value if hasattr(etype, "value") else str(etype)
-            desc = getattr(ev, "description", ev.get("description", "") if isinstance(ev, dict) else "")
             print(f"  - [{t_sec:.1f}s] {etype_str}: {desc}")
         if len(events) > 5:
             print(f"  ... and {len(events) - 5} more")

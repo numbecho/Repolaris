@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1] - 2026-11-03
+
+### Added
+- **Peer-Reviewed Anti-Regression Conditioning (`repolaris.config`, `repolaris.preprocessing`)**:
+  - Updated `FilterConfig.lowcut` default to `0.05 Hz` (with `highcut = 45.0 Hz` and narrow powerline notch `notch_quality = 30.0`) to preserve low-frequency ST-T morphology per AHA/ACC/HRS guidelines (Kligfield et al., 2007), while retaining the cascaded two-stage median baseline filter (`200 ms / 600 ms`; de Chazal et al., 2004).
+- **Two-Stage Signal Quality Assessment & Six-Index Pairwise Lead Voting (`repolaris.detection.sqi`)**:
+  - Added fourth-moment kurtosis (`compute_ksqi`), third-moment skewness (`compute_ssqi`), and `rank_leads_two_stage()`.
+  - Enforces Stage 1 absolute physiological rejection gates (`pSQI`, `basSQI`, `kSQI`, `sSQI`, `SNR_dB`, non-flatline ratio; Li, Rajagopalan & Clifford, 2014) prior to Stage 2 pairwise six-index relative lead voting (VI_k in [-6.0, +6.0]; Suárez-León et al., 2018) so detached or saturated leads can never win a relative vote.
+- **Zhang (2006) Sliding-Window Area T-End Delineation (`repolaris.detection.t_end`)**:
+  - Added `method="zhang_area"` implementing the sliding-window area (SWA) algorithm (Zhang et al., *IEEE TBME* 2006) alongside `hybrid`, `tangent` (ICH E14), and `threshold` modes.
+- **Complete 10-Model Domain-Guarded QT-RR Restitution Suite (`repolaris.detection.qtrr`)**:
+  - Expanded `SUPPORTED_QTRR_MODELS` and `fit_all_qtrr_models()` to all 10 biparametric models from Pueyo et al. (2004) (`linear`, `hyperbolic`, `parabolic_log`, `logarithmic`, `shifted_log`, `exponential`, `arctan`, `tanh`, `arcsinh`, `arccosh`) with Vandermonde and domain positivity conditioning guards (`_safe_linear_fit`) and individualized QTc,ind(RR = 1.0 s) estimation.
+- **Interactive Workstation QT-RR Settings & Dynamics Visualization Tab (`repolaris.app`, `repolaris.i18n`)**:
+  - Enhanced `SettingsDialog` (`⚙️ Settings`) with persistent selectors for all 10 Pueyo (2004) QT-RR models (plus `Auto-Select Best Model`), multi-beat hysteresis compensation (`EW`, `LW`, `Raw RR`), and T_end delineation method (`hybrid`, `tangent`, `zhang_area`, `threshold`).
+  - Added the `📈 QT-RR Dynamics` tab in `MainWindow` featuring an interactive PyQtGraph (RR, QT) vs. (RR_eff, QT) hysteresis cloud, continuous parametric regression curve, individualized QTc,ind marker, live telemetry banner, and clickable 10-model leaderboard (`qtrr_models_table`).
+  - Expanded automated verification test suite from 65 to 76 unit tests across all 5 localized languages (`en`, `es`, `fr`, `de`, `pt`).
+
 ## [0.6.0] - 2026-11-01
 
 ### Added
@@ -121,7 +138,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rate-corrected QT formulas (Bazett, Fridericia, Framingham, Hodges).
 - Berger QT Variability Index (QTVI) and 4 Hz uniform step-integration resampling.
 
-[Unreleased]: https://github.com/numbecho/repolaris/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/numbecho/repolaris/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/numbecho/repolaris/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/numbecho/repolaris/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/numbecho/repolaris/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/numbecho/repolaris/compare/v0.3.0...v0.4.0

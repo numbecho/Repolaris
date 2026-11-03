@@ -6,12 +6,18 @@ This document tracks architectural milestones, clinical electrophysiology module
 
 ## Completed Milestones
 
-### v0.6.0 — Advanced Autonomic & Spatial Repolarization Suite (Current Release)
+### v0.6.1 — Peer-Reviewed Anti-Regression Conditioning, Two-Stage SQI Voting & Interactive 10-Model QT-RR Workstation (Current Release)
+- **Non-Regressive Conditioning (`config.py`, `baseline.py`)**: Paired AHA/ACC/HRS $0.05\text{ Hz}$ zero-phase Butterworth passband (`notch_quality = 30.0`) with cascaded $200\text{ ms}/600\text{ ms}$ moving median baseline suppression (de Chazal et al., 2004).
+- **Two-Stage SQA Gate (`sqi.py`)**: Stage 1 absolute spectral/statistical rejection thresholds (Li et al., 2014) gating Stage 2 six-index pairwise lead voting (VI_k in [-6, +6]; Suárez-León et al., 2018).
+- **Four-Mode T-End Delineation (`t_end.py`)**: Added Zhang et al. (2006) sliding-window area (`zhang_area`) alongside `hybrid`, `tangent` (ICH E14), and `threshold`.
+- **10 Domain-Guarded QT-RR Models & Interactive GUI (`qtrr.py`, `app.py`)**: All 10 Pueyo et al. (2004) restitution formulations with conditioning guards, `SettingsDialog` selectors, and the `📈 QT-RR Dynamics` PyQtGraph cloud & 10-model leaderboard (76 automated unit tests passing).
+
+### v0.6.0 — Advanced Autonomic & Spatial Repolarization Suite
 - **`repolaris.detection.dispersion`**: Inter-lead spatial QT dispersion ($QT_d = QT_{\max} - QT_{\min}$), Fridericia rate-corrected dispersion ($QTc_d$), precordial transmural dispersion ($T_{\text{peak}}\text{–}T_{\text{end}}$ dispersion: $T_{pe,d}$), and dynamic lead quorum gating ($\ge 8$ valid leads for 12-lead, $\ge 3$ for Holter).
 - **`repolaris.detection.twa`**: Microvolt T-Wave Alternans via sub-sample aligned 128-beat Spectral FFT analysis ($0.5\text{ cycles/beat}$, $V_{\text{alt}} \ge 1.9\ \mu\text{V}$, $k \ge 3.0$) and continuous Modified Moving Average (MMA) template tracking.
 - **`repolaris.detection.hrt`**: Heart Rate Turbulence ($TO$ and $TS$) following solitary PVCs with strict sinus rhythm purity filtering and ISHNE Category 0/1/2 mortality risk stratification.
 - **`repolaris.detection.hrv`**: Task Force ESC/NASPE time-domain metrics ($SDNN$, $RMSSD$, $pNN50$, $SDANN$, $SDNN_{\text{index}}$), Welch periodogram frequency bands ($ULF$, $VLF$, $LF$, $HF$, $LF/HF$, $LF_{\text{nu}}$, $HF_{\text{nu}}$) over 4 Hz Berger-resampled series, and non-linear dynamics (Poincaré $SD_1/SD_2$, Sample Entropy, DFA $\alpha_1/\alpha_2$).
-- **`repolaris.detection.hysteresis`**: Multi-beat $\mathrm{QT}\text{–}\mathrm{RR}$ memory lag modeling using state-space Exponential Weighting (EW) and Linear Weighting (LW) kernels, patient-specific $\lambda^*$ optimization, and 90% adaptation latency ($t_{90}$).
+- **`repolaris.detection.hysteresis`**: Multi-beat $QT-RR$ memory lag modeling using state-space Exponential Weighting (EW) and Linear Weighting (LW) kernels, patient-specific $\lambda^*$ optimization, and 90% adaptation latency ($t_{90}$).
 - **Core Delineation & Rate-Correction Enhancements**: Hybrid steepest-descent tangent + threshold T-end delineation (`t_end.py`), Hodges linear $QT_c$ formula (`pulse_metrics.py`), active IIR powerline notch filtering in `pipeline.py`, and conditional multi-lead UI gating (`MainWindow._evaluate_channel_capabilities()`).
 
 ### v0.5.0 — Multi-Threaded I/O, Asynchronous Workers & UI Precompiler

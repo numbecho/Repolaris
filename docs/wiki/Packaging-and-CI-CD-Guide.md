@@ -84,9 +84,9 @@ briefcase package
 ```
 
 The resulting installers are located in `dist/`:
-- **Windows**: `dist/Repolaris-0.6.0.msi`
-- **macOS**: `dist/Repolaris-0.6.0.dmg`
-- **Linux**: `dist/Repolaris-0.6.0.AppImage` (or `.deb`)
+- **Windows**: `dist/Repolaris-0.6.1.msi`
+- **macOS**: `dist/Repolaris-0.6.1.dmg`
+- **Linux**: `dist/Repolaris-0.6.1.AppImage` (or `.deb`)
 
 ---
 

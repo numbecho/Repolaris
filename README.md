@@ -2,10 +2,10 @@
 
 **Modernized ECG Analysis, Ventricular Repolarization & Universal Holter Framework**
 
-[![Version](https://img.shields.io/badge/Version-v0.6.0-cyan.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-v0.6.1-cyan.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.14%2B-brightgreen.svg)](pyproject.toml)
-[![Tests](https://img.shields.io/badge/Tests-65%20Passed-success.svg)](tests/)
+[![Tests](https://img.shields.io/badge/Tests-76%20Passed-success.svg)](tests/)
 [![GUI](https://img.shields.io/badge/GUI-PyQt6%20%2B%20PyQtGraph-purple.svg)](src/repolaris/app.py)
 [![Wiki](https://img.shields.io/badge/Documentation-Wiki-orange.svg)](wiki/Home.md)
 
@@ -116,18 +116,18 @@ This project is licensed under the **Apache License, Version 2.0**. See the [LIC
 If you use this software in academic or clinical research, please cite the original foundational paper from Universidad de Oriente and KU Leuven:
 
 > **Suárez-León, A. A., Varon, C., Willems, R., Van Huffel, S., & Vázquez-Seisdedos, C. R. (2018).**  
-> *Herramienta para el análisis de la repolarización ventricular en el electrocardiograma.*  
-> Revista Ingeniería Electrónica, Automática y Comunicaciones (RIELAC), 39(1), 1-13.  
+> *PyECG: A software tool for the analysis of the QT interval in the electrocardiogram.*  
+> Revista Ingeniería Electrónica, Automática y Comunicaciones (RIELAC), 39(2), 54-69.  
 > [https://rielac.cujae.edu.cu/index.php/rie/article/view/498](https://rielac.cujae.edu.cu/index.php/rie/article/view/498)
 
 ```bibtex
 @article{suarez2018herramienta,
-  title = {Herramienta para el análisis de la repolarización ventricular en el electrocardiograma},
+  title = {PyECG: A software tool for the analysis of the QT interval in the electrocardiogram},
   author = {Suárez-León, Alexander A. and Varon, Carolina and Willems, Rik and Van Huffel, Sabine and Vázquez-Seisdedos, Carlos R.},
   journal = {Revista Ingeniería Electrónica, Automática y Comunicaciones (RIELAC)},
   volume = {39},
-  number = {1},
-  pages = {1-13},
+  number = {2},
+  pages = {54--69},
   year = {2018},
   url = {https://rielac.cujae.edu.cu/index.php/rie/article/view/498}
 }

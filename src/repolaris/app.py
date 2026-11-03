@@ -129,8 +129,10 @@ except ImportError:
     pg = _QMock() # type: ignore
 
 from repolaris.api import StudyAPI, AnalysisAPI, ExportAPI
+from repolaris.config import ECGConfig, DetectionConfig, FilterConfig
 from repolaris.detection.classifier import BeatClass
 from repolaris.detection.annotations import AnnotationManager
+from repolaris.detection.qtrr import SUPPORTED_QTRR_MODELS, QTRR_MODEL_METADATA
 from repolaris.i18n import tr, set_locale, get_current_locale, SUPPORTED_LANGUAGES
 
 
@@ -910,6 +912,65 @@ class SettingsDialog(QDialog):
         self.combo_grid.currentIndexChanged.connect(self._on_grid_selected)
         layout.addWidget(self.combo_grid)
 
+        # 5. QT-RR Restitution Model Section (10 Pueyo 2004 Models + Auto-Best)
+        self.lbl_qtrr_section = QLabel(tr("settings_qtrr_model"))
+        self.lbl_qtrr_section.setStyleSheet("font-weight: bold; font-size: 10pt; margin-top: 4px;")
+        layout.addWidget(self.lbl_qtrr_section)
+
+        self.combo_qtrr_model = QComboBox()
+        self.qtrr_model_options = [("auto_best", tr("qtrr_auto_best"))] + [
+            (m_id, QTRR_MODEL_METADATA[m_id]["label"]) for m_id in SUPPORTED_QTRR_MODELS
+        ]
+        qtrr_idx = 0
+        for idx, (mid, mlabel) in enumerate(self.qtrr_model_options):
+            self.combo_qtrr_model.addItem(mlabel, mid)
+            if mid == getattr(self.main_window, "current_qtrr_model", "linear"):
+                qtrr_idx = idx
+        self.combo_qtrr_model.setCurrentIndex(qtrr_idx)
+        self.combo_qtrr_model.currentIndexChanged.connect(self._on_qtrr_model_selected)
+        layout.addWidget(self.combo_qtrr_model)
+
+        # 6. Multi-Beat QT-RR Hysteresis Compensation Section (EW / LW / Raw)
+        self.lbl_hyst_section = QLabel(tr("settings_hysteresis_mode"))
+        self.lbl_hyst_section.setStyleSheet("font-weight: bold; font-size: 10pt; margin-top: 4px;")
+        layout.addWidget(self.lbl_hyst_section)
+
+        self.combo_hysteresis = QComboBox()
+        self.hyst_modes = [
+            ("exponential", tr("hyst_mode_exp")),
+            ("linear", tr("hyst_mode_lin")),
+            ("raw", tr("hyst_mode_raw")),
+        ]
+        hyst_idx = 0
+        for idx, (hid, hname) in enumerate(self.hyst_modes):
+            self.combo_hysteresis.addItem(hname, hid)
+            if hid == getattr(self.main_window, "current_hysteresis_mode", "exponential"):
+                hyst_idx = idx
+        self.combo_hysteresis.setCurrentIndex(hyst_idx)
+        self.combo_hysteresis.currentIndexChanged.connect(self._on_hysteresis_selected)
+        layout.addWidget(self.combo_hysteresis)
+
+        # 7. T-Wave Offset (T-End) Delineation Algorithm Section
+        self.lbl_tend_section = QLabel(tr("settings_t_end_method"))
+        self.lbl_tend_section.setStyleSheet("font-weight: bold; font-size: 10pt; margin-top: 4px;")
+        layout.addWidget(self.lbl_tend_section)
+
+        self.combo_t_end = QComboBox()
+        self.tend_modes = [
+            ("hybrid", tr("tend_mode_hybrid")),
+            ("tangent", tr("tend_mode_tangent")),
+            ("zhang_area", tr("tend_mode_zhang")),
+            ("threshold", tr("tend_mode_threshold")),
+        ]
+        tend_idx = 0
+        for idx, (tid, tname) in enumerate(self.tend_modes):
+            self.combo_t_end.addItem(tname, tid)
+            if tid == getattr(self.main_window, "current_t_end_method", "hybrid"):
+                tend_idx = idx
+        self.combo_t_end.setCurrentIndex(tend_idx)
+        self.combo_t_end.currentIndexChanged.connect(self._on_t_end_selected)
+        layout.addWidget(self.combo_t_end)
+
         # Description Cue
         self.lbl_theme_desc = QLabel(tr(THEMES[self.main_window.current_theme_id]["desc_key"]))
         self.lbl_theme_desc.setWordWrap(True)
@@ -940,6 +1001,10 @@ class SettingsDialog(QDialog):
         self.lbl_theme_section.setText(tr("settings_theme"))
         self.lbl_canvas_section.setText(tr("settings_canvas_theme"))
         self.lbl_grid_section.setText(tr("settings_grid"))
+        if hasattr(self, "lbl_qtrr_section"):
+            self.lbl_qtrr_section.setText(tr("settings_qtrr_model"))
+            self.lbl_hyst_section.setText(tr("settings_hysteresis_mode"))
+            self.lbl_tend_section.setText(tr("settings_t_end_method"))
         self.btn_done.setText(tr("btn_close"))
 
         # Refresh theme dropdowns
@@ -989,6 +1054,27 @@ class SettingsDialog(QDialog):
         if grid_id:
             self.main_window.set_grid_mode(grid_id)
 
+    def _on_qtrr_model_selected(self, index: int) -> None:
+        if index < 0:
+            return
+        model_id = self.combo_qtrr_model.itemData(index)
+        if model_id:
+            self.main_window.set_qtrr_model(model_id)
+
+    def _on_hysteresis_selected(self, index: int) -> None:
+        if index < 0:
+            return
+        hyst_id = self.combo_hysteresis.itemData(index)
+        if hyst_id:
+            self.main_window.set_hysteresis_mode(hyst_id)
+
+    def _on_t_end_selected(self, index: int) -> None:
+        if index < 0:
+            return
+        tend_id = self.combo_t_end.itemData(index)
+        if tend_id:
+            self.main_window.set_t_end_method(tend_id)
+
 class MainWindow(QMainWindow):
     """Clinical Electrocardiogram Analysis & Colleague Exchange Workstation."""
 
@@ -1012,6 +1098,9 @@ class MainWindow(QMainWindow):
         self.current_grid_mode: str = "lines"
         self.current_speed: float = 25.0
         self.current_gain: float = 10.0
+        self.current_qtrr_model: str = "linear"
+        self.current_hysteresis_mode: str = "exponential"
+        self.current_t_end_method: str = "hybrid"
         self._active_worker: Optional[Any] = None
 
         self._setup_ui()
@@ -1615,7 +1704,107 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(beats_tab, tr("tab_beats"))
 
         # -----------------------------------------------------------------
-        # TAB 4: STUDY & PATIENT METADATA (Demographics & Clinical Context) - LAST TAB
+        # TAB 4: INTERACTIVE QT-RR RESTITUTION & HYSTERESIS VISUALIZATION
+        # -----------------------------------------------------------------
+        qtrr_tab = QWidget()
+        qtrr_layout = QVBoxLayout(qtrr_tab)
+        qtrr_layout.setContentsMargins(8, 8, 8, 8)
+        qtrr_layout.setSpacing(6)
+
+        # Interactive Model & Hysteresis Selector Bar
+        qtrr_ctrl_bar = QHBoxLayout()
+        qtrr_ctrl_bar.setSpacing(6)
+
+        self.lbl_tab_qtrr_model = QLabel(tr("qtrr_lbl_model"))
+        self.lbl_tab_qtrr_model.setStyleSheet("font-weight: 600; color: #94a3b8; font-size: 8.5pt;")
+        qtrr_ctrl_bar.addWidget(self.lbl_tab_qtrr_model)
+
+        self.combo_tab_qtrr_model = QComboBox()
+        self.combo_tab_qtrr_model.setStyleSheet("font-size: 8.5pt; min-width: 145px;")
+        self.combo_tab_qtrr_model.addItem(tr("qtrr_auto_best"), "auto_best")
+        for m_id in SUPPORTED_QTRR_MODELS:
+            self.combo_tab_qtrr_model.addItem(QTRR_MODEL_METADATA[m_id]["label"], m_id)
+        self.combo_tab_qtrr_model.setCurrentIndex(1)  # 'linear' default
+        self.combo_tab_qtrr_model.currentIndexChanged.connect(self._on_tab_qtrr_model_changed)
+        qtrr_ctrl_bar.addWidget(self.combo_tab_qtrr_model, stretch=1)
+
+        self.lbl_tab_hyst_mode = QLabel(tr("qtrr_lbl_hyst"))
+        self.lbl_tab_hyst_mode.setStyleSheet("font-weight: 600; color: #94a3b8; font-size: 8.5pt;")
+        qtrr_ctrl_bar.addWidget(self.lbl_tab_hyst_mode)
+
+        self.combo_tab_hyst_mode = QComboBox()
+        self.combo_tab_hyst_mode.setStyleSheet("font-size: 8.5pt; min-width: 120px;")
+        self.combo_tab_hyst_mode.addItem("EW (RR_eff)", "exponential")
+        self.combo_tab_hyst_mode.addItem("LW (RR_eff)", "linear")
+        self.combo_tab_hyst_mode.addItem("Raw (Instant RR)", "raw")
+        self.combo_tab_hyst_mode.setCurrentIndex(0)
+        self.combo_tab_hyst_mode.currentIndexChanged.connect(self._on_tab_hyst_mode_changed)
+        qtrr_ctrl_bar.addWidget(self.combo_tab_hyst_mode)
+
+        qtrr_layout.addLayout(qtrr_ctrl_bar)
+
+        # Interactive PyQtGraph QT-RR Restitution & Hysteresis Cloud Plot
+        self.qtrr_plot_widget = pg.PlotWidget()
+        self.qtrr_plot_widget.setBackground("#13151f")
+        self.qtrr_plot_widget.showGrid(x=True, y=True, alpha=0.22)
+        self.qtrr_plot_widget.setLabel("bottom", tr("qtrr_axis_rr"))
+        self.qtrr_plot_widget.setLabel("left", tr("qtrr_axis_qt"))
+        self.qtrr_plot_widget.setMinimumHeight(210)
+
+        self.qtrr_raw_scatter = pg.ScatterPlotItem(
+            size=6,
+            pen=pg.mkPen(None),
+            brush=pg.mkBrush(148, 163, 184, 110),
+            name="Raw (RR, QT)",
+        )
+        self.qtrr_eff_scatter = pg.ScatterPlotItem(
+            size=8,
+            pen=pg.mkPen("#0f172a", width=0.8),
+            brush=pg.mkBrush("#38bdf8"),
+            name="Compensated (RR_eff, QT)",
+        )
+        self.qtrr_fit_curve = self.qtrr_plot_widget.plot(
+            [], [], pen=pg.mkPen("#fbbf24", width=2.4), name="Restitution Fit"
+        )
+        self.qtrr_ref_scatter = pg.ScatterPlotItem(
+            size=12,
+            symbol="star",
+            pen=pg.mkPen("#ffffff", width=1.2),
+            brush=pg.mkBrush("#34d399"),
+            name="QTc,ind (RR=1.0s)",
+        )
+        self.qtrr_plot_widget.addItem(self.qtrr_raw_scatter)
+        self.qtrr_plot_widget.addItem(self.qtrr_eff_scatter)
+        self.qtrr_plot_widget.addItem(self.qtrr_ref_scatter)
+        qtrr_layout.addWidget(self.qtrr_plot_widget, stretch=1)
+
+        # Live Equation, Hysteresis Lag (lambda*, t90) & Individualized QTc Banner
+        self.lbl_qtrr_summary_banner = QLabel("QT-RR Restitution: Ready")
+        self.lbl_qtrr_summary_banner.setWordWrap(True)
+        self.lbl_qtrr_summary_banner.setStyleSheet(
+            "background-color: #1a1e2e; border: 1px solid #2e3650; border-radius: 6px; "
+            "padding: 6px 8px; font-size: 8.5pt; color: #e2e8f0;"
+        )
+        qtrr_layout.addWidget(self.lbl_qtrr_summary_banner)
+
+        # 10-Model Comparative Ranking Table (Click row to switch active model)
+        self.qtrr_models_table = QTableWidget(0, 5)
+        self.qtrr_models_table.setHorizontalHeaderLabels([
+            tr("qtrr_hdr_model"),
+            tr("qtrr_hdr_eq"),
+            tr("qtrr_hdr_r2"),
+            tr("qtrr_hdr_rmse"),
+            tr("qtrr_hdr_qtc_ind"),
+        ])
+        self.qtrr_models_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.qtrr_models_table.setMinimumHeight(145)
+        self.qtrr_models_table.cellClicked.connect(self._on_qtrr_table_row_clicked)
+        qtrr_layout.addWidget(self.qtrr_models_table)
+
+        self.tabs.addTab(qtrr_tab, tr("tab_qtrr"))
+
+        # -----------------------------------------------------------------
+        # TAB 5: STUDY & PATIENT METADATA (Demographics & Clinical Context) - LAST TAB
         # -----------------------------------------------------------------
         metadata_tab = QWidget()
         meta_layout = QVBoxLayout(metadata_tab)
@@ -2102,7 +2291,23 @@ class MainWindow(QMainWindow):
         self.tabs.setTabText(0, tr("tab_overview"))
         self.tabs.setTabText(1, tr("tab_events"))
         self.tabs.setTabText(2, tr("tab_beats"))
-        self.tabs.setTabText(3, tr("tab_metadata"))
+        if self.tabs.count() >= 5:
+            self.tabs.setTabText(3, tr("tab_qtrr"))
+            self.tabs.setTabText(4, tr("tab_metadata"))
+        else:
+            self.tabs.setTabText(3, tr("tab_metadata"))
+        if hasattr(self, "lbl_tab_qtrr_model"):
+            self.lbl_tab_qtrr_model.setText(tr("qtrr_lbl_model"))
+            self.lbl_tab_hyst_mode.setText(tr("qtrr_lbl_hyst"))
+            self.qtrr_plot_widget.setLabel("bottom", tr("qtrr_axis_rr"))
+            self.qtrr_plot_widget.setLabel("left", tr("qtrr_axis_qt"))
+            self.qtrr_models_table.setHorizontalHeaderLabels([
+                tr("qtrr_hdr_model"),
+                tr("qtrr_hdr_eq"),
+                tr("qtrr_hdr_r2"),
+                tr("qtrr_hdr_rmse"),
+                tr("qtrr_hdr_qtc_ind"),
+            ])
 
         self.grp_a_box.setTitle(tr("group_a_title"))
         self.grp_b_box.setTitle(tr("group_b_title"))
@@ -2198,6 +2403,7 @@ class MainWindow(QMainWindow):
         worker.finished.connect(_on_worker_finished)
         worker.error.connect(_on_worker_error)
         worker.start()
+        return worker
 
     def _load_synthetic_demo(self) -> None:
         """Loads synthetic benchmark rhythms and populates standard demo leads."""
@@ -2375,10 +2581,26 @@ class MainWindow(QMainWindow):
         self._evaluate_channel_capabilities()
         multi_sigs = self.multi_lead_signals if len(self.multi_lead_signals) >= 3 else None
 
+        cfg = ECGConfig(
+            sampling_rate=fs,
+            filter_cfg=FilterConfig(lowcut=0.05, highcut=45.0, notch_quality=30.0),
+            detection_cfg=DetectionConfig(
+                t_end_method=self.current_t_end_method,
+                qtrr_model=self.current_qtrr_model,
+                enable_hysteresis=(self.current_hysteresis_mode != "raw"),
+                hysteresis_kernel=(
+                    self.current_hysteresis_mode
+                    if self.current_hysteresis_mode in ("exponential", "linear")
+                    else "exponential"
+                ),
+            ),
+        )
+
         def _task(progress_callback=None):
             return AnalysisAPI.analyze_signal(
                 sig,
                 fs=fs,
+                config=cfg,
                 progress_callback=progress_callback,
                 multi_lead_signals=multi_sigs,
             )
@@ -2516,9 +2738,14 @@ class MainWindow(QMainWindow):
             self.lbl_adv_qtvi.setText(tr("adv_qtvi_na"))
 
         if qtrr is not None:
-            self.lbl_adv_qtrr.setText(tr("adv_qtrr", val=f"{qtrr['slope']:.2f} (r={qtrr['pearson_r']:.2f})"))
+            m_tag = qtrr.get("model", "linear")
+            self.lbl_adv_qtrr.setText(
+                tr("adv_qtrr", val=f"[{m_tag}] {qtrr['slope']:.3f} (r={qtrr['pearson_r']:.2f}, R²={qtrr.get('r_squared', 0.0):.2f})")
+            )
         else:
             self.lbl_adv_qtrr.setText(tr("adv_qtrr_na"))
+
+        self._update_qtrr_visualization()
 
         self.lbl_adv_total.setText(tr("adv_total_cycles", count=summary['total_beats']))
 
@@ -2567,6 +2794,149 @@ class MainWindow(QMainWindow):
             self.events_table.setItem(row, 1, item_type)
             self.events_table.setItem(row, 2, item_val)
             self.events_table.setItem(row, 3, item_sev)
+
+    def set_qtrr_model(self, model_id: str) -> None:
+        """Sets the active Pueyo (2004) QT-RR restitution regression model and refreshes visualization."""
+        self.current_qtrr_model = model_id
+        if hasattr(self, "combo_tab_qtrr_model"):
+            self.combo_tab_qtrr_model.blockSignals(True)
+            for i in range(self.combo_tab_qtrr_model.count()):
+                if self.combo_tab_qtrr_model.itemData(i) == model_id:
+                    self.combo_tab_qtrr_model.setCurrentIndex(i)
+                    break
+            self.combo_tab_qtrr_model.blockSignals(False)
+        self._update_qtrr_visualization()
+
+    def set_hysteresis_mode(self, mode_id: str) -> None:
+        """Sets multi-beat QT-RR hysteresis lag mode ('exponential', 'linear', or 'raw') and refreshes plot."""
+        if mode_id not in ("exponential", "linear", "raw"):
+            return
+        self.current_hysteresis_mode = mode_id
+        if hasattr(self, "combo_tab_hyst_mode"):
+            self.combo_tab_hyst_mode.blockSignals(True)
+            for i in range(self.combo_tab_hyst_mode.count()):
+                if self.combo_tab_hyst_mode.itemData(i) == mode_id:
+                    self.combo_tab_hyst_mode.setCurrentIndex(i)
+                    break
+            self.combo_tab_hyst_mode.blockSignals(False)
+        self._update_qtrr_visualization()
+
+    def set_t_end_method(self, method_id: str) -> None:
+        """Sets T-wave offset delineation algorithm ('hybrid', 'tangent', 'zhang_area', 'threshold') and re-runs pipeline."""
+        if method_id not in ("hybrid", "tangent", "zhang_area", "threshold"):
+            return
+        self.current_t_end_method = method_id
+        if self.signal_data is not None and len(self.signal_data) > 0:
+            self._run_pipeline_and_display()
+
+    def _on_tab_qtrr_model_changed(self, index: int) -> None:
+        if index < 0:
+            return
+        mid = self.combo_tab_qtrr_model.itemData(index)
+        if mid:
+            self.set_qtrr_model(mid)
+
+    def _on_tab_hyst_mode_changed(self, index: int) -> None:
+        if index < 0:
+            return
+        hid = self.combo_tab_hyst_mode.itemData(index)
+        if hid:
+            self.set_hysteresis_mode(hid)
+
+    def _on_qtrr_table_row_clicked(self, row: int, col: int) -> None:
+        item = self.qtrr_models_table.item(row, 0)
+        if item is not None:
+            model_name = item.text().strip()
+            if model_name in SUPPORTED_QTRR_MODELS:
+                self.set_qtrr_model(model_name)
+
+    def _update_qtrr_visualization(self) -> None:
+        """Evaluates all 10 Pueyo (2004) QT-RR models under current hysteresis settings and renders scatter + curve."""
+        if not self.analysis_results or not hasattr(self, "qtrr_plot_widget"):
+            return
+        beats = self.analysis_results.get("beats", [])
+        if len(beats) < 4:
+            return
+
+        rr_raw = np.array([b["rr_sec"] for b in beats], dtype=np.float64)
+        qt_sec = np.array([b["qt_ms"] / 1000.0 for b in beats], dtype=np.float64)
+        qt_ms = qt_sec * 1000.0
+
+        hyst_info = self.analysis_results.get("hysteresis") or {}
+        opt_lambda = float(hyst_info.get("optimal_lambda", 0.08))
+        t90_sec = float(hyst_info.get("t90_sec", 0.0))
+
+        try:
+            eval_res = AnalysisAPI.evaluate_qtrr_models(
+                rr_raw,
+                qt_sec,
+                preferred_model=self.current_qtrr_model,
+                hysteresis_mode=self.current_hysteresis_mode,
+                optimal_lambda=opt_lambda,
+            )
+        except Exception:
+            return
+
+        active_fit = eval_res["active_fit"]
+        ranking = eval_res["ranking"]
+        rr_used = np.asarray(eval_res["rr_used_sec"], dtype=np.float64)
+
+        # Update scatter points & regression curve on qtrr_plot_widget
+        self.qtrr_raw_scatter.setData(rr_raw, qt_ms)
+        self.qtrr_eff_scatter.setData(rr_used, qt_ms)
+
+        rr_min = max(0.30, float(np.min(rr_used)) * 0.92)
+        rr_max = min(2.00, float(np.max(rr_used)) * 1.08)
+        rr_grid = np.linspace(rr_min, rr_max, 120)
+        qt_curve_ms = np.asarray(active_fit["predict_fn"](rr_grid), dtype=np.float64) * 1000.0
+        self.qtrr_fit_curve.setData(rr_grid, qt_curve_ms)
+
+        qtc_ind_ms = float(active_fit["qtc_individual_ms"])
+        self.qtrr_ref_scatter.setData([1.0], [qtc_ind_ms])
+
+        # Update summary banner
+        hyst_tag = (
+            f"EW Hysteresis (λ*={opt_lambda:.3f}, t90={t90_sec:.1f}s)"
+            if self.current_hysteresis_mode == "exponential"
+            else (
+                "LW Hysteresis (25-beat kernel)"
+                if self.current_hysteresis_mode == "linear"
+                else "Uncompensated Instantaneous RR"
+            )
+        )
+        self.lbl_qtrr_summary_banner.setText(
+            f"Active: {active_fit['label']} | α={active_fit['slope']:.4f}, β={active_fit['intercept']:.4f} | "
+            f"r={active_fit['pearson_r']:.3f}, R²={active_fit['r_squared']:.3f}, RMSE={active_fit['rmse_ms']:.2f} ms | "
+            f"Individualized QTc(1.0s) = {qtc_ind_ms:.1f} ms | {hyst_tag}"
+        )
+
+        self.lbl_adv_qtrr.setText(
+            tr(
+                "adv_qtrr",
+                val=f"[{active_fit['model']}] {active_fit['slope']:.3f} (r={active_fit['pearson_r']:.2f}, R²={active_fit['r_squared']:.2f})",
+            )
+        )
+
+        # Populate 10-model comparison table
+        self.qtrr_models_table.setRowCount(len(ranking))
+        for r_idx, m_info in enumerate(ranking):
+            is_active = (m_info["model"] == active_fit["model"])
+            row_color = QColor("#38bdf8") if is_active else QColor("#cbd5e1")
+
+            it_m = QTableWidgetItem(m_info["model"])
+            it_eq = QTableWidgetItem(m_info["equation"])
+            it_r2 = QTableWidgetItem(f"{m_info['r_squared']:.3f}")
+            it_rmse = QTableWidgetItem(f"{m_info['rmse_ms']:.2f}")
+            it_qtc = QTableWidgetItem(f"{m_info['qtc_individual_ms']:.1f}")
+
+            for it in (it_m, it_eq, it_r2, it_rmse, it_qtc):
+                it.setForeground(row_color)
+
+            self.qtrr_models_table.setItem(r_idx, 0, it_m)
+            self.qtrr_models_table.setItem(r_idx, 1, it_eq)
+            self.qtrr_models_table.setItem(r_idx, 2, it_r2)
+            self.qtrr_models_table.setItem(r_idx, 3, it_rmse)
+            self.qtrr_models_table.setItem(r_idx, 4, it_qtc)
 
     def _select_beat(self, index: int) -> None:
         if not self.analysis_results or index >= len(self.analysis_results["beats"]):
@@ -2709,6 +3079,16 @@ class MainWindow(QMainWindow):
             _on_done,
             initial_msg=tr("status_exporting")
         )
+
+
+    def closeEvent(self, event: Any) -> None:
+        if hasattr(self, "_active_worker") and self._active_worker is not None:
+            if hasattr(self._active_worker, "isRunning") and self._active_worker.isRunning():
+                self._active_worker.quit()
+                self._active_worker.wait(2000)
+            self._active_worker = None
+        if hasattr(super(), "closeEvent"):
+            super().closeEvent(event)
 
 
 def main() -> None:

@@ -1,4 +1,4 @@
-# Repolaris: Architecture & Complete API Reference (v0.6.0)
+# Repolaris: Architecture & Complete API Reference (v0.6.1)
 
 This document provides technical documentation for every module, class, and function call across the modernized Repolaris framework.
 
@@ -10,7 +10,7 @@ Repolaris is organized into decoupled layers so that signal conditioning, electr
 
 ```
 src/repolaris/
-├── __init__.py               # Package metadata (__version__ = "0.6.0") and public exports
+├── __init__.py               # Package metadata (__version__ = "0.6.1") and public exports
 ├── config.py                 # Clinical thresholds and signal processing parameters
 ├── i18n.py                   # Multi-language localization (EN, ES, FR, DE, PT)
 ├── api/
@@ -135,7 +135,7 @@ High-level master function running complete end-to-end analysis, returning `clea
 
 ---
 
-## 6. Advanced Repolarization & Autonomic Modules (v0.6.0)
+## 6. Advanced Repolarization & Autonomic Modules (v0.6.1)
 
 ### `repolaris.detection.dispersion.calculate_qt_dispersion(lead_signals, fs=500.0, lead_names=None, config=None, min_quorum=None)`
 Quantifies spatial repolarization heterogeneity across synchronous multi-lead recordings.

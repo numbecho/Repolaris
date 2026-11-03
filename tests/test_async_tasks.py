@@ -171,9 +171,24 @@ class TestAsyncTasksAndProgress(unittest.TestCase):
             nonlocal result_received
             result_received = val
 
-        win._run_background_task(_dummy_task, _on_success, initial_msg="Starting dummy task...")
+        worker = win._run_background_task(_dummy_task, _on_success, initial_msg="Starting dummy task...")
+        if worker is not None and hasattr(worker, "wait"):
+            worker.wait(5000)
+            if _app is not None:
+                _app.processEvents()
+
         self.assertTrue(task_executed)
         self.assertEqual(result_received, 42)
+
+        try:
+            if hasattr(win, "_active_worker") and win._active_worker is not None:
+                if hasattr(win._active_worker, "wait"):
+                    win._active_worker.wait(1000)
+            win.close()
+            if _app is not None:
+                _app.processEvents()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":

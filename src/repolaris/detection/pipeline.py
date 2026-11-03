@@ -1,18 +1,18 @@
 """Comprehensive ECG Analysis and Diagnostic Pipeline module.
 
 Coordinates end-to-end processing of electrocardiogram recordings:
-1. Signal conditioning (IIR notch filter, Butterworth bandpass filtering & two-stage median baseline removal).
-2. QRS complex identification and R-peak localization.
-3. Ventricular repolarization segmentation (Q-onset and T-end fiducials).
-4. Rate-corrected QT computation (Bazett, Fridericia, Framingham, Hodges formulas).
-5. AAMI EC57 abnormal beat classification (Normal, PVC, PAC, Fusion, Unknown).
-6. Repetitive ectopic rhythm sequence detection (Bigeminy, Trigeminy, Couplets, VT runs).
-7. Clinical events diary auto-detection (Critical QTc, Pauses, Tachycardia, Bradycardia).
-8. Berger QT Variability Index (QTVI) repolarization lability assessment.
-9. QT-RR restitution curve modeling (6 empirical formulations).
-10. Signal Quality Index (SQI) evaluation.
+1. Signal conditioning (IIR Q=30 notch filter, 0.05-45 Hz Butterworth bandpass & two-stage median baseline removal).
+2. Two-Stage Signal Quality Index (SQI) evaluation (Stage 1 Li et al. 2014 absolute gates + Stage 2 6-index pairwise voting).
+3. QRS complex identification and R-peak localization.
+4. Ventricular repolarization segmentation (Q-onset and hybrid/tangent/Zhang-2006-area/threshold T-end fiducials).
+5. Rate-corrected QT computation (Bazett, Fridericia, Framingham, Hodges formulas).
+6. AAMI EC57 abnormal beat classification (Normal, PVC, PAC, Fusion, Unknown).
+7. Repetitive ectopic rhythm sequence detection (Bigeminy, Trigeminy, Couplets, VT runs).
+8. Clinical events diary auto-detection (Critical QTc, Pauses, Tachycardia, Bradycardia).
+9. Berger QT Variability Index (QTVI) repolarization lability assessment.
+10. Domain-guarded 10-model QT-RR restitution curve modeling (Pueyo et al., 2004) with EW/LW hysteresis compensation.
 11. Unified annotation manager integration.
-12. Version 0.6.0 Autonomic & Spatial Repolarization Suite (HRV, HRT, TWA, Hysteresis, Multi-Lead QTd).
+12. Version 0.6.1 Autonomic & Spatial Repolarization Suite (HRV, HRT, TWA, Hysteresis, Multi-Lead QTd).
 """
 
 from __future__ import annotations
@@ -29,15 +29,19 @@ from repolaris.detection.t_end import detect_t_end
 from repolaris.detection.pulse_metrics import compute_qtc, summarize_beats
 from repolaris.detection.events import detect_clinical_events, ECGEvent
 from repolaris.detection.qtvi import compute_qtvi
-from repolaris.detection.qtrr import fit_qtrr_model
-from repolaris.detection.sqi import evaluate_lead_quality
+from repolaris.detection.qtrr import fit_qtrr_model, fit_all_qtrr_models
+from repolaris.detection.sqi import evaluate_lead_quality, rank_leads_two_stage
 from repolaris.detection.classifier import classify_all_beats, ClassifiedBeat
 from repolaris.detection.annotations import AnnotationManager
 from repolaris.detection.dispersion import calculate_qt_dispersion
 from repolaris.detection.twa import compute_spectral_twa, compute_mma_twa
 from repolaris.detection.hrt import compute_heart_rate_turbulence
 from repolaris.detection.hrv import compute_comprehensive_hrv
-from repolaris.detection.hysteresis import optimize_hysteresis_parameter
+from repolaris.detection.hysteresis import (
+    compute_effective_rr_exponential,
+    compute_effective_rr_linear,
+    optimize_hysteresis_parameter,
+)
 
 
 def analyze_ecg(
@@ -48,41 +52,13 @@ def analyze_ecg(
     multi_lead_signals: Optional[Union[np.ndarray, Dict[str, np.ndarray]]] = None,
     lead_names: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
-    """Executes the master diagnostic analysis pipeline on a raw ECG signal.
-
-    Args:
-        raw_signal: 1D numpy array of raw ECG voltage measurements.
-        fs: Sampling frequency in Hertz (default: 500.0).
-        config: Optional ECGConfig instance specifying filter and detection parameters.
-        progress_callback: Optional callback receiving (fraction, status_message).
-        multi_lead_signals: Optional 2D array or dict of multi-lead signals for spatial QTd.
-        lead_names: Optional list of lead identifiers when multi_lead_signals is a 2D array.
-
-    Returns:
-        A dictionary containing:
-            - 'clean_signal': Baseline-corrected, filtered 1D signal array.
-            - 'r_peaks': 1D array of detected R-peak sample indices.
-            - 'beats': List of dictionaries detailing beat fiducials, intervals, and classifications.
-            - 'classified_beats': List of ClassifiedBeat instances (AAMI EC57 classes).
-            - 'ectopic_summary': Summary of PVC/PAC counts, burden percentage, and rhythm patterns.
-            - 'annotations': AnnotationManager instance containing all beat annotations.
-            - 'events': List of clinical event dictionaries (Critical QTc, Pauses, etc.).
-            - 'summary': Aggregate statistics (mean HR, mean QTc, min/max intervals).
-            - 'qtvi': Berger QT Variability Index (float or None if insufficient beats).
-            - 'qtrr': Dictionary of QT-RR restitution fit metrics (or None).
-            - 'sqi': Lead signal quality indicators (pSQI, basSQI, SNR, verdict).
-            - 'hrv': Comprehensive HRV dictionary (time_domain, frequency_domain, nonlinear).
-            - 'hrt': Heart Rate Turbulence dictionary (turbulence_onset, turbulence_slope, category).
-            - 'twa': Microvolt T-Wave Alternans dictionary (spectral and mma).
-            - 'hysteresis': Multi-beat QT-RR memory hysteresis dictionary (or None).
-            - 'dispersion': Multi-lead spatial QT dispersion dictionary (or None if <3 valid leads).
-    """
+    """Executes the master diagnostic analysis pipeline on a raw ECG signal."""
     if config is None:
         config = ECGConfig(sampling_rate=fs)
 
     if progress_callback:
         progress_callback(0.10, "Preprocessing and baseline wander removal...")
-    # 1. Preprocessing and noise reduction (IIR notch + Butterworth bandpass + two-stage median baseline)
+    # 1. Preprocessing and noise reduction (IIR Q=30 notch + 0.05-45 Hz Butterworth + two-stage median baseline)
     notched = notch_filter(
         raw_signal,
         fs,
@@ -94,8 +70,11 @@ def analyze_ecg(
 
     if progress_callback:
         progress_callback(0.25, "Evaluating lead signal quality (SQI)...")
-    # 2. Lead Signal Quality Evaluation
+    # 2. Lead Signal Quality Evaluation (Stage 1 Absolute + Stage 2 Pairwise Voting if multi-lead)
     sqi_metrics = evaluate_lead_quality(clean_signal, fs)
+    lead_voting: Optional[Dict[str, Any]] = None
+    if multi_lead_signals is not None:
+        lead_voting = rank_leads_two_stage(multi_lead_signals, fs=fs, lead_names=lead_names)
 
     if progress_callback:
         progress_callback(0.40, "Detecting QRS complexes and R-peaks...")
@@ -113,6 +92,8 @@ def analyze_ecg(
     q_onsets_list: List[int] = []
     t_ends_list: List[int] = []
 
+    t_end_method = getattr(config.detection_cfg, "t_end_method", "hybrid")
+
     for i, r_idx in enumerate(r_peaks):
         q_idx = detect_q_onset(clean_signal, r_idx, fs, config.detection_cfg.q_search_window_ms)
         t_peak_idx, t_end_idx = detect_t_end(
@@ -121,6 +102,7 @@ def analyze_ecg(
             fs,
             config.detection_cfg.t_search_window_ms,
             config.detection_cfg.t_end_threshold_ratio,
+            method=t_end_method,
         )
 
         qt_sec = (t_end_idx - q_idx) / fs
@@ -199,13 +181,17 @@ def analyze_ecg(
 
     if progress_callback:
         progress_callback(0.90, "Assessing repolarization lability & autonomic metrics...")
-    # 6. Advanced Repolarization Lability: QTVI, QT-RR Restitution & v0.6.0 Autonomic Suite
+    # 6. Advanced Repolarization Lability: QTVI, 10-Model QT-RR Restitution & v0.6.1 Autonomic Suite
     qtvi_score: Optional[float] = None
     qtrr_metrics: Optional[Dict[str, Any]] = None
     hysteresis_metrics: Optional[Dict[str, Any]] = None
 
     rr_arr = np.array(rr_list, dtype=np.float64)
     qt_arr = np.array(qt_list, dtype=np.float64)
+
+    preferred_qtrr_model = getattr(config.detection_cfg, "qtrr_model", "linear")
+    enable_hysteresis = getattr(config.detection_cfg, "enable_hysteresis", True)
+    hysteresis_kernel = getattr(config.detection_cfg, "hysteresis_kernel", "exponential")
 
     if len(beats) >= 5:
         try:
@@ -214,22 +200,47 @@ def analyze_ecg(
             qtvi_score = None
 
         try:
-            fit_res = fit_qtrr_model(rr_arr, qt_arr, model="linear")
-            qtrr_metrics = {
-                "model": "linear",
-                "slope": fit_res["slope"],
-                "linear_slope": fit_res["slope"],
-                "intercept": fit_res["intercept"],
-                "pearson_r": fit_res["pearson_r"],
-                "p_value": fit_res["p_value"],
-            }
-        except (ValueError, ZeroDivisionError):
-            qtrr_metrics = None
-
-        try:
             hysteresis_metrics = optimize_hysteresis_parameter(qt_arr, rr_arr, model_type="linear")
         except (ValueError, ZeroDivisionError):
             hysteresis_metrics = None
+
+        try:
+            if enable_hysteresis and hysteresis_metrics is not None:
+                if hysteresis_kernel == "linear":
+                    rr_used = compute_effective_rr_linear(rr_arr, memory_beats=25)
+                else:
+                    rr_used = np.asarray(hysteresis_metrics.get("effective_rr_sec", rr_arr), dtype=np.float64)
+            else:
+                rr_used = rr_arr
+
+            multi_fit = fit_all_qtrr_models(rr_used, qt_arr, preferred_model=preferred_qtrr_model)
+            active_fit = multi_fit["active_fit"]
+            lin_fit = multi_fit["models"].get("linear", active_fit)
+
+            qtrr_metrics = {
+                "model": active_fit["model"],
+                "label": active_fit["label"],
+                "equation": active_fit["equation"],
+                "slope": active_fit["slope"],
+                "linear_slope": lin_fit["slope"],
+                "intercept": active_fit["intercept"],
+                "pearson_r": active_fit["pearson_r"],
+                "r_squared": active_fit["r_squared"],
+                "p_value": active_fit["p_value"],
+                "rmse_ms": active_fit["rmse_ms"],
+                "aic": active_fit["aic"],
+                "qtc_individual_ms": active_fit["qtc_individual_ms"],
+                "best_model": multi_fit["best_model"],
+                "ranking": multi_fit["ranking"],
+                "hysteresis_enabled": bool(enable_hysteresis and hysteresis_metrics is not None),
+                "hysteresis_kernel": hysteresis_kernel if enable_hysteresis else "raw",
+                "rr_raw_sec": rr_arr.tolist(),
+                "rr_effective_sec": rr_used.tolist(),
+                "qt_sec": qt_arr.tolist(),
+                "qt_ms": (qt_arr * 1000.0).tolist(),
+            }
+        except (ValueError, ZeroDivisionError):
+            qtrr_metrics = None
 
     # Comprehensive HRV (on NN intervals, or all RR intervals if < 3 classified 'N')
     hrv_input_ms = nn_intervals_ms if len(nn_intervals_ms) >= 4 else [r * 1000.0 for r in rr_list]
@@ -268,6 +279,7 @@ def analyze_ecg(
         "qtvi": qtvi_score,
         "qtrr": qtrr_metrics,
         "sqi": sqi_metrics,
+        "lead_voting": lead_voting,
         "hrv": hrv_metrics,
         "hrt": hrt_metrics,
         "twa": twa_metrics,

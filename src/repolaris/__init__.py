@@ -42,8 +42,8 @@ from repolaris.config import ECGConfig, FilterConfig, DetectionConfig
 from repolaris.detection.pipeline import analyze_ecg
 from repolaris.detection.pulse_metrics import compute_qtc, summarize_beats
 from repolaris.detection.qtvi import compute_qtvi, resample_berger, optimize_alpha
-from repolaris.detection.qtrr import fit_qtrr_model
-from repolaris.detection.sqi import compute_psqi, compute_bassqi, evaluate_lead_quality
+from repolaris.detection.qtrr import fit_qtrr_model, fit_all_qtrr_models, SUPPORTED_QTRR_MODELS, QTRR_MODEL_METADATA
+from repolaris.detection.sqi import compute_psqi, compute_bassqi, compute_ksqi, compute_ssqi, evaluate_lead_quality, rank_leads_two_stage
 from repolaris.detection.dispersion import calculate_qt_dispersion, resolve_lead_quorum
 from repolaris.detection.twa import compute_spectral_twa, compute_mma_twa
 from repolaris.detection.hrt import compute_heart_rate_turbulence
@@ -71,7 +71,7 @@ from repolaris.io.ecg_loader import load_ecg_file, load_ecg_dataset
 from repolaris.io.pecg_format import save_pecg, load_pecg
 from repolaris.io.e3c_reader import read_e3c
 
-__version__ = "0.6.0"
+__version__ = "0.6.1"
 __all__ = [
     "ECGConfig",
     "FilterConfig",
@@ -83,9 +83,15 @@ __all__ = [
     "resample_berger",
     "optimize_alpha",
     "fit_qtrr_model",
+    "fit_all_qtrr_models",
+    "SUPPORTED_QTRR_MODELS",
+    "QTRR_MODEL_METADATA",
     "compute_psqi",
     "compute_bassqi",
+    "compute_ksqi",
+    "compute_ssqi",
     "evaluate_lead_quality",
+    "rank_leads_two_stage",
     "calculate_qt_dispersion",
     "resolve_lead_quorum",
     "compute_spectral_twa",

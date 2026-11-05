@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "repolaris"
-version = "0.6.1"
+version = "0.7.0"
 description = "Modern Python framework for continuous ECG waveform analysis, ventricular repolarization, and arrhythmia triage"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.12"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 authors = [
-    {name = "Repolaris Contributors"}
+    {name = "Repolaris Contributors", email = "ssdnam7t@pm.me"}
 ]
 keywords = ["ecg", "cardiology", "qt-interval", "repolarization", "qtvi", "holter", "signal-processing", "pyqtgraph", "zstd", "biomedical"]
 classifiers = [
@@ -19,6 +19,8 @@ classifiers = [
     "Intended Audience :: Healthcare Industry",
     "Intended Audience :: Science/Research",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: 3 :: Only",
     "Topic :: Scientific/Engineering :: Medical Science Apps."
@@ -47,7 +49,7 @@ dev = [
     "mypy>=1.9"
 ]
 packaging = [
-    "briefcase>=0.3.18",
+    "briefcase>=0.3.20",
     "zstandard>=0.22"
 ]
 
@@ -69,7 +71,7 @@ python_files = ["test_*.py"]
 # --- Modern Astral Tooling Configuration (https://astral.sh/) ---
 [tool.ruff]
 line-length = 100
-target-version = "py314"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = [
@@ -92,10 +94,9 @@ skip-magic-trailing-comma = false
 [tool.briefcase]
 project_name = "Repolaris"
 bundle = "org.repolaris"
-version = "0.6.1"
+version = "0.7.0"
 url = "https://github.com/numbecho/repolaris"
-license = "Apache-2.0"
-license_file = "LICENSE"
+license.file = "LICENSE"
 author = "Repolaris Contributors"
 author_email = "ssdnam7t@pm.me"
 
@@ -134,4 +135,5 @@ system_requires = [
 ]
 
 [tool.briefcase.app.repolaris.windows]
+license.file = "LICENSE.rtf"
 requires = []

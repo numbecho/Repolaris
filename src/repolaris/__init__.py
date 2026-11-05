@@ -71,7 +71,7 @@ from repolaris.io.ecg_loader import load_ecg_file, load_ecg_dataset
 from repolaris.io.pecg_format import save_pecg, load_pecg
 from repolaris.io.e3c_reader import read_e3c
 
-__version__ = "0.6.1"
+__version__ = "0.7.0"
 __all__ = [
     "ECGConfig",
     "FilterConfig",

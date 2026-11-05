@@ -2380,6 +2380,11 @@ class MainWindow(QMainWindow):
                     self.set_task_finished(f"Error: {exc}")
             return
 
+        if hasattr(self, "_active_worker") and self._active_worker is not None:
+            if hasattr(self._active_worker, "isRunning") and self._active_worker.isRunning():
+                self._active_worker.quit()
+                self._active_worker.wait(1000)
+
         worker = BackgroundTaskWorker(task_func, *args, **kwargs)
         self._active_worker = worker
 
@@ -2465,7 +2470,10 @@ class MainWindow(QMainWindow):
             self,
             tr("btn_open"),
             "",
-            "All Supported ECG (*.pecg *.ecg *.e3c *.edf *.hea *.dat *.csv *.npy);;"
+            "All Supported ECG (*.pecg *.ecg *.dcm *.dicom *.xml *.aecg *.scp *.e3c *.edf *.hea *.dat *.csv *.npy);;"
+            "DICOM Waveform (*.dcm *.dicom);;"
+            "HL7 aECG XML (*.xml *.aecg);;"
+            "SCP-ECG Standard (*.scp);;"
             "PECG Colleague Study (*.pecg);;"
             "ISHNE Holter Standard (*.ecg);;"
             "Excorde 3C Holter (*.e3c);;"
@@ -3082,6 +3090,7 @@ class MainWindow(QMainWindow):
 
 
     def closeEvent(self, event: Any) -> None:
+        """Safely clean up any active background worker thread before window destruction."""
         if hasattr(self, "_active_worker") and self._active_worker is not None:
             if hasattr(self._active_worker, "isRunning") and self._active_worker.isRunning():
                 self._active_worker.quit()

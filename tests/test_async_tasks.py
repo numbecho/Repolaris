@@ -180,6 +180,7 @@ class TestAsyncTasksAndProgress(unittest.TestCase):
         self.assertTrue(task_executed)
         self.assertEqual(result_received, 42)
 
+        # Graceful cleanup to ensure thread is never destroyed while running
         try:
             if hasattr(win, "_active_worker") and win._active_worker is not None:
                 if hasattr(win._active_worker, "wait"):

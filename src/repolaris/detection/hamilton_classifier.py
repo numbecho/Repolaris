@@ -16,6 +16,7 @@ Features of Hamilton OSEA Classifier:
    - Prematurity check: beat is premature if RR_curr < 0.82 * RR_local.
    - Morphology matching: beat is ventricular if cross-correlation with dominant template fails (<0.78)
      or QRS duration is significantly wide (>110 ms), combined with post-extrasystolic pause.
+   - AF/Entropy stabilization: suppresses isolated prematurity false-positives under high RR entropy.
 """
 
 from __future__ import annotations
@@ -70,6 +71,17 @@ class HamiltonBeatClassifier:
         if n_peaks == 0:
             return [], {"total_beats": 0, "counts": {}, "ectopic_burden_pct": 0.0}
 
+        # Compute study-level or running RR entropy to guard against AF false-positive PVCs
+        if n_peaks > 8:
+            all_rrs = np.diff(r_peaks) / self.fs
+            counts, _ = np.histogram(all_rrs, bins=16, density=False)
+            probs = counts / float(len(all_rrs))
+            probs = probs[probs > 0]
+            shannon_ent = -float(np.sum(probs * np.log2(probs))) / np.log2(16) if len(probs) > 1 else 0.0
+            is_high_entropy_rhythm = shannon_ent > 0.75
+        else:
+            is_high_entropy_rhythm = False
+
         # Initialize running RR history from first 8 intervals
         if n_peaks > 1:
             initial_rrs = np.diff(r_peaks[: min(10, n_peaks)]) / self.fs
@@ -122,10 +134,14 @@ class HamiltonBeatClassifier:
                         best_corr = corr
                         best_match_id = tmpl.template_id
 
-            # 4. Hamilton Decision Rules
+            # 4. Hamilton Decision Rules with AF Entropy Stabilizer
             is_premature = pre_ratio < self.prematurity_ratio
             is_compensatory = comp_ratio >= 0.92 and post_ratio > 1.12
             is_wide = qrs_dur_ms >= 115.0
+
+            # Under chaotic rhythm / high AF entropy, suppress isolated prematurity gating
+            if is_high_entropy_rhythm and not is_wide and best_corr >= 0.75:
+                is_premature = False
 
             if best_corr >= self.match_threshold and best_match_id >= 0:
                 # Matches an existing template
@@ -228,6 +244,7 @@ class HamiltonBeatClassifier:
             "ectopic_burden_pct": round(burden, 2),
             "template_cluster_count": len(self.templates),
             "algorithm": "Hamilton (2002) OSEA Template Matching",
+            "af_stabilized": is_high_entropy_rhythm,
         }
 
         return classified_beats, summary

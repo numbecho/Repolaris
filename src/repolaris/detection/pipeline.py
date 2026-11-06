@@ -12,7 +12,9 @@ Coordinates end-to-end processing of electrocardiogram recordings:
 9. Berger QT Variability Index (QTVI) repolarization lability assessment.
 10. Domain-guarded 10-model QT-RR restitution curve modeling (Pueyo et al., 2004) with EW/LW hysteresis compensation.
 11. Unified annotation manager integration.
-12. Version 0.6.1 Autonomic & Spatial Repolarization Suite (HRV, HRT, TWA, Hysteresis, Multi-Lead QTd).
+12. Autonomic & Spatial Repolarization Suite (HRV, HRT, TWA, Hysteresis, Multi-Lead QTd).
+13. Atrial Fibrillation / Flutter burden & episode detection (repolaris.detection.af_detector).
+14. Hourly Arrhythmia Trend Histograms & Holter Summary (repolaris.detection.trends).
 """
 
 from __future__ import annotations
@@ -42,6 +44,8 @@ from repolaris.detection.hysteresis import (
     compute_effective_rr_linear,
     optimize_hysteresis_parameter,
 )
+from repolaris.detection.af_detector import detect_atrial_fibrillation
+from repolaris.detection.trends import generate_hourly_trends
 
 
 def analyze_ecg(
@@ -101,70 +105,70 @@ def analyze_ecg(
             r_idx,
             fs,
             config.detection_cfg.t_search_window_ms,
-            config.detection_cfg.t_end_threshold_ratio,
             method=t_end_method,
         )
 
-        qt_sec = (t_end_idx - q_idx) / fs
-
-        # Calculate RR interval
-        if i < n_peaks - 1:
-            rr_sec = (r_peaks[i + 1] - r_idx) / fs
-        elif i > 0:
-            rr_sec = (r_idx - r_peaks[i - 1]) / fs
-        else:
-            rr_sec = 1.0
-
-        hr_bpm = 60.0 / rr_sec if rr_sec > 0 else np.nan
-        qtc_dict = compute_qtc(qt_sec, rr_sec)
-
-        rr_list.append(rr_sec)
-        qt_list.append(qt_sec)
         q_onsets_list.append(int(q_idx))
         t_ends_list.append(int(t_end_idx))
 
+        rr = (r_idx - r_peaks[i - 1]) / fs if i > 0 else 0.0
+        qt = (t_end_idx - q_idx) / fs
+        hr = 60.0 / rr if rr > 0 else np.nan
+
+        rr_list.append(rr)
+        qt_list.append(qt)
+
+        qtc_values = compute_qtc(qt, rr) if rr > 0 else {}
+
         beats.append({
             "beat_index": i,
-            "q_onset_sample": int(q_idx),
             "r_peak_sample": int(r_idx),
+            "time_sec": float(r_idx / fs),
+            "q_onset_sample": int(q_idx),
             "t_peak_sample": int(t_peak_idx),
             "t_end_sample": int(t_end_idx),
-            "time_sec": float(r_idx / fs),
-            "rr_sec": float(rr_sec),
-            "hr_bpm": float(hr_bpm),
-            "qt_ms": float(qt_sec * 1000.0),
-            "qtc": qtc_dict,
+            "rr_sec": float(rr),
+            "hr_bpm": float(hr),
+            "qt_sec": float(qt),
+            "qt_ms": float(qt * 1000.0),
+            "qtc": qtc_values,
         })
 
     if progress_callback:
-        progress_callback(0.75, "Classifying beats and ectopic rhythm sequences...")
-    # 5. Beat Classification & Rhythm Sequence Analysis (AAMI EC57)
-    q_arr = np.array(q_onsets_list, dtype=int)
-    t_arr = np.array(t_ends_list, dtype=int)
+        progress_callback(0.75, "Classifying beats and ectopic rhythm patterns...")
+    # 5. Beat Classification and Rhythm Identification (ANSI/AAMI EC57)
+    q_onsets_arr = np.array(q_onsets_list, dtype=np.int64)
+    t_ends_arr = np.array(t_ends_list, dtype=np.int64)
     classified_beats, ectopic_summary = classify_all_beats(
         signal=clean_signal,
         r_peaks=r_peaks,
-        q_onsets=q_arr,
-        t_ends=t_arr,
+        q_onsets=q_onsets_arr,
+        t_ends=t_ends_arr,
         fs=fs,
     )
 
-    # Attach classification results and build AnnotationManager
-    annotation_mgr = AnnotationManager()
-    beat_class_codes: List[str] = []
+    # Attach classifications back to beat dictionaries & collect normal NN intervals for HRV
     nn_intervals_ms: List[float] = []
+    beat_class_codes: List[str] = []
 
     for i, cb in enumerate(classified_beats):
+        if i < len(beats):
+            beats[i]["beat_class"] = cb.beat_class.value
+            beats[i]["rhythm_pattern"] = cb.rhythm_pattern.value
+            beats[i]["classification_confidence"] = cb.confidence
+            beats[i]["diagnostic_rationale"] = cb.diagnostic_rationale
+            beats[i]["qrs_duration_ms"] = cb.features.qrs_duration_ms
+            beats[i]["template_correlation"] = cb.features.template_correlation
+
         code = cb.beat_class.value
         beat_class_codes.append(code)
-        beats[i]["beat_class"] = code
-        beats[i]["rhythm_pattern"] = cb.rhythm_pattern.value
-        beats[i]["classification_confidence"] = cb.confidence
-        beats[i]["diagnostic_rationale"] = cb.diagnostic_rationale
-
-        if code == "N" and beats[i]["rr_sec"] > 0:
+        if code == "N" and i > 0 and beats[i]["rr_sec"] and beats[i]["rr_sec"] > 0.2:
             nn_intervals_ms.append(beats[i]["rr_sec"] * 1000.0)
 
+    # Populate AnnotationManager
+    annotation_mgr = AnnotationManager()
+    for cb in classified_beats:
+        code = cb.beat_class.value
         annotation_mgr.add_annotation(
             sample=cb.r_peak_sample,
             timestamp_sec=cb.time_sec,
@@ -180,7 +184,20 @@ def analyze_ecg(
     events = detect_clinical_events(beats, fs=fs)
 
     if progress_callback:
-        progress_callback(0.90, "Assessing repolarization lability & autonomic metrics...")
+        progress_callback(0.85, "Evaluating AF/AFL episode burden and hourly trends...")
+    # Atrial Fibrillation / Flutter burden analysis
+    af_report = detect_atrial_fibrillation(r_peaks, fs=fs)
+
+    # Hourly Arrhythmia Trend Histograms
+    rec_dur = float(len(clean_signal) / fs)
+    trends_report = generate_hourly_trends(
+        classified_beats,
+        events=[ev.to_dict() for ev in events],
+        total_duration_sec=rec_dur,
+    )
+
+    if progress_callback:
+        progress_callback(0.92, "Assessing repolarization lability & autonomic metrics...")
     # 6. Advanced Repolarization Lability: QTVI, 10-Model QT-RR Restitution & v0.6.1 Autonomic Suite
     qtvi_score: Optional[float] = None
     qtrr_metrics: Optional[Dict[str, Any]] = None
@@ -285,4 +302,6 @@ def analyze_ecg(
         "twa": twa_metrics,
         "hysteresis": hysteresis_metrics,
         "dispersion": dispersion_metrics,
+        "af_report": af_report.to_dict(),
+        "trends": trends_report.to_dict(),
     }

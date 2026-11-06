@@ -6,11 +6,29 @@ This document tracks architectural milestones, clinical electrophysiology module
 
 ## Completed Milestones
 
-### v0.6.1 — Peer-Reviewed Anti-Regression Conditioning, Two-Stage SQI Voting & Interactive 10-Model QT-RR Workstation (Current Release)
+### v0.7.1 — EGM-Hardened Release & Holter Arrhythmia Suite (Current Release)
+- **Atrial Fibrillation & Flutter Burden Engine (`af_detector.py`)**:
+  - Sliding-window Shannon entropy analysis on local RR distributions coupled with successive RR median absolute difference (MAD) irregularity scoring.
+  - Automatic segmentation of sustained AF episodes ($\ge 30\text{ s}$), calculating episode duration, mean/min/max HR, irregularity indices, and overall recording AF burden percentage conforming to clinical Holter standards.
+- **Hourly Arrhythmia Trend Histograms (`trends.py`)**:
+  - 1-hour binned epoch analysis tracking hourly heart rate extrema (Min, Mean, Max HR), ventricular ectopy counts (PVCs, Couplets, VT Runs), supraventricular ectopy (PACs), sinus pauses ($\ge 2.0\text{ s}$, $\ge 2.5\text{ s}$), and hourly AF burden.
+- **EGM Review Hardening & Input Sanitization**:
+  - **Hamilton OSEA AF Stabilizer**: Dynamic Shannon entropy gating suppressing isolated prematurity false-positives under chaotic atrial rhythms.
+  - **SCP-ECG Compression Guards**: Explicit Section 2 (Huffman tables) and Section 5 (Reference beat subtraction) detection raising clean `NotImplementedError` rather than decoding corrupted streams.
+  - **HL7 aECG European Locale Sanitizer**: Automated normalization of comma decimals (`0,005 mV`) to IEEE floating point.
+  - **Pulse Metrics & Events Type Safety**: Hardened `summarize_beats()` and `detect_clinical_events()` against `TypeError` on unassigned or NaN cycle metrics.
+- **85 Passing Unit Tests** spanning format sniffing, binary parsers, autonomic repolarization, and clinical event detection.
+
+### v0.7.0 — Open International Format Ingestion Layer & Hamilton OSEA Classifier
+- **Open Standards Ingestion (`io/`)**: Native zero-dependency parsers for DICOM Waveform (SOP Class 1.2.840.10008.5.1.4.1.1.9.1.1/9.1.2), HL7 Annotated ECG XML (ANSI/HL7 aECG), and SCP-ECG (CEN EN 1064 / ISO 13713).
+- **Patrick Hamilton (2002) OSEA Classifier (`hamilton_classifier.py`)**: Dynamic morphology template library with 12.5% exponential adaptation, running median RR prematurity gating (<0.82), and compensatory pause detection.
+- **PEP 639 License Standardization**: Full compliance with PEP 639 license configuration resolving Briefcase multi-platform CI package builds.
+
+### v0.6.1 — Peer-Reviewed Anti-Regression Conditioning, Two-Stage SQI Voting & Interactive 10-Model QT-RR Workstation
 - **Non-Regressive Conditioning (`config.py`, `baseline.py`)**: Paired AHA/ACC/HRS $0.05\text{ Hz}$ zero-phase Butterworth passband (`notch_quality = 30.0`) with cascaded $200\text{ ms}/600\text{ ms}$ moving median baseline suppression (de Chazal et al., 2004).
 - **Two-Stage SQA Gate (`sqi.py`)**: Stage 1 absolute spectral/statistical rejection thresholds (Li et al., 2014) gating Stage 2 six-index pairwise lead voting (VI_k in [-6, +6]; Suárez-León et al., 2018).
 - **Four-Mode T-End Delineation (`t_end.py`)**: Added Zhang et al. (2006) sliding-window area (`zhang_area`) alongside `hybrid`, `tangent` (ICH E14), and `threshold`.
-- **10 Domain-Guarded QT-RR Models & Interactive GUI (`qtrr.py`, `app.py`)**: All 10 Pueyo et al. (2004) restitution formulations with conditioning guards, `SettingsDialog` selectors, and the `📈 QT-RR Dynamics` PyQtGraph cloud & 10-model leaderboard (76 automated unit tests passing).
+- **10 Domain-Guarded QT-RR Models & Interactive GUI (`qtrr.py`, `app.py`)**: All 10 Pueyo et al. (2004) restitution formulations with conditioning guards, `SettingsDialog` selectors, and the `📈 QT-RR Dynamics` PyQtGraph cloud & 10-model leaderboard.
 
 ### v0.6.0 — Advanced Autonomic & Spatial Repolarization Suite
 - **`repolaris.detection.dispersion`**: Inter-lead spatial QT dispersion ($QT_d = QT_{\max} - QT_{\min}$), Fridericia rate-corrected dispersion ($QTc_d$), precordial transmural dispersion ($T_{\text{peak}}\text{–}T_{\text{end}}$ dispersion: $T_{pe,d}$), and dynamic lead quorum gating ($\ge 8$ valid leads for 12-lead, $\ge 3$ for Holter).
@@ -45,10 +63,10 @@ This document tracks architectural milestones, clinical electrophysiology module
 
 ## Upcoming Milestones
 
-### v0.7.0 — Cohort Persistence, HL7 aECG & PDF Clinical Reporting
-- Optional normalized SQLite cohort indexing for multi-patient longitudinal trials.
-- FDA HL7 Annotated ECG (aECG XML) and DICOM Waveform SOP export adapters.
-- Automated printable clinical PDF report generator with embedded waveform strips and Poincaré/restitution plots.
+### v0.8.0 — Long-Term Holter Streaming, Cohort DB & PDF Clinical Reports
+- Chunked lazy-loading generator stream and `np.memmap` buffer management for continuous 24h–48h telemetry.
+- Optional normalized SQLite cohort indexing for multi-patient longitudinal clinical trials.
+- Automated printable clinical PDF report generator with embedded waveform strips, hourly trend tables, and Poincaré/restitution plots.
 
 ### v1.0.0 — Regulatory Validation & Benchmark Certification
 - Full validation report against PhysioNet QT Database (QTDB), MIT-BIH Arrhythmia Database, and Telemetric Holter E-HOL-03-0202-003 (THEW).

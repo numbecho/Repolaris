@@ -34,7 +34,7 @@ def detect_clinical_events(
     short_qt_thresh_ms: float = 340.0,
     pause_thresh_sec: float = 2.0,
     tachy_thresh_bpm: float = 120.0,
-    brady_thresh_bpm: float = 45.0
+    brady_thresh_bpm: float = 45.0,
 ) -> List[ECGEvent]:
     """
     Scans a list of analyzed beats and flags all clinically salient episodes.
@@ -50,8 +50,11 @@ def detect_clinical_events(
     for i, beat in enumerate(beats):
         t_sec = beat["time_sec"]
         rr_sec = beat.get("rr_sec", 0.0)
-        hr = beat.get("hr_bpm", np.nan)
-        qtc_b = beat.get("qtc", {}).get("bazett_ms", np.nan)
+        raw_hr = beat.get("hr_bpm")
+        hr = float(raw_hr) if (raw_hr is not None and not np.isnan(raw_hr)) else np.nan
+
+        raw_qtc = beat.get("qtc", {}).get("bazett_ms") if beat.get("qtc") else None
+        qtc_b = float(raw_qtc) if (raw_qtc is not None and not np.isnan(raw_qtc)) else np.nan
 
         if not np.isnan(hr) and hr > 0:
             hrs.append(hr)

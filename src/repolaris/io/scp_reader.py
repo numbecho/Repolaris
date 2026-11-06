@@ -11,7 +11,10 @@ Specification:
         - Section Header (16 bytes): CRC (uint16), Section ID (uint16=0), Length (uint32), Version (uint8), Protocol (uint8), Reserved (6 bytes)
         - Pointer Table: Array of (Section ID uint16, Section Length uint32, Section Offset uint32)
     - Section 1: Header / Patient Data
+    - Section 2: Huffman Tables (Category 1/2 compression)
     - Section 3: Lead Definitions
+    - Section 4: QRS Location & Reference Beat Pointers
+    - Section 5: Reference Beat Subtraction Data
     - Section 6: Rhythm Data
 """
 
@@ -82,6 +85,7 @@ def read_scp_ecg(filepath: Union[str, Path, os.PathLike[str]]) -> SCPRecord:
     """Parses an SCP-ECG (EN 1064) file and returns physical waveforms in millivolts.
 
     Decodes Section 0 (pointers), Section 3 (lead specs), and Section 6 (rhythm data).
+    Hardened against unsupported Section 2 Huffman or Section 5 residual compression.
 
     Args:
         filepath: Path to the .scp file.
@@ -92,6 +96,7 @@ def read_scp_ecg(filepath: Union[str, Path, os.PathLike[str]]) -> SCPRecord:
     Raises:
         FileNotFoundError: If the file does not exist.
         ValueError: If Section 0, Section 3, or Section 6 is missing or malformed.
+        NotImplementedError: If the file requires Section 2 Huffman decompression or Section 5 subtraction.
     """
     path = Path(filepath)
     if not path.is_file():
@@ -123,6 +128,16 @@ def read_scp_ecg(filepath: Union[str, Path, os.PathLike[str]]) -> SCPRecord:
         if sec_off > 0 and sec_len > 0:
             sec_pointers[sec_id] = (sec_len, sec_off - 1)  # Convert 1-based offset to 0-based index
         offset += 10
+
+    # Compression checks: Section 2 (Huffman tables) or Section 5 (Reference beat subtraction)
+    if 2 in sec_pointers and sec_pointers[2][0] > 16:
+        raise NotImplementedError(
+            "SCP-ECG Section 2 (Huffman table decompression) is not currently implemented in native decoder."
+        )
+    if 5 in sec_pointers and sec_pointers[5][0] > 16:
+        raise NotImplementedError(
+            "SCP-ECG Section 5 (Reference beat residual subtraction) is not currently implemented in native decoder."
+        )
 
     # 1. Parse Section 3 (Lead Definitions)
     if 3 not in sec_pointers:

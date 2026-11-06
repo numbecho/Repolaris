@@ -136,7 +136,8 @@ def read_hl7_aecg(filepath: Union[str, Path, os.PathLike[str]]) -> HL7Record:
                 raw_code = child.get("code", "")
             elif tag == "scale":
                 try:
-                    scale_val = float(child.get("value", 0.005))
+                    s_str = child.get("value", "0.005").strip().replace(",", ".")
+                    scale_val = float(s_str)
                     unit = child.get("unit", "mV").lower()
                     if unit in ("uv", "microvolt", "µv"):
                         scale_val /= 1000.0
@@ -144,7 +145,8 @@ def read_hl7_aecg(filepath: Union[str, Path, os.PathLike[str]]) -> HL7Record:
                     scale_val = 0.005
             elif tag == "increment":
                 try:
-                    inc_val = float(child.get("value", 0.002))
+                    inc_str = child.get("value", "0.002").strip().replace(",", ".")
+                    inc_val = float(inc_str)
                     if inc_val > 0:
                         fs = 1.0 / inc_val
                 except ValueError:
@@ -157,7 +159,9 @@ def read_hl7_aecg(filepath: Union[str, Path, os.PathLike[str]]) -> HL7Record:
 
         if digits_text:
             try:
-                raw_ints = np.fromstring(digits_text, dtype=np.int32, sep=" ")
+                # Normalize potential European comma decimal formatting in text lists
+                cleaned_text = digits_text.replace(",", ".") if "," in digits_text else digits_text
+                raw_ints = np.fromstring(cleaned_text, dtype=np.int32, sep=" ")
                 if len(raw_ints) > 0:
                     sig_mv = raw_ints.astype(np.float32) * scale_val
                     lead_signals.append(sig_mv)

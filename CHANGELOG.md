@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2026-11-06
+
+### Added
+- **Atrial Fibrillation (AF) / Flutter Detection and Burden Analysis (`repolaris.detection.af_detector`)**:
+  - Added native `detect_atrial_fibrillation()`, `compute_rr_entropy()`, and `compute_rr_irregularity()`.
+  - Implements sliding-window Shannon entropy analysis on local RR distributions coupled with successive RR median absolute difference (MAD) irregularity scoring.
+  - Automatically segments sustained AF episodes ($\ge 30\text{ s}$), calculating episode onset, offset, duration, heart rate extrema, irregularity indices, and overall recording AF burden percentage conforming to clinical Holter standards.
+- **Hourly Arrhythmia Trend Histograms & Holter Summary (`repolaris.detection.trends`)**:
+  - Added `generate_hourly_trends()` producing 1-hour epoch distribution tables for 24h/48h Holter monitoring.
+  - Tracks hourly heart rate extrema (Min, Mean, Max HR), ventricular ectopy counts (PVCs, Couplets, VT Runs), supraventricular ectopy (PACs), sinus pauses ($\ge 2.0\text{ s}$, $\ge 2.5\text{ s}$), and hourly AF burden.
+- **AF Entropy Stabilizer for Hamilton Beat Classifier (`repolaris.detection.hamilton_classifier`)**:
+  - Added rhythm-entropy gating to the Patrick Hamilton (2002) OSEA template matching classifier to prevent false-positive PVC classifications during chaotic rhythm variations (AF with rapid ventricular response).
+- **Hardening and Edge-Case Ingestion Resilience (`repolaris.io`)**:
+  - **SCP-ECG Guarding**: Hardened `read_scp_ecg` to explicitly check Section 0 pointer tables for Section 2 (Huffman table decompression) and Section 5 (Reference beat residual subtraction), gracefully raising `NotImplementedError` rather than parsing corrupted streams.
+  - **HL7 aECG Locale Delimiter Normalization**: Hardened `read_hl7_aecg` to sanitize European comma decimal formatting (`0,005 mV`) to standard IEEE floats.
+  - **Safe Pulse Metrics & Events Handling**: Protected `summarize_beats()` and `detect_clinical_events()` against `TypeError` when handling unassigned or NaN heart rates on initial cycles.
+- **Comprehensive v0.7.1 Test Suite (`tests/test_v071_hardening.py`)**:
+  - Added 5 new automated unit tests covering AF episode segmentation, Holter hourly binning, SCP compression guards, European decimal parsing, and pipeline integration (full test suite: **85 passing unit tests**).
+
 ## [0.7.0] - 2026-11-05
 
 ### Added

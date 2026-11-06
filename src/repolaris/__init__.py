@@ -26,6 +26,9 @@ for _sub in (
     "hrt",
     "hrv",
     "hysteresis",
+    "hamilton_classifier",
+    "af_detector",
+    "trends",
     "pipeline",
 ):
     _mod_name = f"repolaris.detection.{_sub}"
@@ -66,12 +69,18 @@ from repolaris.detection.classifier import (
     classify_all_beats,
     classify_heartbeat,
 )
+from repolaris.detection.hamilton_classifier import HamiltonBeatClassifier
+from repolaris.detection.af_detector import detect_atrial_fibrillation, AFBurdenReport, AFEpisode
+from repolaris.detection.trends import generate_hourly_trends, HolterTrendReport, HourlyTrendBin
 from repolaris.detection.annotations import ECGAnnotation, AnnotationManager
-from repolaris.io.ecg_loader import load_ecg_file, load_ecg_dataset
+from repolaris.io.ecg_loader import load_ecg_file, load_ecg_dataset, sniff_ecg_format
+from repolaris.io.dicom_reader import read_dicom_waveform, is_dicom_file
+from repolaris.io.hl7_reader import read_hl7_aecg, is_hl7_xml
+from repolaris.io.scp_reader import read_scp_ecg, is_scp_file
 from repolaris.io.pecg_format import save_pecg, load_pecg
 from repolaris.io.e3c_reader import read_e3c
 
-__version__ = "0.7.0"
+__version__ = "0.7.1"
 __all__ = [
     "ECGConfig",
     "FilterConfig",
@@ -110,10 +119,24 @@ __all__ = [
     "ClassifiedBeat",
     "classify_all_beats",
     "classify_heartbeat",
+    "HamiltonBeatClassifier",
+    "detect_atrial_fibrillation",
+    "AFBurdenReport",
+    "AFEpisode",
+    "generate_hourly_trends",
+    "HolterTrendReport",
+    "HourlyTrendBin",
     "ECGAnnotation",
     "AnnotationManager",
     "load_ecg_file",
     "load_ecg_dataset",
+    "sniff_ecg_format",
+    "read_dicom_waveform",
+    "is_dicom_file",
+    "read_hl7_aecg",
+    "is_hl7_xml",
+    "read_scp_ecg",
+    "is_scp_file",
     "save_pecg",
     "load_pecg",
     "read_e3c",

@@ -2,10 +2,10 @@
 
 **Modernized ECG Analysis, Ventricular Repolarization & Universal Holter Framework**
 
-[![Version](https://img.shields.io/badge/Version-v0.6.1-cyan.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-v0.7.1-cyan.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.14%2B-brightgreen.svg)](pyproject.toml)
-[![Tests](https://img.shields.io/badge/Tests-76%20Passed-success.svg)](tests/)
+[![Tests](https://img.shields.io/badge/Tests-85%20Passed-success.svg)](tests/)
 [![GUI](https://img.shields.io/badge/GUI-PyQt6%20%2B%20PyQtGraph-purple.svg)](src/repolaris/app.py)
 [![Wiki](https://img.shields.io/badge/Documentation-Wiki-orange.svg)](wiki/Home.md)
 

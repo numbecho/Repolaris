@@ -51,6 +51,7 @@ except ImportError:
             self._text = args[0] if (args and isinstance(args[0], str)) else ""
             self._val = 0
             self._hidden = True
+            self._tabs: List[Any] = []
             self.triggered = _SignalMock()
             self.toggled = _SignalMock()
             self.clicked = _SignalMock()
@@ -65,6 +66,10 @@ except ImportError:
         def hide(self) -> None: self._hidden = True
         def isHidden(self) -> bool: return self._hidden
         def blockSignals(self, b: bool) -> None: pass
+        def addTab(self, widget: Any, label: str = "") -> None:
+            self._tabs.append((widget, label))
+        def count(self) -> int:
+            return len(self._tabs)
         def __getattr__(self, name: str) -> Any:
             mock = _QMock()
             setattr(self, name, mock)
@@ -1166,6 +1171,11 @@ class MainWindow(QMainWindow):
         self.menu_file.addAction(self.action_export_study)
         self.action_export = self.action_export_study  # Compatibility alias
 
+        self.action_export_pdf = QAction(tr("menu_export_pdf"), self)
+        self.action_export_pdf.setShortcut(QKeySequence("Ctrl+P"))
+        self.action_export_pdf.triggered.connect(self._export_pdf_dialog)
+        self.menu_file.addAction(self.action_export_pdf)
+
         self.action_close_study = QAction(tr("menu_close_study"), self)
         self.action_close_study.setShortcut(QKeySequence("Ctrl+W"))
         self.action_close_study.triggered.connect(self._close_study)
@@ -1363,6 +1373,11 @@ class MainWindow(QMainWindow):
         self.btn_export.setToolTip(tr("btn_export_tooltip"))
         self.btn_export.clicked.connect(self._export_pecg_dialog)
         top_layout.addWidget(self.btn_export)
+
+        self.btn_export_pdf = QPushButton(tr("btn_export_pdf"))
+        self.btn_export_pdf.setToolTip(tr("btn_export_pdf_tooltip"))
+        self.btn_export_pdf.clicked.connect(self._export_pdf_dialog)
+        top_layout.addWidget(self.btn_export_pdf)
 
         root_layout.addWidget(top_bar)
 
@@ -1804,6 +1819,55 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(qtrr_tab, tr("tab_qtrr"))
 
         # -----------------------------------------------------------------
+        # TAB 5: HOLTER TRIAGE (Hourly Trends & AF Burden)
+        # -----------------------------------------------------------------
+        holter_tab = QWidget()
+        holter_layout = QVBoxLayout(holter_tab)
+        holter_layout.setContentsMargins(8, 8, 8, 8)
+        holter_layout.setSpacing(6)
+
+        self.lbl_holter_summary_banner = QLabel(tr("holter_summary_ready"))
+        self.lbl_holter_summary_banner.setWordWrap(True)
+        self.lbl_holter_summary_banner.setStyleSheet(
+            "background-color: #1a1e2e; border: 1px solid #2e3650; border-radius: 6px; "
+            "padding: 6px 8px; font-size: 8.5pt; color: #e2e8f0;"
+        )
+        holter_layout.addWidget(self.lbl_holter_summary_banner)
+
+        self.holter_trends_table = QTableWidget(0, 8)
+        self.holter_trends_table.setHorizontalHeaderLabels([
+            tr("holter_hdr_hour"),
+            tr("holter_hdr_beats"),
+            tr("holter_hdr_hr"),
+            tr("holter_hdr_pvc"),
+            tr("holter_hdr_pac"),
+            tr("holter_hdr_runs"),
+            tr("holter_hdr_pauses"),
+            tr("holter_hdr_af"),
+        ])
+        self.holter_trends_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.holter_trends_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.holter_trends_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.holter_trends_table.cellClicked.connect(self._on_holter_hour_clicked)
+        holter_layout.addWidget(self.holter_trends_table, stretch=2)
+
+        self.holter_af_table = QTableWidget(0, 5)
+        self.holter_af_table.setHorizontalHeaderLabels([
+            tr("af_hdr_ep"),
+            tr("af_hdr_start"),
+            tr("af_hdr_end"),
+            tr("af_hdr_dur"),
+            tr("af_hdr_hr"),
+        ])
+        self.holter_af_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.holter_af_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.holter_af_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.holter_af_table.cellClicked.connect(self._on_holter_af_clicked)
+        holter_layout.addWidget(self.holter_af_table, stretch=1)
+
+        self.tabs.addTab(holter_tab, tr("tab_holter"))
+
+        # -----------------------------------------------------------------
         # TAB 5: STUDY & PATIENT METADATA (Demographics & Clinical Context) - LAST TAB
         # -----------------------------------------------------------------
         metadata_tab = QWidget()
@@ -1965,6 +2029,10 @@ class MainWindow(QMainWindow):
         self.beat_table.setRowCount(0)
         self.meta_table_a.setRowCount(0)
         self.meta_table_b.setRowCount(0)
+        if hasattr(self, "holter_trends_table"):
+            self.holter_trends_table.setRowCount(0)
+        if hasattr(self, "holter_af_table"):
+            self.holter_af_table.setRowCount(0)
 
         # Clear lead dropdown
         self.combo_leads.blockSignals(True)
@@ -2206,6 +2274,8 @@ class MainWindow(QMainWindow):
             self.menu_file.setTitle(tr("menu_file"))
             self.action_open_study.setText(tr("menu_open_study"))
             self.action_export_study.setText(tr("menu_export_study"))
+            if hasattr(self, "action_export_pdf"):
+                self.action_export_pdf.setText(tr("menu_export_pdf"))
             self.action_close_study.setText(tr("menu_close_study"))
             self.action_exit.setText(tr("menu_exit"))
 
@@ -2238,6 +2308,9 @@ class MainWindow(QMainWindow):
         self.btn_demo.setToolTip(tr("btn_demo_tooltip"))
         self.btn_export.setText(tr("btn_export"))
         self.btn_export.setToolTip(tr("btn_export_tooltip"))
+        if hasattr(self, "btn_export_pdf"):
+            self.btn_export_pdf.setText(tr("btn_export_pdf"))
+            self.btn_export_pdf.setToolTip(tr("btn_export_pdf_tooltip"))
 
         # Calipers Strip
         self.lbl_cal_cue.setText(tr("calipers_title"))
@@ -2291,11 +2364,33 @@ class MainWindow(QMainWindow):
         self.tabs.setTabText(0, tr("tab_overview"))
         self.tabs.setTabText(1, tr("tab_events"))
         self.tabs.setTabText(2, tr("tab_beats"))
-        if self.tabs.count() >= 5:
+        if self.tabs.count() >= 6:
+            self.tabs.setTabText(3, tr("tab_qtrr"))
+            self.tabs.setTabText(4, tr("tab_holter"))
+            self.tabs.setTabText(5, tr("tab_metadata"))
+        elif self.tabs.count() >= 5:
             self.tabs.setTabText(3, tr("tab_qtrr"))
             self.tabs.setTabText(4, tr("tab_metadata"))
         else:
             self.tabs.setTabText(3, tr("tab_metadata"))
+        if hasattr(self, "holter_trends_table"):
+            self.holter_trends_table.setHorizontalHeaderLabels([
+                tr("holter_hdr_hour"),
+                tr("holter_hdr_beats"),
+                tr("holter_hdr_hr"),
+                tr("holter_hdr_pvc"),
+                tr("holter_hdr_pac"),
+                tr("holter_hdr_runs"),
+                tr("holter_hdr_pauses"),
+                tr("holter_hdr_af"),
+            ])
+            self.holter_af_table.setHorizontalHeaderLabels([
+                tr("af_hdr_ep"),
+                tr("af_hdr_start"),
+                tr("af_hdr_end"),
+                tr("af_hdr_dur"),
+                tr("af_hdr_hr"),
+            ])
         if hasattr(self, "lbl_tab_qtrr_model"):
             self.lbl_tab_qtrr_model.setText(tr("qtrr_lbl_model"))
             self.lbl_tab_hyst_mode.setText(tr("qtrr_lbl_hyst"))
@@ -2803,6 +2898,9 @@ class MainWindow(QMainWindow):
             self.events_table.setItem(row, 2, item_val)
             self.events_table.setItem(row, 3, item_sev)
 
+        # Populate Holter Triage Tab (Hourly Trends & AF Episodes)
+        self._update_holter_triage_tab()
+
     def set_qtrr_model(self, model_id: str) -> None:
         """Sets the active Pueyo (2004) QT-RR restitution regression model and refreshes visualization."""
         self.current_qtrr_model = model_id
@@ -3088,6 +3186,95 @@ class MainWindow(QMainWindow):
             initial_msg=tr("status_exporting")
         )
 
+
+    def _update_holter_triage_tab(self) -> None:
+        """Populates the Holter Triage tab with hourly trend bins and AF episodes."""
+        if not self.analysis_results or not hasattr(self, "holter_trends_table"):
+            return
+        trends = self.analysis_results.get("trends") or {}
+        af_rep = self.analysis_results.get("af_report") or {}
+        bins = trends.get("hourly_bins", [])
+        episodes = af_rep.get("episodes", [])
+
+        af_burden = af_rep.get("af_burden_pct", 0.0)
+        tot_pvc = trends.get("total_pvcs", 0)
+        tot_pac = trends.get("total_pacs", 0)
+        tot_pauses = trends.get("total_pauses", 0)
+        max_pause = trends.get("max_pause_sec", 0.0)
+        self.lbl_holter_summary_banner.setText(
+            f"Holter Summary: {len(bins)}h analyzed | PVCs: {tot_pvc} | PACs: {tot_pac} | "
+            f"Pauses: {tot_pauses} (max {max_pause:.2f}s) | AF Burden: {af_burden:.2f}% ({len(episodes)} episodes)"
+        )
+
+        self.holter_trends_table.setRowCount(len(bins))
+        for r_idx, b in enumerate(bins):
+            self.holter_trends_table.setItem(r_idx, 0, QTableWidgetItem(f"H{b.get('hour_index', r_idx + 1)}"))
+            self.holter_trends_table.setItem(r_idx, 1, QTableWidgetItem(str(b.get("total_beats", 0))))
+            self.holter_trends_table.setItem(r_idx, 2, QTableWidgetItem(f"{b.get('mean_hr_bpm', 0.0):.1f}"))
+            self.holter_trends_table.setItem(r_idx, 3, QTableWidgetItem(str(b.get("pvc_count", 0))))
+            self.holter_trends_table.setItem(r_idx, 4, QTableWidgetItem(str(b.get("pac_count", 0))))
+            self.holter_trends_table.setItem(
+                r_idx, 5, QTableWidgetItem(f"{b.get('couplet_count', 0)}/{b.get('vt_run_count', 0)}")
+            )
+            self.holter_trends_table.setItem(r_idx, 6, QTableWidgetItem(str(b.get("pause_count", 0))))
+            self.holter_trends_table.setItem(r_idx, 7, QTableWidgetItem(f"{b.get('af_burden_pct', 0.0):.1f}%"))
+
+        self.holter_af_table.setRowCount(len(episodes))
+        for r_idx, ep in enumerate(episodes):
+            self.holter_af_table.setItem(r_idx, 0, QTableWidgetItem(str(ep.get("episode_index", r_idx + 1))))
+            self.holter_af_table.setItem(r_idx, 1, QTableWidgetItem(f"{ep.get('start_time_sec', 0.0):.1f}"))
+            self.holter_af_table.setItem(r_idx, 2, QTableWidgetItem(f"{ep.get('end_time_sec', 0.0):.1f}"))
+            self.holter_af_table.setItem(r_idx, 3, QTableWidgetItem(f"{ep.get('duration_sec', 0.0):.1f}"))
+            self.holter_af_table.setItem(r_idx, 4, QTableWidgetItem(f"{ep.get('mean_hr_bpm', 0.0):.1f}"))
+
+    def _on_holter_hour_clicked(self, row: int, col: int) -> None:
+        """Seeks the waveform plot to the start of the selected hourly bin."""
+        if not self.analysis_results:
+            return
+        bins = (self.analysis_results.get("trends") or {}).get("hourly_bins", [])
+        if 0 <= row < len(bins):
+            t_start = float(bins[row].get("start_time_sec", 0.0))
+            self.ecg_plot.plot_widget.setXRange(t_start, t_start + 10.0, padding=0)
+
+    def _on_holter_af_clicked(self, row: int, col: int) -> None:
+        """Seeks the waveform plot to the start of the selected AF episode."""
+        if not self.analysis_results:
+            return
+        episodes = (self.analysis_results.get("af_report") or {}).get("episodes", [])
+        if 0 <= row < len(episodes):
+            t_start = float(episodes[row].get("start_time_sec", 0.0))
+            self.ecg_plot.plot_widget.setXRange(t_start, t_start + 10.0, padding=0)
+
+    def _export_pdf_dialog(self) -> None:
+        """Exports a printable multi-page clinical PDF report of the active study."""
+        if not self.analysis_results:
+            QMessageBox.warning(self, tr("no_rec_title"), tr("no_rec_msg"))
+            return
+
+        path, _ = QFileDialog.getSaveFileName(
+            self, tr("export_pdf_dialog_title"), "repolaris_clinical_report.pdf", "PDF Report (*.pdf)"
+        )
+        if not path:
+            return
+
+        def _task(progress_callback=None):
+            return ExportAPI.export_clinical_pdf(
+                filepath=path,
+                analysis_results=self.analysis_results,
+                patient_metadata=self.current_metadata,
+                fs=self.fs,
+                lead_name=self.current_lead_name,
+                progress_callback=progress_callback,
+            )
+
+        def _on_done(saved_path):
+            QMessageBox.information(self, tr("export_success_title"), tr("export_success_msg", path=saved_path))
+
+        self._run_background_task(
+            _task,
+            _on_done,
+            initial_msg=tr("status_exporting"),
+        )
 
     def closeEvent(self, event: Any) -> None:
         """Safely clean up any active background worker thread before window destruction."""

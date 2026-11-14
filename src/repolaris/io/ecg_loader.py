@@ -393,3 +393,137 @@ def load_ecg_dataset(
 
     else:
         raise ValueError(f"Unsupported file format '{path.suffix}'.")
+
+
+class SignalBuffer:
+    """Out-of-core signal buffer wrapping an in-memory ndarray or disk-backed np.memmap."""
+
+    def __init__(
+        self,
+        signals: Dict[str, np.ndarray],
+        fs: float,
+        metadata: Dict[str, Any],
+        temp_mmap_dir: Optional[str] = None,
+    ) -> None:
+        self.signals = signals
+        self.fs = fs
+        self.metadata = metadata
+        self._temp_mmap_dir = temp_mmap_dir
+
+    @property
+    def lead_names(self) -> List[str]:
+        return list(self.signals.keys())
+
+    @property
+    def num_samples(self) -> int:
+        if not self.signals:
+            return 0
+        first = next(iter(self.signals.values()))
+        return int(len(first))
+
+    @property
+    def duration_sec(self) -> float:
+        return float(self.num_samples / self.fs) if self.fs > 0 else 0.0
+
+    def get_slice(self, lead: Union[str, int], start_sample: int, end_sample: int) -> np.ndarray:
+        """Returns a contiguous 1D float32 slice for the specified lead."""
+        if isinstance(lead, int):
+            names = self.lead_names
+            lead_key = names[min(lead, len(names) - 1)]
+        else:
+            lead_key = lead if lead in self.signals else self.lead_names[0]
+        arr = self.signals[lead_key]
+        s = max(0, int(start_sample))
+        e = min(len(arr), int(end_sample))
+        return np.asarray(arr[s:e], dtype=np.float32)
+
+
+def open_ecg_buffer(
+    filepath: Union[str, Path, os.PathLike[str]],
+    mmap_threshold_samples: int = 1_800_000,
+    progress_callback: Optional[Callable[[float, str], None]] = None,
+) -> SignalBuffer:
+    """Opens an ECG recording into a SignalBuffer, backing large multi-hour signals with np.memmap."""
+    import tempfile
+
+    path = Path(filepath)
+    fmt = sniff_ecg_format(path)
+    if fmt == "pecg":
+        try:
+            meta, sig_mat = load_pecg(path, mmap=True, progress_callback=progress_callback)
+            channels = meta.get("recording", {}).get("channels", [])
+            sigs = {
+                (channels[i].get("name", f"Lead {i+1}") if i < len(channels) else f"Lead {i+1}"): sig_mat[i]
+                for i in range(sig_mat.shape[0])
+            }
+            fs = float(meta.get("recording", {}).get("sampling_rate", 500.0))
+            return SignalBuffer(sigs, fs, meta)
+        except Exception:
+            pass
+
+    signals, fs, meta = load_ecg_dataset(path, progress_callback=progress_callback)
+    first_len = len(next(iter(signals.values()))) if signals else 0
+
+    if first_len >= mmap_threshold_samples:
+        tmp_dir = tempfile.mkdtemp(prefix="repolaris_mmap_")
+        mmap_signals: Dict[str, np.ndarray] = {}
+        for idx, (lname, arr) in enumerate(signals.items()):
+            mmap_path = os.path.join(tmp_dir, f"lead_{idx}.dat")
+            mm = np.memmap(mmap_path, dtype=np.float32, mode="w+", shape=arr.shape)
+            mm[:] = arr[:]
+            mm.flush()
+            mmap_signals[lname] = mm
+        meta["mmap_backed"] = True
+        return SignalBuffer(mmap_signals, fs, meta, temp_mmap_dir=tmp_dir)
+
+    meta["mmap_backed"] = False
+    return SignalBuffer(signals, fs, meta)
+
+
+def stream_ecg_chunks(
+    filepath: Union[str, Path, os.PathLike[str]],
+    lead_name_or_index: Union[str, int] = 0,
+    chunk_duration_sec: float = 300.0,
+    overlap_sec: float = 5.0,
+    progress_callback: Optional[Callable[[float, str], None]] = None,
+):
+    """Generator yielding overlapping waveform chunks for bounded-memory 24h-48h Holter streaming.
+
+    Yields dicts with:
+        - chunk_index: int
+        - start_sample: int (including left overlap)
+        - end_sample: int (including right overlap)
+        - core_start_sample: int (non-overlapping core window start)
+        - core_end_sample: int (non-overlapping core window end)
+        - signal: np.ndarray (1D float32 slice)
+        - fs: float
+        - total_samples: int
+        - metadata: Dict[str, Any]
+    """
+    buf = open_ecg_buffer(filepath, progress_callback=progress_callback)
+    fs = buf.fs
+    total_samples = buf.num_samples
+    chunk_samples = max(int(fs * 10), int(round(chunk_duration_sec * fs)))
+    overlap_samples = max(0, int(round(overlap_sec * fs)))
+
+    core_start = 0
+    chunk_idx = 0
+    while core_start < total_samples:
+        core_end = min(total_samples, core_start + chunk_samples)
+        win_start = max(0, core_start - overlap_samples)
+        win_end = min(total_samples, core_end + overlap_samples)
+
+        sig_slice = buf.get_slice(lead_name_or_index, win_start, win_end)
+        yield {
+            "chunk_index": chunk_idx,
+            "start_sample": win_start,
+            "end_sample": win_end,
+            "core_start_sample": core_start,
+            "core_end_sample": core_end,
+            "signal": sig_slice,
+            "fs": fs,
+            "total_samples": total_samples,
+            "metadata": buf.metadata,
+        }
+        core_start = core_end
+        chunk_idx += 1

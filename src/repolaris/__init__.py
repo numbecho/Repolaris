@@ -42,7 +42,7 @@ for _sub in (
                 _spec.loader.exec_module(_mod)
 
 from repolaris.config import ECGConfig, FilterConfig, DetectionConfig
-from repolaris.detection.pipeline import analyze_ecg
+from repolaris.detection.pipeline import analyze_ecg, analyze_ecg_stream
 from repolaris.detection.pulse_metrics import compute_qtc, summarize_beats
 from repolaris.detection.qtvi import compute_qtvi, resample_berger, optimize_alpha
 from repolaris.detection.qtrr import fit_qtrr_model, fit_all_qtrr_models, SUPPORTED_QTRR_MODELS, QTRR_MODEL_METADATA
@@ -73,19 +73,21 @@ from repolaris.detection.hamilton_classifier import HamiltonBeatClassifier
 from repolaris.detection.af_detector import detect_atrial_fibrillation, AFBurdenReport, AFEpisode
 from repolaris.detection.trends import generate_hourly_trends, HolterTrendReport, HourlyTrendBin
 from repolaris.detection.annotations import ECGAnnotation, AnnotationManager
-from repolaris.io.ecg_loader import load_ecg_file, load_ecg_dataset, sniff_ecg_format
+from repolaris.io.ecg_loader import load_ecg_file, load_ecg_dataset, sniff_ecg_format, SignalBuffer, open_ecg_buffer, stream_ecg_chunks
+from repolaris.io.pdf_report import generate_clinical_pdf_report
 from repolaris.io.dicom_reader import read_dicom_waveform, is_dicom_file
 from repolaris.io.hl7_reader import read_hl7_aecg, is_hl7_xml
 from repolaris.io.scp_reader import read_scp_ecg, is_scp_file
 from repolaris.io.pecg_format import save_pecg, load_pecg
 from repolaris.io.e3c_reader import read_e3c
 
-__version__ = "0.7.1"
+__version__ = "0.8.0"
 __all__ = [
     "ECGConfig",
     "FilterConfig",
     "DetectionConfig",
     "analyze_ecg",
+    "analyze_ecg_stream",
     "compute_qtc",
     "summarize_beats",
     "compute_qtvi",
@@ -131,6 +133,10 @@ __all__ = [
     "load_ecg_file",
     "load_ecg_dataset",
     "sniff_ecg_format",
+    "SignalBuffer",
+    "open_ecg_buffer",
+    "stream_ecg_chunks",
+    "generate_clinical_pdf_report",
     "read_dicom_waveform",
     "is_dicom_file",
     "read_hl7_aecg",

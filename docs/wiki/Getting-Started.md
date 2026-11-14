@@ -7,7 +7,7 @@ This guide walks you through installing Repolaris, setting up your environment, 
 ## 1. System Requirements
 
 * **Operating System:** Linux (Ubuntu 20.04+, Debian 11+, Fedora 38+, Arch), macOS (12.0+ Monterey, Apple Silicon & Intel), Windows 10/11 (64-bit).
-* **Python Runtime:** Python `>= 3.14`.
+* **Python Runtime:** Python `>= 3.12`.
 * **Hardware Acceleration:** OpenGL-compatible graphics card recommended for desktop GUI 60fps rendering.
 
 ---

@@ -12,7 +12,7 @@ Generates clinical hourly distribution tables and trend breakdowns for 24h/48h H
 from __future__ import annotations
 
 from dataclasses import dataclass, asdict
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 import numpy as np
 
 from repolaris.detection.classifier import ClassifiedBeat, BeatClass, RhythmPattern
@@ -71,6 +71,7 @@ def generate_hourly_trends(
     events: Optional[List[Dict[str, Any]]] = None,
     total_duration_sec: Optional[float] = None,
     bin_size_sec: float = 3600.0,
+    af_episodes: Optional[List[Any]] = None,
 ) -> HolterTrendReport:
     """Aggregates beat-by-beat classifications and events into hourly trend bins.
 
@@ -79,6 +80,7 @@ def generate_hourly_trends(
         events: Optional list of detected clinical events (dictionaries or ECGEvents).
         total_duration_sec: Total duration in seconds. If None, inferred from beat timestamps.
         bin_size_sec: Bin duration in seconds (default: 3600.0s = 1 hour).
+        af_episodes: Optional list of detected AF episodes (AFEpisode instances or dicts).
 
     Returns:
         HolterTrendReport with hourly breakdown and global extrema.
@@ -119,6 +121,14 @@ def generate_hourly_trends(
                 dur = ev.get("metric_value") if isinstance(ev, dict) else getattr(ev, "metric_value", 0.0)
                 pause_events.append((t, dur))
 
+    # Parse AF episodes for interval overlap
+    parsed_af = []
+    if af_episodes:
+        for ep in af_episodes:
+            s_t = ep.get("start_time_sec") if isinstance(ep, dict) else getattr(ep, "start_time_sec", 0.0)
+            e_t = ep.get("end_time_sec") if isinstance(ep, dict) else getattr(ep, "end_time_sec", 0.0)
+            parsed_af.append((s_t, e_t))
+
     for b_idx in range(num_bins):
         b_start = b_idx * bin_size_sec
         b_end = min(dur_total, (b_idx + 1) * bin_size_sec)
@@ -126,6 +136,14 @@ def generate_hourly_trends(
 
         # Filter beats in this bin
         bin_beats = [b for b in classified_beats if b_start <= b.time_sec < b_end]
+
+        # Calculate AF overlap in this epoch
+        af_dur = 0.0
+        for s_t, e_t in parsed_af:
+            overlap = max(0.0, min(b_end, e_t) - max(b_start, s_t))
+            af_dur += overlap
+        af_dur = min(af_dur, actual_dur)
+        af_pct = (af_dur / actual_dur * 100.0) if actual_dur > 0 else 0.0
 
         if not bin_beats:
             bins.append(
@@ -143,8 +161,8 @@ def generate_hourly_trends(
                     vt_run_count=0,
                     pause_count=0,
                     longest_pause_sec=0.0,
-                    af_burden_sec=0.0,
-                    af_burden_pct=0.0,
+                    af_burden_sec=round(af_dur, 1),
+                    af_burden_pct=round(af_pct, 2),
                 )
             )
             continue
@@ -166,10 +184,6 @@ def generate_hourly_trends(
         bin_pauses = [p_dur for p_t, p_dur in pause_events if b_start <= p_t < b_end]
         pause_cnt = len(bin_pauses)
         longest_p = max(bin_pauses, default=0.0)
-
-        # AF estimation in bin
-        af_dur = 0.0
-        af_pct = (af_dur / actual_dur * 100.0) if actual_dur > 0 else 0.0
 
         bins.append(
             HourlyTrendBin(

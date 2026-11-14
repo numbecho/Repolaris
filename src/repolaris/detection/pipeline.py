@@ -194,6 +194,7 @@ def analyze_ecg(
         classified_beats,
         events=[ev.to_dict() for ev in events],
         total_duration_sec=rec_dur,
+        af_episodes=af_report.episodes,
     )
 
     if progress_callback:
@@ -304,4 +305,190 @@ def analyze_ecg(
         "dispersion": dispersion_metrics,
         "af_report": af_report.to_dict(),
         "trends": trends_report.to_dict(),
+    }
+
+
+def analyze_ecg_stream(
+    signal_or_path: Union[np.ndarray, str],
+    fs: float = 500.0,
+    lead: Union[str, int] = 0,
+    chunk_duration_sec: float = 300.0,
+    overlap_sec: float = 5.0,
+    config: Optional[ECGConfig] = None,
+    progress_callback: Optional[Callable[[float, str], None]] = None,
+) -> Dict[str, Any]:
+    """Executes chunked out-of-core ECG analysis across continuous multi-hour Holter recordings.
+
+    Processes overlapping windows to prevent filter edge transients, deduplicates R-peaks at
+    chunk boundaries, and aggregates full-study arrhythmia trends, AF burden, HRV, HRT, and QTc.
+    """
+    from repolaris.io.ecg_loader import stream_ecg_chunks
+
+    if isinstance(signal_or_path, np.ndarray):
+        raw_arr = np.asarray(signal_or_path, dtype=np.float32)
+        total_samples = len(raw_arr)
+        chunk_samples = max(int(fs * 10), int(round(chunk_duration_sec * fs)))
+        overlap_samples = max(0, int(round(overlap_sec * fs)))
+
+        def _array_gen():
+            c_start = 0
+            c_idx = 0
+            while c_start < total_samples:
+                c_end = min(total_samples, c_start + chunk_samples)
+                w_start = max(0, c_start - overlap_samples)
+                w_end = min(total_samples, c_end + overlap_samples)
+                yield {
+                    "chunk_index": c_idx,
+                    "start_sample": w_start,
+                    "end_sample": w_end,
+                    "core_start_sample": c_start,
+                    "core_end_sample": c_end,
+                    "signal": raw_arr[w_start:w_end],
+                    "fs": fs,
+                    "total_samples": total_samples,
+                    "metadata": {"mmap_backed": isinstance(signal_or_path, np.memmap)},
+                }
+                c_start = c_end
+                c_idx += 1
+
+        chunk_iter = _array_gen()
+    else:
+        chunk_iter = stream_ecg_chunks(
+            signal_or_path,
+            lead_name_or_index=lead,
+            chunk_duration_sec=chunk_duration_sec,
+            overlap_sec=overlap_sec,
+        )
+
+    all_r_peaks: List[int] = []
+    all_beats: List[Dict[str, Any]] = []
+    all_classified: List[ClassifiedBeat] = []
+    sqi_list: List[Dict[str, Any]] = []
+    preview_signal: Optional[np.ndarray] = None
+    actual_fs = fs
+    total_len = 0
+
+    for ch in chunk_iter:
+        actual_fs = float(ch["fs"])
+        total_len = int(ch["total_samples"])
+        w_start = int(ch["start_sample"])
+        core_start = int(ch["core_start_sample"])
+        core_end = int(ch["core_end_sample"])
+        sig_win = ch["signal"]
+
+        if progress_callback and total_len > 0:
+            frac = min(0.85, (core_end / total_len) * 0.85)
+            progress_callback(frac, f"Streaming chunk {ch['chunk_index'] + 1} ({core_end / actual_fs:.0f}s / {total_len / actual_fs:.0f}s)...")
+
+        res_win = analyze_ecg(sig_win, fs=actual_fs, config=config)
+        if preview_signal is None:
+            preview_signal = res_win["clean_signal"][: min(len(res_win["clean_signal"]), int(actual_fs * 30))]
+        sqi_list.append(res_win["sqi"])
+
+        for b, cb in zip(res_win["beats"], res_win["classified_beats"]):
+            global_r = int(b["r_peak_sample"]) + w_start
+            if core_start <= global_r < core_end:
+                if all_r_peaks and (global_r - all_r_peaks[-1]) < int(0.20 * actual_fs):
+                    continue
+                beat_idx = len(all_beats)
+                rr_sec = (global_r - all_r_peaks[-1]) / actual_fs if all_r_peaks else 0.0
+                hr_bpm = 60.0 / rr_sec if rr_sec > 0 else np.nan
+                qt_sec = float(b["qt_sec"])
+                qtc_vals = compute_qtc(qt_sec, rr_sec) if rr_sec > 0 else {}
+
+                b_copy = dict(b)
+                b_copy.update({
+                    "beat_index": beat_idx,
+                    "r_peak_sample": global_r,
+                    "time_sec": float(global_r / actual_fs),
+                    "q_onset_sample": int(b["q_onset_sample"]) + w_start,
+                    "t_peak_sample": int(b["t_peak_sample"]) + w_start,
+                    "t_end_sample": int(b["t_end_sample"]) + w_start,
+                    "rr_sec": float(rr_sec),
+                    "hr_bpm": float(hr_bpm),
+                    "qtc": qtc_vals,
+                })
+                cb_copy = ClassifiedBeat(
+                    beat_index=beat_idx,
+                    r_peak_sample=global_r,
+                    time_sec=float(global_r / actual_fs),
+                    beat_class=cb.beat_class,
+                    rhythm_pattern=cb.rhythm_pattern,
+                    confidence=cb.confidence,
+                    features=cb.features,
+                    diagnostic_rationale=cb.diagnostic_rationale,
+                )
+                all_r_peaks.append(global_r)
+                all_beats.append(b_copy)
+                all_classified.append(cb_copy)
+
+    r_peaks_arr = np.array(all_r_peaks, dtype=np.int64)
+    summary = summarize_beats(all_beats)
+
+    counts: Dict[str, int] = {}
+    for cb in all_classified:
+        counts[cb.beat_class.value] = counts.get(cb.beat_class.value, 0) + 1
+    pvc_cnt = counts.get("V", 0)
+    pac_cnt = counts.get("S", 0)
+    tot_b = len(all_classified)
+    ectopic_summary = {
+        "total_beats": tot_b,
+        "counts": counts,
+        "pvc_count": pvc_cnt,
+        "pac_count": pac_cnt,
+        "ectopic_burden_pct": round((pvc_cnt + pac_cnt) / tot_b * 100.0, 2) if tot_b > 0 else 0.0,
+    }
+    summary["ectopic_summary"] = ectopic_summary
+
+    events = detect_clinical_events(all_beats, fs=actual_fs)
+    af_report = detect_atrial_fibrillation(r_peaks_arr, fs=actual_fs)
+    rec_dur = float(total_len / actual_fs) if actual_fs > 0 else 0.0
+    trends_report = generate_hourly_trends(
+        all_classified,
+        events=[ev.to_dict() for ev in events],
+        total_duration_sec=rec_dur,
+        af_episodes=af_report.episodes,
+    )
+
+    nn_ms = [b["rr_sec"] * 1000.0 for b in all_beats if b.get("beat_class") == "N" and b.get("rr_sec", 0.0) > 0.2]
+    hrv_input = nn_ms if len(nn_ms) >= 4 else [b["rr_sec"] * 1000.0 for b in all_beats if b.get("rr_sec", 0.0) > 0.2]
+    hrv_metrics = compute_comprehensive_hrv(hrv_input) if len(hrv_input) >= 2 else None
+    hrt_metrics = compute_heart_rate_turbulence(all_classified, r_peaks_arr, fs=actual_fs)
+
+    annotation_mgr = AnnotationManager()
+    for cb in all_classified:
+        annotation_mgr.add_annotation(
+            sample=cb.r_peak_sample,
+            timestamp_sec=cb.time_sec,
+            label=cb.beat_class.value,
+            sublabel=cb.rhythm_pattern.value if cb.rhythm_pattern.value != "NSR" else "",
+            author="AI_STREAM_DETECTOR",
+            notes=cb.diagnostic_rationale,
+        )
+
+    if progress_callback:
+        progress_callback(1.00, f"Streamed analysis complete ({tot_b} beats across {rec_dur:.1f}s).")
+
+    return {
+        "clean_signal": preview_signal if preview_signal is not None else np.zeros(0, dtype=np.float32),
+        "r_peaks": r_peaks_arr,
+        "beats": all_beats,
+        "classified_beats": all_classified,
+        "ectopic_summary": ectopic_summary,
+        "annotations": annotation_mgr,
+        "events": [ev.to_dict() for ev in events],
+        "summary": summary,
+        "qtvi": None,
+        "qtrr": None,
+        "sqi": sqi_list[0] if sqi_list else {},
+        "lead_voting": None,
+        "hrv": hrv_metrics,
+        "hrt": hrt_metrics,
+        "twa": None,
+        "hysteresis": None,
+        "dispersion": None,
+        "af_report": af_report.to_dict(),
+        "trends": trends_report.to_dict(),
+        "streamed": True,
+        "total_duration_sec": rec_dur,
     }

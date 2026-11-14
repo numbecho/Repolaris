@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from repolaris.io.e3c_reader import read_e3c
-from repolaris.io.ecg_loader import load_ecg_dataset, load_ecg_file, sniff_ecg_format
+from repolaris.io.ecg_loader import load_ecg_dataset, load_ecg_file, sniff_ecg_format, SignalBuffer, open_ecg_buffer, stream_ecg_chunks
+from repolaris.io.pdf_report import generate_clinical_pdf_report
 from repolaris.io.edf_reader import read_edf
 from repolaris.io.ishne_reader import read_ishne, write_ishne
 from repolaris.io.pecg_format import load_pecg, save_pecg
@@ -16,6 +17,10 @@ __all__ = [
     "load_ecg_file",
     "load_ecg_dataset",
     "sniff_ecg_format",
+    "SignalBuffer",
+    "open_ecg_buffer",
+    "stream_ecg_chunks",
+    "generate_clinical_pdf_report",
     "save_pecg",
     "load_pecg",
     "read_ishne",

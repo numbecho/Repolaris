@@ -1,6 +1,6 @@
 # File Formats and Universal Ingestion
 
-A cornerstone of Repolaris is its **universal, zero-dependency ingestion engine** (`repolaris.io.ecg_loader`), capable of reading all major international clinical and academic ECG formats.
+A cornerstone of Repolaris is its **universal, zero-dependency ingestion engine** (`repolaris.io.ecg_loader`), capable of reading all major international clinical, hospital, and academic ECG formats.
 
 ---
 
@@ -8,6 +8,9 @@ A cornerstone of Repolaris is its **universal, zero-dependency ingestion engine*
 
 | Format | Extension | Origin / Hardware | Parser Details |
 | :--- | :--- | :--- | :--- |
+| **DICOM Waveform** | `.dcm`, `.dicom` | Hospital PACS & 12-Lead Carts | SOP Classes `1.2.840.10008.5.1.4.1.1.9.1.1` and `9.1.2`, tag `(5400, 1010)` multiplexed extraction to calibrated physical mV. |
+| **HL7 Annotated ECG** | `.xml`, `.aecg` | FDA Clinical Drug Trials (TQT) | ANSI/HL7 aECG XML standard, MDC_ECG lead mappings, and comma/period European decimal normalization. |
+| **SCP-ECG Standard** | `.scp` | Hospital & Holter Devices | CEN EN 1064 / ISO 13713 Sections 0, 3, and 6 uncompressed rhythm decoding with safety guards. |
 | **Portable Clinical ECG** | `.pecg` | Repolaris Native Exchange | 12-byte binary magic, CBOR/JSON metadata, Zstandard/Deflate compression, zero-copy `np.memmap`. |
 | **ISHNE 1.0 Standard** | `.ecg` | Commercial Holters (Mortara, GE, Rozinn) | Full 1998 standard, 522-byte header, nV integer scaling, demographic parsing, demultiplexing. |
 | **Excorde 3C** | `.e3c` | Fukuda Denshi Holter Monitors | In-memory ZIP extractor, 2-channel int16 binary stream, 25-byte QRS records (`<6IB`). |
@@ -17,89 +20,95 @@ A cornerstone of Repolaris is its **universal, zero-dependency ingestion engine*
 
 ---
 
-## 2. Portable Clinical ECG (`.pecg`) Specification
+## 2. Format Sniffing Engine (`sniff_ecg_format`)
 
-The `.pecg` format was designed specifically for Repolaris to enable secure, de-identified peer consultation between clinical cardiologists and academic electrophysiologists.
+Rather than relying solely on file extensions, Repolaris inspects file headers and magic bytes to guarantee deterministic routing:
 
-### Binary Layout
+* **DICOM**: Inspects 128-byte preamble followed by `b"DICM"` signature at offset 128.
+* **SCP-ECG**: Reads bytes 0–14 verifying CRC, file length, and Section 0 ID (`sec_id == 0`).
+* **HL7 aECG**: Checks XML root elements for `<AnnotatedECG>` and the `urn:hl7-org:v3` namespace.
+* **PECG**: Verifies the `b"PECG"` 4-byte magic signature at offset 0.
+* **ISHNE**: Validates the 522-byte binary header with magic variable block length offsets.
+
+```python
+from repolaris.io import sniff_ecg_format, load_ecg_dataset
+
+# Automatically detect format
+fmt = sniff_ecg_format("patient_ecg_file")
+print(f"Detected format: {fmt}")
+
+# Load all leads and clinical metadata
+signals, fs, meta = load_ecg_dataset("patient_ecg_file")
+print(f"Sampling frequency: {fs} Hz | Channels: {list(signals.keys())}")
 ```
-+----------------------------------------------------------------------------------------------------+
-| Offset | Field                  | Type       | Description                                         |
-+----------------------------------------------------------------------------------------------------+
-| 0 - 3  | Magic Bytes            | char[4]    | b"PECG"                                             |
-| 4 - 5  | Format Version         | uint16     | Format version (default: 1)                         |
-| 6      | Header Encoding        | uint8      | 0 = UTF-8 JSON, 1 = CBOR                            |
-| 7      | Compression Mode       | uint8      | 0 = None (Raw), 1 = Zstandard (zstd), 2 = Deflate   |
-| 8 - 11 | Metadata Length (N)    | uint32     | Byte length of serialized metadata block            |
-| 12     | Metadata Block         | N bytes    | Structured demographics, channel specs, annotations |
-| 12 + N | Waveform Payload       | End of File| Compressed or contiguous 2D binary voltage array    |
-+----------------------------------------------------------------------------------------------------+
+
+---
+
+## 3. DICOM Waveform (`.dcm`, `.dicom`)
+
+Conforming to DICOM Part 3 Annex A.34 and C.10.9:
+* Supports **12-Lead ECG Waveform Storage** (SOP Class `1.2.840.10008.5.1.4.1.1.9.1.1`) and **General ECG** (`1.2.840.10008.5.1.4.1.1.9.1.2`).
+* Pure-Python native parser extracting multiplexed samples from Tag `(5400, 1010)` with automatic fallback to `pydicom` if installed.
+* Calibrates raw ADC integers to physical millivolts using channel sensitivity and baseline tags:
+  $$\text{Signal (mV)} = (\text{ADC} - \text{Baseline}) \times \text{Sensitivity}$$
+
+```python
+from repolaris.io.dicom_reader import read_dicom_waveform
+
+rec = read_dicom_waveform("clinical_12lead.dcm")
+print(f"Patient: {rec.patient_name} (ID: {rec.patient_id})")
+print(f"Channels: {rec.num_channels} | Duration: {rec.num_samples / rec.sampling_rate:.1f}s")
+lead_I = rec.signals[0]
 ```
 
-### De-Identification Guarantee
-When generating a `.pecg` file, direct identifiers (Patient Full Name, Hospital Medical Record Number, Exact Street Address) are automatically removed. Essential clinical variables required for electrophysiological interpretation are strictly preserved:
-* **Patient Age** (integer years)
-* **Sex / Gender** (`Male`, `Female`, `Unknown`)
-* **Race / Ethnicity** (for QT reference ranges)
-* **Pacemaker Implant Status** (`NO`, `YES`, `VVI`, `DDD`, `AAI`, `CRT`)
-* **Clinical Indication** (e.g., *"Syncope under sotalol therapy"*)
+---
 
-### Python Usage Example
+## 4. HL7 Annotated ECG XML (`.xml`, `.aecg`)
+
+Conforming to the ANSI/HL7 aECG standard utilized in FDA ICH E14 Thorough QT clinical trials:
+* Maps IEEE 11073-10102 `MDC_ECG_LEAD_*` codes directly to standard clinical names (Lead I–III, aVR, aVL, aVF, V1–V6).
+* Extracts sampling frequency from `<increment>` duration tags and voltage scale multipliers from `<scale>`.
+* **Locale Normalization**: Automatically normalizes comma decimal formats (`0,005 mV`) common in European clinical trials to IEEE floating point.
+
+```python
+from repolaris.io.hl7_reader import read_hl7_aecg
+
+rec = read_hl7_aecg("tqt_trial_subject.xml")
+print(f"Leads: {rec.lead_names} | Sampling Rate: {rec.sampling_rate} Hz")
+```
+
+---
+
+## 5. SCP-ECG Standard (`.scp`)
+
+Conforming to European Standard CEN EN 1064:2005+A1:2007 and ISO 13713:
+* Decodes Section 0 pointer tables, Section 3 lead configurations, and Section 6 difference-encoded rhythm waveforms.
+* **Safety Guards**: Detects files requiring Section 2 Huffman decompression or Section 5 reference beat residual subtraction and raises a clean `NotImplementedError` to prevent bitstream corruption.
+
+```python
+from repolaris.io.scp_reader import read_scp_ecg
+
+rec = read_scp_ecg("standard_ecg.scp")
+print(f"Decoded {rec.num_leads} leads sampled at {rec.sampling_rate} Hz")
+```
+
+---
+
+## 6. Portable Clinical ECG (`.pecg`)
+
+Designed for de-identified peer consultation:
+* **Demographic Preservation**: Anonymizes direct identifiers while preserving Age, Sex, Race, Pacemaker Status, and Clinical Indication.
+* **Storage Modes**: Supports Zstandard (`zstd`), Deflate, or raw zero-copy `np.memmap`.
+
 ```python
 from repolaris.io.pecg_format import save_pecg, load_pecg
-import numpy as np
 
-# Export an anonymized study package
 save_pecg(
-    filepath="patient_case_001.pecg",
-    signals=lead_matrix,            # Shape: (num_leads, num_samples) in mV
+    filepath="patient_case.pecg",
+    signals=lead_matrix,
     sampling_rate=500.0,
     lead_names=["Lead I", "Lead II", "V5"],
-    patient_info={
-        "age": 58,
-        "sex": "Female",
-        "race": "Caucasian",
-        "indication": "Suspected drug-induced LQTS"
-    },
-    annotations={
-        "physician_notes": [
-            {"author": "Dr. Clinical Reviewer", "comment": "T-wave inversion observed on beat 84"}
-        ]
-    },
-    compression="zstd"              # Options: "zstd", "deflate", or "none"
+    patient_info={"age": 58, "sex": "Female", "indication": "Drug safety evaluation"},
+    compression="zstd"
 )
-
-# Open instantly with zero RAM overhead via memory-mapping (if compression="none"):
-metadata, signals = load_pecg("patient_case_001.pecg", mmap=False)
-print("Patient Age:", metadata["patient"]["age"])
-print("Lead Count: ", metadata["recording"]["num_channels"])
 ```
-
----
-
-## 3. ISHNE 1.0 Standard (`.ecg`)
-
-The International Society for Holter and Noninvasive Electrocardiology (ISHNE) standard format was established by Fabio Badilini in 1998. Repolaris provides a pure-Python parser and generator:
-
-* **Fixed Header (512 bytes):** Extracts patient ID, sex, date of birth, recording date, start time, lead specifications, and sampling frequency.
-* **Variable Block:** Decodes freeform physician clinical comments and diary markers.
-* **ADC Calibration:** Multiplexed 16-bit signed integers are scaled to physical millivolts (mV) using the exact nanovolt-per-bit resolution ($nV/	ext{LSB}$) recorded per channel.
-
-```python
-from repolaris.io.ishne_reader import read_ishne
-
-record = read_ishne("holter_24h.ecg")
-print(f"Patient: {record.first_name} {record.last_name} ({record.sex})")
-print(f"Sampling Rate: {record.sampling_rate} Hz | Total Leads: {record.num_leads}")
-print(f"Duration: {record.duration_sec / 3600:.2f} hours")
-lead_1_mv = record.signals[0]
-```
-
----
-
-## 4. Excorde 3C (`.e3c`)
-
-Excorde 3C Holter devices (Fukuda Denshi) package digital Holter studies as proprietary archives containing separate raw waveform files and binary QRS detection headers. Repolaris reads `.e3c` archives directly in memory without creating temporary files on disk:
-* Automatically decompresses the internal ZIP structure in RAM.
-* Ingests 2-channel 16-bit binary streams.
-* Decodes 25-byte binary QRS event descriptors (`struct.unpack('<6IB', ...)`).

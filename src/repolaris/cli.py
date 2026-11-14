@@ -37,13 +37,16 @@ def main(argv: Optional[list[str]] = None) -> None:
     demo_p.add_argument("--fs", type=float, default=500.0, help="Sampling frequency (Hz)")
     demo_p.add_argument("--hr", type=float, default=72.0, help="Heart rate (BPM)")
     demo_p.add_argument("--export", help="Optional target .pecg path to export the study after analysis")
+    demo_p.add_argument("--pdf", help="Optional target .pdf path to generate a clinical PDF report")
 
     # analyze command
     ana_p = subparsers.add_parser("analyze", help="Analyze an ECG recording file")
-    ana_p.add_argument("file", help="Path to ECG file (.pecg, .ecg, .e3c, .edf, .hea, .csv, .npy)")
+    ana_p.add_argument("file", help="Path to ECG file (.pecg, .ecg, .dcm, .dicom, .xml, .aecg, .scp, .e3c, .edf, .hea, .csv, .npy)")
     ana_p.add_argument("--fs", type=float, default=500.0, help="Sampling frequency")
     ana_p.add_argument("--lead", default=0, help="Lead index or channel name")
     ana_p.add_argument("--export", help="Optional target .pecg path to export the study after analysis")
+    ana_p.add_argument("--pdf", help="Optional target .pdf path to generate a clinical PDF report")
+    ana_p.add_argument("--stream", action="store_true", help="Use chunked out-of-core streaming for multi-hour Holters")
 
     # export command
     exp_p = subparsers.add_parser("export", help="Convert and export an ECG recording to .pecg format")
@@ -79,23 +82,44 @@ def main(argv: Optional[list[str]] = None) -> None:
                 events=results.get("events", []),
                 progress_callback=print_cli_progress,
             )
+        if getattr(args, "pdf", None):
+            print(f"Generating clinical PDF report at {args.pdf}...")
+            ExportAPI.export_clinical_pdf(
+                filepath=args.pdf,
+                analysis_results=results,
+                patient_metadata={"patient_id": "DEMO-001", "indication": "Synthetic Demo Study"},
+                fs=args.fs,
+                lead_name="Lead II",
+                progress_callback=print_cli_progress,
+            )
 
     elif args.command == "analyze":
         print(f"Loading {args.file}...")
         lead_param = int(args.lead) if str(args.lead).isdigit() else args.lead
-        sig, detected_fs = StudyAPI.load_study_file(
-            args.file,
-            lead_param,
-            progress_callback=print_cli_progress,
-        )
-        fs = args.fs if args.fs else detected_fs
-        print("Executing diagnostic analysis pipeline...")
-        results = AnalysisAPI.analyze_signal(
-            sig,
-            fs=fs,
-            progress_callback=print_cli_progress,
-        )
-        if args.export:
+        if getattr(args, "stream", False):
+            fs = args.fs if args.fs else 500.0
+            print("Executing chunked streaming Holter pipeline...")
+            results = AnalysisAPI.analyze_stream(
+                args.file,
+                fs=fs,
+                lead=lead_param,
+                progress_callback=print_cli_progress,
+            )
+            sig = results.get("clean_signal")
+        else:
+            sig, detected_fs = StudyAPI.load_study_file(
+                args.file,
+                lead_param,
+                progress_callback=print_cli_progress,
+            )
+            fs = args.fs if args.fs else detected_fs
+            print("Executing diagnostic analysis pipeline...")
+            results = AnalysisAPI.analyze_signal(
+                sig,
+                fs=fs,
+                progress_callback=print_cli_progress,
+            )
+        if args.export and sig is not None:
             print(f"Exporting study container to {args.export}...")
             ExportAPI.export_study_pecg(
                 filepath=args.export,
@@ -104,6 +128,15 @@ def main(argv: Optional[list[str]] = None) -> None:
                 lead_names=[f"Lead {args.lead}"],
                 annotations={"beats": results.get("annotations").to_dict_list()} if results.get("annotations") else {},
                 events=results.get("events", []),
+                progress_callback=print_cli_progress,
+            )
+        if getattr(args, "pdf", None):
+            print(f"Generating clinical PDF report at {args.pdf}...")
+            ExportAPI.export_clinical_pdf(
+                filepath=args.pdf,
+                analysis_results=results,
+                fs=fs,
+                lead_name=f"Lead {args.lead}",
                 progress_callback=print_cli_progress,
             )
 
@@ -172,6 +205,12 @@ def main(argv: Optional[list[str]] = None) -> None:
     if sqi:
         print(f"SQI (pSQI/basSQI):   {sqi.get('psqi', 0):.2f} / {sqi.get('bassqi', 0):.2f}")
         print(f"Quality Status:      {sqi.get('verdict', sqi.get('status', 'Unknown'))}")
+    af_report = results.get("af_report")
+    if af_report:
+        print(f"AF Burden:           {af_report.get('af_burden_pct', 0.0):.2f}% ({af_report.get('num_episodes', 0)} episodes)")
+    trends = results.get("trends")
+    if trends:
+        print(f"Holter Pauses:       {trends.get('total_pauses', 0)} (max {trends.get('max_pause_sec', 0.0):.2f}s)")
     if events:
         print(f"Clinical Events:     {len(events)} detected")
         for ev in events[:5]:

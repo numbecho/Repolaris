@@ -2,10 +2,10 @@
 
 **Modernized ECG Analysis, Ventricular Repolarization & Universal Holter Framework**
 
-[![Version](https://img.shields.io/badge/Version-v0.6.1-cyan.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-v0.8.0-cyan.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/Python-3.14%2B-brightgreen.svg)](pyproject.toml)
-[![Tests](https://img.shields.io/badge/Tests-76%20Passed-success.svg)](tests/)
+[![Python](https://img.shields.io/badge/Python-3.12%2B-brightgreen.svg)](pyproject.toml)
+[![Tests](https://img.shields.io/badge/Tests-90%20Passed-success.svg)](tests/)
 [![GUI](https://img.shields.io/badge/GUI-PyQt6%20%2B%20PyQtGraph-purple.svg)](src/repolaris/app.py)
 [![Wiki](https://img.shields.io/badge/Documentation-Wiki-orange.svg)](wiki/Home.md)
 
@@ -20,7 +20,7 @@ The software empowers physicians and researchers to inspect long-term recordings
 Exhaustive guides, algorithmic specifications, format references, and GUI tutorials are organized in the [**Repolaris Wiki**](wiki/Home.md):
 - [**Getting Started & CLI**](wiki/Getting-Started.md): Installation via `uv` or `pip`, CLI commands, and running demos.
 - [**Architecture & Dataflow**](wiki/Architecture-Overview.md): Decoupled subpackages, pipeline stages, and backward compatibility.
-- [**Universal File Formats & I/O**](wiki/File-Formats-and-IO.md): Detailed specs for `.pecg`, ISHNE 1.0 `.ecg`, Excorde 3C `.e3c`, EDF, and WFDB.
+- [**Universal File Formats & I/O**](wiki/File-Formats-and-IO.md): Detailed specs for DICOM Waveform, HL7 aECG XML, SCP-ECG, `.pecg`, ISHNE 1.0 `.ecg`, Excorde 3C `.e3c`, EDF, and WFDB.
 - [**Electrophysiological Algorithms & QTc**](wiki/Electrophysiology-and-Algorithms.md): Mathematical formulations for QTc, Berger QTVI, QT dispersion, TWA, HRT, HRV, hysteresis, and SQI.
 - [**Arrhythmia & AAMI EC57 Classification**](wiki/Arrhythmia-and-AAMI-EC57.md): Beat taxonomy (`N`, `V`, `S`, `F`, `Q`), coupled sequences, and audit logging.
 - [**Workstation GUI & Draggable Calipers**](wiki/Workstation-GUI-Guide.md): 60fps viewer, live recalculation HUD, and clinical triage diary.
@@ -33,10 +33,12 @@ Exhaustive guides, algorithmic specifications, format references, and GUI tutori
 
 ## Key Features
 
-- **Universal Multi-Format Ingestion:** Opens commercial digital Holters (ISHNE `.ecg`), wearable telemetry patches (EDF/EDF+ `.edf`), research databases (PhysioNet WFDB `.hea`/`.dat`), and delimited text (`.csv`/`.txt`) with zero proprietary external dependencies.
-- **Advanced Repolarization Dynamics & Autonomic Suite:** Implements Berger's classical QT Variability Index (QTVI), multi-beat QT-RR memory hysteresis (EW/LW profiles), full Heart Rate Variability (time, Welch frequency, Poincaré non-linear), Heart Rate Turbulence (TO/TS baroreflex post-PVC), microvolt T-Wave Alternans (spectral FFT and MMA), and multi-lead QT dispersion (QTd) with conditional multi-lead gating.
+- **Universal Multi-Format Ingestion:** Opens hospital PACS waveforms (DICOM Waveform SOP Class `1.2.840.10008.5.1.4.1.1.9.1.1` and `9.1.2`), FDA clinical trial files (HL7 Annotated ECG XML), European standards (SCP-ECG CEN EN 1064 / ISO 13713), commercial digital Holters (ISHNE `.ecg`), wearable telemetry patches (EDF/EDF+ `.edf`), research databases (PhysioNet WFDB `.hea`/`.dat`), and delimited text (`.csv`/`.txt`) with zero proprietary external dependencies.
+- **Patrick Hamilton (2002) OSEA Template Matching:** Dynamic template clustering with a 12.5% adaptation rate on dominant normal complexes, dual prematurity gating (<0.82 running median RR), and compensatory pause detection.
+- **Atrial Fibrillation / Flutter Burden & Hourly Holter Trends:** Automated Shannon entropy and successive RR irregularity scoring with 24-hour episode segmentation and 1-hour epoch distribution tables for Holter triage.
+- **Advanced Repolarization Dynamics & Autonomic Suite:** Implements Berger's classical QT Variability Index (QTVI), multi-beat QT-RR memory hysteresis (EW/LW profiles), 10 domain-guarded Pueyo (2004) restitution models, full Heart Rate Variability (time, Welch frequency, Poincaré non-linear), Heart Rate Turbulence (TO/TS baroreflex post-PVC), microvolt T-Wave Alternans (spectral FFT and MMA), and multi-lead QT dispersion (QTd) with conditional multi-lead gating.
 - **AAMI EC57 Beat Classifier & Rhythm Patterns:** Classifies individual heartbeats into diagnostic categories (Normal, PVC, PAC, Fusion, Unknown) and detects ectopic sequences (Bigeminy, Trigeminy, Couplets, VT runs) with audit-tracked physician annotation overrides.
-- **Automated Lead Signal Quality Index (SQI):** Computes QRS relative power (pSQI), baseline drift stability (basSQI), and SNR to screen and rank leads before running diagnostic measurements.
+- **Automated Lead Signal Quality Index (SQI):** Stage 1 absolute spectral/statistical rejection thresholds (Li et al., 2014) gating Stage 2 six-index pairwise lead voting (VI_k in [-6, +6]; Suárez-León et al., 2018).
 - **Automated Clinical Events Triage:** Automatically scans multi-hour recordings and indexes critical episodes: severe QTc prolongation (QTc >= 500 ms), borderline prolongation (QTc >= 480 ms), short QT (QTc <= 340 ms), sinus pauses (RR >= 2.0 s), rate extremes (max/min HR, tachycardia, bradycardia), and ventricular ectopics (PVCs).
 - **Interactive 60fps GUI (`pyqtgraph`):** Hardware-accelerated desktop viewer providing smooth panning across 24-hour recordings, draggable Q-onset and T-end calipers with live Bazett/Fridericia recalculation, a one-click click-to-seek Events Diary, and conditional channel-sensing gating that automatically adapts between single-lead patches and 12-lead Holters.
 - **De-Identified Colleague Study Exchange (`.pecg`):** A custom single-file container bundling continuous waveforms with clinical review notes and caliper overrides. Automatically strips direct patient identifiers while strictly preserving **Age**, **Race/Ethnicity**, **Sex**, **Pacemaker Status**, and **Clinical Indication** for accurate diagnostic review. Supports **Zstandard (`zstd`)**, **Deflate**, and raw zero-copy `np.memmap` storage.
@@ -48,7 +50,10 @@ Exhaustive guides, algorithmic specifications, format references, and GUI tutori
 
 | Format | Extension | Hardware / Clinical Origin | Processing Capabilities |
 | :--- | :--- | :--- | :--- |
-| **Repolaris / PECG Study Bundle** | `.pecg` | Colleague Exchange | De-identified demographics (Age, Race, Sex), annotations, Zstd/Deflate/Raw storage. |
+| **DICOM Waveform** | `.dcm`, `.dicom` | Hospital PACS / ECG Carts | SOP Classes 1.2.840.10008.5.1.4.1.1.9.1.1/9.1.2, 12-lead & rhythm scaling to physical mV. |
+| **HL7 Annotated ECG** | `.xml`, `.aecg` | FDA Clinical Trials (TQT) | ANSI/HL7 aECG XML standard, MDC_ECG lead mappings, and comma/period decimal normalization. |
+| **SCP-ECG Standard** | `.scp` | Hospital & Holter Devices | CEN EN 1064 / ISO 13713 Sections 0, 3, and 6 uncompressed rhythm decoding with safety guards. |
+| **Repolaris Study Bundle** | `.pecg` | Colleague Exchange | De-identified demographics (Age, Race, Sex), annotations, Zstd/Deflate/Raw storage. |
 | **ISHNE Holter Standard** | `.ecg` | Commercial Holters (Mortara, GE, Rozinn, E3C) | Full ISHNE 1.0 specification (522-byte header, nV resolution scaling, demographics, notes). |
 | **PhysioNet WFDB** | `.hea`, `.dat` | Clinical Research (MIT-BIH, QT Database, PTB-XL) | Native pure-Python reader supporting Format 16 and Format 212 bit-packed signals. |
 | **European Data Format** | `.edf` | Wearable Patches & Telemetry (Bittium Faros, SOMNOtouch) | Official EDF / EDF+ standard, epoch reconstruction, uV/mV calibration. |
@@ -59,7 +64,7 @@ Exhaustive guides, algorithmic specifications, format references, and GUI tutori
 ## Installation
 
 ### Prerequisites
-- Python `>= 3.14`
+- Python `>= 3.12`
 
 ### Setup
 
@@ -100,7 +105,7 @@ Run the automated test suite covering all signal processing, peak detectors, eve
 pytest
 
 # Or using unittest
-python3 -m unittest discover tests
+PYTHONPATH=src python3 -m unittest discover tests -v
 ```
 
 ---

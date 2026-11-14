@@ -10,7 +10,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 import numpy as np
 
 from repolaris.config import ECGConfig, DetectionConfig
-from repolaris.detection.pipeline import analyze_ecg
+from repolaris.detection.pipeline import analyze_ecg, analyze_ecg_stream
 from repolaris.detection.pulse_metrics import compute_qtc
 from repolaris.detection.dispersion import calculate_qt_dispersion
 from repolaris.detection.twa import compute_spectral_twa, compute_mma_twa
@@ -136,3 +136,24 @@ class AnalysisAPI:
     ) -> Dict[str, Any]:
         """Optimizes multi-beat QT-RR memory hysteresis (EW/LW profiles, lambda*, t90)."""
         return optimize_hysteresis_parameter(qt_intervals_sec, rr_intervals_sec, model_type=model_type)
+
+    @staticmethod
+    def analyze_stream(
+        signal_or_path: Union[np.ndarray, str],
+        fs: float = 500.0,
+        lead: Union[str, int] = 0,
+        chunk_duration_sec: float = 300.0,
+        overlap_sec: float = 5.0,
+        config: Optional[ECGConfig] = None,
+        progress_callback: Optional[Callable[[float, str], None]] = None,
+    ) -> Dict[str, Any]:
+        """Executes bounded-memory chunked Holter analysis across a long recording or file."""
+        return analyze_ecg_stream(
+            signal_or_path,
+            fs=fs,
+            lead=lead,
+            chunk_duration_sec=chunk_duration_sec,
+            overlap_sec=overlap_sec,
+            config=config,
+            progress_callback=progress_callback,
+        )

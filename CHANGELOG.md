@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-11-14
+
+### Added
+- **Long-Term Holter Out-of-Core Streaming & `np.memmap` Buffering (`repolaris.io.ecg_loader`, `repolaris.detection.pipeline`)**:
+  - Added `SignalBuffer`, `open_ecg_buffer()`, and `stream_ecg_chunks()` supporting memory-mapped (`np.memmap`) disk-backed signal buffers for continuous 24h–48h multi-lead recordings without RAM exhaustion.
+  - Added `analyze_ecg_stream()` in `pipeline.py` (exposed via `AnalysisAPI.analyze_stream()` and CLI `--stream`) to process overlapping windows, eliminate filter edge transients, deduplicate boundary R-peaks, and aggregate study-wide HRV, HRT, AF burden, and hourly trends.
+- **Automated Printable Clinical PDF Report Generator (`repolaris.io.pdf_report`, `ExportAPI.export_clinical_pdf`)**:
+  - Added `generate_clinical_pdf_report()` producing publication-grade 2-page clinical PDF reports via `matplotlib.backends.backend_pdf.PdfPages`.
+  - Page 1 includes Patient & Study Demographics, Executive Repolarization & Arrhythmia KPI Summary Table, a 10-second calibrated ECG disclosure strip with R-peak/Q-onset/T-end markers, and the Clinical Events Diary.
+  - Page 2 includes the Hourly Holter Distribution Table, Poincaré Lorentz plot ($RR_n$ vs $RR_{n+1}$), and QT-RR Restitution & Hysteresis curve.
+- **Workstation Holter Triage Tab & PDF Export (`repolaris.app`, `repolaris.i18n`, `repolaris.cli`)**:
+  - Added the `🕒 Holter Triage` tab (`holter_trends_table`, `holter_af_table`, `lbl_holter_summary_banner`) with one-click seeking to any hourly epoch or AF episode.
+  - Added `📄 PDF Report` toolbar button, `File -> Export Clinical PDF Report... (Ctrl+P)` menu action, and CLI `--pdf` / `--stream` flags across all 5 supported languages (`en`, `es`, `fr`, `de`, `pt`).
+- **Comprehensive v0.8.0 Verification Suite (`tests/test_v080_streaming_and_pdf.py`)**:
+  - Added 5 automated unit tests validating `np.memmap` chunk streaming, boundary R-peak deduplication, PDF report generation, CLI `--pdf`/`--stream` flags, and GUI Holter Triage tab widgets (full test suite: **90 passing unit tests**).
+
 ## [0.7.1] - 2026-11-06
 
 ### Added

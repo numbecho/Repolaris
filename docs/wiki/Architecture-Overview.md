@@ -22,6 +22,9 @@ src/repolaris/
 │   ├── e3c_reader.py         # Excorde 3C (.e3c) in-memory zip & binary parser
 │   ├── wfdb_reader.py        # PhysioNet WFDB (.hea/.dat) Format 16/212 parser
 │   ├── edf_reader.py         # European Data Format (.edf / .edf+) parser
+│   ├── dicom_reader.py       # DICOM Waveform (SOP 1.2.840.10008.5.1.4.1.1.9.1.1/9.1.2)
+│   ├── hl7_reader.py         # HL7 Annotated ECG XML (ANSI/HL7 aECG)
+│   └── scp_reader.py         # SCP-ECG (CEN EN 1064 / ISO 13713)
 │
 ├── detection/                # Electrophysiological Algorithms & Classification
 │   ├── qrs.py                # Derivative-energy R-peak detector (Pan-Tompkins)
@@ -29,7 +32,7 @@ src/repolaris/
 │   ├── t_end.py              # Tangent / threshold T-wave terminus delineation
 │   ├── pulse_metrics.py      # RR intervals, heart rate, Bazett, Fridericia, Framingham QTc
 │   ├── qtvi.py               # Berger QT Variability Index & 4 Hz step-integration
-│   ├── qtrr.py               # 6 non-linear QT-RR dynamic restitution models
+│   ├── qtrr.py               # 10 domain-guarded QT-RR dynamic restitution models
 │   ├── sqi.py                # Spectral Signal Quality Indices (pSQI, basSQI, SNR)
 │   ├── dispersion.py         # Multi-lead QT Dispersion (QTd) & transmural Tpe dispersion
 │   ├── twa.py                # Microvolt T-Wave Alternans (Spectral FFT & continuous MMA)
@@ -37,6 +40,9 @@ src/repolaris/
 │   ├── hrv.py                # Comprehensive HRV suite (time, Welch PSD frequency, non-linear)
 │   ├── hysteresis.py         # Multi-beat QT-RR memory modeling (EW and LW lag kernels)
 │   ├── classifier.py         # ANSI/AAMI EC57 beat classifier (N, V, S, F, Q) & sequences
+│   ├── hamilton_classifier.py # Patrick Hamilton (2002) OSEA template matching
+│   ├── af_detector.py        # Atrial Fibrillation/Flutter burden & Shannon entropy
+│   ├── trends.py             # Hourly arrhythmia trend histograms & Holter summary
 │   ├── annotations.py        # AnnotationManager with immutable audit logging
 │   ├── events.py             # Automated clinical triage alert detector
 │   └── pipeline.py           # End-to-end master headless processing pipeline

@@ -22,7 +22,7 @@ This guide covers the two-tier packaging strategy for **Repolaris**:
 
 ### Windows Build Environment
 
-1. **Python $\ge 3.14$ (64-bit)**: Ensure Python is installed from [python.org](https://www.python.org/) with "Add to PATH" checked.
+1. **Python $\ge 3.12$ (64-bit)**: Ensure Python is installed from [python.org](https://www.python.org/) with "Add to PATH" checked.
 2. **Microsoft Visual C++ Build Tools**:
    - Download the [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/).
    - In the installer, select **Desktop development with C++** (includes MSVC compiler and Windows SDK).
@@ -84,9 +84,9 @@ briefcase package
 ```
 
 The resulting installers are located in `dist/`:
-- **Windows**: `dist/Repolaris-0.6.1.msi`
-- **macOS**: `dist/Repolaris-0.6.1.dmg`
-- **Linux**: `dist/Repolaris-0.6.1.AppImage` (or `.deb`)
+- **Windows**: `dist/Repolaris-0.8.0.msi`
+- **macOS**: `dist/Repolaris-0.8.0.dmg`
+- **Linux**: `dist/Repolaris-0.8.0.AppImage` (or `.deb`)
 
 ---
 
@@ -100,7 +100,7 @@ Repolaris includes an automated multi-platform GitHub Actions workflow located a
 * **Manual Dispatch**: Can be triggered manually on-demand from the GitHub Actions tab.
 
 ### Matrix Pipeline Stages
-1. **`test` Job**: Runs the 32-case unit test suite on Python 3.14 across all I/O readers, restitution algorithms, Berger QTVI, and i18n translation parity.
+1. **`test` Job**: Runs the 90-case unit test suite on Python 3.12+ across all I/O readers, restitution algorithms, Berger QTVI, and i18n translation parity.
 3. **`briefcase-release` Job**: Parallel matrix generating Windows MSI, macOS DMG, and Linux AppImage/DEB installers. Uploads `repolaris-distribution-<OS>` artifacts (30-day retention).
 
 ---

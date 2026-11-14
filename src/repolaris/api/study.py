@@ -9,7 +9,7 @@ import os
 from typing import Any, Callable, Dict, Optional, Tuple, Union
 import numpy as np
 
-from repolaris.io.ecg_loader import load_ecg_dataset
+from repolaris.io.ecg_loader import load_ecg_dataset, open_ecg_buffer, stream_ecg_chunks, SignalBuffer
 from repolaris.utils.signal import generate_synthetic_ecg
 
 
@@ -64,3 +64,33 @@ class StudyAPI:
         if progress_callback:
             progress_callback(1.00, f"Benchmark rhythm generated ({len(true_r)} QRS complexes).")
         return time_vec, lead2, true_r
+
+    @staticmethod
+    def open_study_buffer(
+        file_path: str,
+        mmap_threshold_samples: int = 1_800_000,
+        progress_callback: Optional[Callable[[float, str], None]] = None,
+    ) -> SignalBuffer:
+        """Opens an ECG study into an out-of-core SignalBuffer (backed by np.memmap for long Holters)."""
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"ECG study file not found: {file_path}")
+        return open_ecg_buffer(file_path, mmap_threshold_samples=mmap_threshold_samples, progress_callback=progress_callback)
+
+    @staticmethod
+    def stream_study_chunks(
+        file_path: str,
+        lead: Union[int, str] = 0,
+        chunk_duration_sec: float = 300.0,
+        overlap_sec: float = 5.0,
+        progress_callback: Optional[Callable[[float, str], None]] = None,
+    ):
+        """Streams overlapping waveform chunks from a supported ECG file."""
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"ECG study file not found: {file_path}")
+        return stream_ecg_chunks(
+            file_path,
+            lead_name_or_index=lead,
+            chunk_duration_sec=chunk_duration_sec,
+            overlap_sec=overlap_sec,
+            progress_callback=progress_callback,
+        )

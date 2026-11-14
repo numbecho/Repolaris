@@ -6,7 +6,15 @@ This document tracks architectural milestones, clinical electrophysiology module
 
 ## Completed Milestones
 
-### v0.7.1 — EGM-Hardened Release & Holter Arrhythmia Suite (Current Release)
+### v0.8.0 — Long-Term Holter Streaming, Printable Clinical PDF Reports & Holter Triage Workstation (Current Release)
+- **Out-of-Core Streaming & `np.memmap` Buffering (`ecg_loader.py`, `pipeline.py`)**:
+  - Added `SignalBuffer`, `open_ecg_buffer()`, `stream_ecg_chunks()`, and `analyze_ecg_stream()` to process continuous 24h–48h Holters in overlapping windows with boundary R-peak deduplication and bounded RAM usage.
+- **Automated Printable Clinical PDF Report Generator (`pdf_report.py`, `ExportAPI.export_clinical_pdf`)**:
+  - Multi-page clinical PDF reports featuring patient demographics, executive KPI summary, calibrated 10-second waveform strips with fiducial markers, clinical events diary, hourly Holter trend tables, Poincaré plots, and QT-RR restitution curves.
+- **Holter Triage Desktop Tab & CLI Streaming (`app.py`, `cli.py`, `i18n.py`)**:
+  - Added the `🕒 Holter Triage` tab displaying interactive click-to-seek hourly trend tables and AF episode tables, plus `📄 PDF Report` export and CLI `--pdf` / `--stream` flags (90 automated unit tests passing).
+
+### v0.7.1 — EGM-Hardened Release & Holter Arrhythmia Suite
 - **Atrial Fibrillation & Flutter Burden Engine (`af_detector.py`)**:
   - Sliding-window Shannon entropy analysis on local RR distributions coupled with successive RR median absolute difference (MAD) irregularity scoring.
   - Automatic segmentation of sustained AF episodes ($\ge 30\text{ s}$), calculating episode duration, mean/min/max HR, irregularity indices, and overall recording AF burden percentage conforming to clinical Holter standards.
@@ -63,11 +71,13 @@ This document tracks architectural milestones, clinical electrophysiology module
 
 ## Upcoming Milestones
 
-### v0.8.0 — Long-Term Holter Streaming, Cohort DB & PDF Clinical Reports
-- Chunked lazy-loading generator stream and `np.memmap` buffer management for continuous 24h–48h telemetry.
-- Optional normalized SQLite cohort indexing for multi-patient longitudinal clinical trials.
-- Automated printable clinical PDF report generator with embedded waveform strips, hourly trend tables, and Poincaré/restitution plots.
+### v0.9.0 — Extended Clinical Diagnostics (Ischemia, PRSA, P-Wave & EDR)
+- **Deceleration & Acceleration Capacity (`prsa.py`)**: Phase-Rectified Signal Averaging (Bauer et al., 2006) on `NN` intervals with post-MI mortality risk stratification ($\le 2.5\text{ ms}$ high risk, $2.6\text{–}4.5\text{ ms}$ intermediate).
+- **ST-Segment Level & Transient Ischemia (`st_segment.py`)**: Automated J-point + $60/80\text{ ms}$ elevation/depression tracking relative to local PQ baseline, SQI-gated $\ge 60\text{ s}$ ischemic episode detection, and hourly ST trends.
+- **P-Wave Delineation & AV Block Screening (`p_wave.py`)**: AF-gated P-wave onset/peak search, beat-to-beat $PR$ intervals, and 1st/2nd-degree AV block detection.
+- **ECG-Derived Respiration (`edr.py`)**: QRS-area respiratory modulation (Moody & Mark, 1986) and CVHR spectral power for overnight respiratory rate and sleep-disordered breathing screening.
+- **High-Rate Pacemaker Spike Guard**: Metadata/annotation pacing flag ingestion for standard 250–500 Hz Holters, with raw waveform spike detection gated strictly to `fs >= 1000 Hz`.
 
 ### v1.0.0 — Regulatory Validation & Benchmark Certification
-- Full validation report against PhysioNet QT Database (QTDB), MIT-BIH Arrhythmia Database, and Telemetric Holter E-HOL-03-0202-003 (THEW).
+- Full validation report against PhysioNet QT Database (QTDB), MIT-BIH Arrhythmia Database, MIT-BIH ST Change Database, and Telemetric Holter E-HOL-03-0202-003 (THEW).
 - Frozen long-term support (LTS) public API and plugin registry for custom research algorithms.

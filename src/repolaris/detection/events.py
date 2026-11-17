@@ -9,8 +9,9 @@ Scans cardiac beat series to identify and classify salient clinical events:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from typing import Any
+
 import numpy as np
 
 

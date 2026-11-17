@@ -7,7 +7,6 @@ Supports pyuic6, PyQt6.uic, PySide6-uic, and a standalone zero-dependency fallba
 from __future__ import annotations
 
 import contextlib
-
 import shutil
 import subprocess
 import xml.etree.ElementTree as ET

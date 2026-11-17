@@ -1,14 +1,14 @@
 import unittest
 
+from repolaris.detection.annotations import AnnotationManager
 from repolaris.detection.classifier import (
     BeatClass,
-    RhythmPattern,
     BeatFeatures,
     ClassifiedBeat,
+    RhythmPattern,
     classify_heartbeat,
     detect_rhythm_patterns,
 )
-from repolaris.detection.annotations import AnnotationManager
 
 
 class TestClassifierAndAnnotations(unittest.TestCase):
@@ -25,7 +25,7 @@ class TestClassifierAndAnnotations(unittest.TestCase):
             template_correlation=0.98,
             polarity=1,
         )
-        b_class, conf, rationale = classify_heartbeat(feat)
+        b_class, conf, _rationale = classify_heartbeat(feat)
         self.assertEqual(b_class, BeatClass.NORMAL)
         self.assertGreater(conf, 0.8)
 
@@ -43,7 +43,7 @@ class TestClassifierAndAnnotations(unittest.TestCase):
             template_correlation=0.35,
             polarity=-1,
         )
-        b_class, conf, rationale = classify_heartbeat(feat)
+        b_class, conf, _rationale = classify_heartbeat(feat)
         self.assertEqual(b_class, BeatClass.PVC)
         self.assertGreaterEqual(conf, 0.85)
 
@@ -61,7 +61,7 @@ class TestClassifierAndAnnotations(unittest.TestCase):
             template_correlation=0.92,
             polarity=1,
         )
-        b_class, conf, rationale = classify_heartbeat(feat)
+        b_class, conf, _rationale = classify_heartbeat(feat)
         self.assertEqual(b_class, BeatClass.PAC)
         self.assertGreaterEqual(conf, 0.80)
 

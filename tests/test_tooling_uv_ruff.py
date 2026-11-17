@@ -3,14 +3,14 @@
 Validates:
 1. `pyproject.toml` configuration for `[tool.uv]`, `[tool.ruff]` (`target-version = "py314"`), and PEP 735 `[dependency-groups]`.
 2. `.python-version` presence and target version specification (`3.14`).
-3. AST-level verification across all `src/repolaris/` and `tests/` modules ensuring zero legacy `typing` generics (`Optional`, `Union`, `List`, `Dict`, `Tuple`, `Set`), zero unused imports (`F401`), and zero `try/except/pass` (`SIM105`) blocks.
+3. AST-level verification across all `src/repolaris/` and `tests/` modules ensuring zero legacy `typing` generics (`Optional`, `Union`, `List`, `Dict`, `Tuple`, `Set`), zero unused imports (`F401`), zero unused local variables (`F841`), zero implicit `None` returns (`RET502`), zero single-line multi-statements (`E701`), zero trailing whitespace (`W291`/`W293`), and zero `try/except/pass` (`SIM105`) blocks.
 4. Optional live execution of `ruff check` and `uv --version` when `ruff` / `uv` binaries are available in `PATH`.
 """
 
 from __future__ import annotations
 
-import ast
 from pathlib import Path
+import ast
 import shutil
 import subprocess
 import tomllib
@@ -44,7 +44,7 @@ class TestPython314UvAndRuffTooling(unittest.TestCase):
         ruff_cfg = tool_cfg["ruff"]
         self.assertEqual(ruff_cfg.get("target-version"), "py314")
         lint_select = ruff_cfg.get("lint", {}).get("select", [])
-        for rule in ("E", "W", "F", "I", "UP", "B", "SIM"):
+        for rule in ("E", "W", "F", "I", "UP", "B", "SIM", "C4", "PIE", "RET"):
             self.assertIn(rule, lint_select)
 
     def test_python_version_pin_file(self) -> None:
@@ -89,18 +89,58 @@ class TestPython314UvAndRuffTooling(unittest.TestCase):
                     unused = {k: v for k, v in imported_names.items() if k not in used_names}
                     self.assertFalse(unused, f"Unused imports (F401) detected in {path}: {unused}")
 
-    def test_no_spaghetti_try_except_pass_in_src(self) -> None:
-        """Verifies all src/repolaris modules use contextlib.suppress instead of try/except/pass (Ruff SIM105)."""
-        for path in sorted((PROJECT_ROOT / "src/repolaris").rglob("*.py")):
-            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-            for node in ast.walk(tree):
-                if isinstance(node, ast.Try):
-                    for handler in node.handlers:
-                        is_bare_pass = len(handler.body) == 1 and isinstance(handler.body[0], ast.Pass)
-                        self.assertFalse(
-                            is_bare_pass,
-                            f"{path}:{node.lineno} contains try/except/pass (SIM105); use contextlib.suppress",
+    def test_no_spaghetti_try_except_pass_and_lint_cleanliness(self) -> None:
+        """Verifies SIM105, RET502, E701, W291/W293, and F841 across all src/ and tests/ modules."""
+        for folder in ("src/repolaris", "tests"):
+            for path in sorted((PROJECT_ROOT / folder).rglob("*.py")):
+                src = path.read_text(encoding="utf-8")
+                lines = src.splitlines(keepends=True)
+                for idx, line in enumerate(lines, 1):
+                    stripped = line.rstrip("\r\n")
+                    self.assertEqual(
+                        stripped,
+                        stripped.rstrip(" \t"),
+                        f"{path}:{idx} contains trailing whitespace (W291/W293)",
+                    )
+
+                tree = ast.parse(src, filename=str(path))
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.Try) and not node.orelse and not node.finalbody:
+                        for handler in node.handlers:
+                            is_bare_pass = len(handler.body) == 1 and isinstance(handler.body[0], ast.Pass)
+                            self.assertFalse(
+                                is_bare_pass,
+                                f"{path}:{node.lineno} contains try/except/pass (SIM105); use contextlib.suppress",
+                            )
+                    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        body = node.body
+                        if body:
+                            self.assertNotEqual(
+                                body[0].lineno,
+                                node.lineno,
+                                f"{path}:{node.lineno} has multiple statements on one line (E701)",
+                            )
+                        returns: list[ast.Return] = []
+
+                        def _collect_returns(n: ast.AST, acc: list[ast.Return] = returns) -> None:
+                            for child in ast.iter_child_nodes(n):
+                                if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
+                                    continue
+                                if isinstance(child, ast.Return):
+                                    acc.append(child)
+                                _collect_returns(child, acc)
+
+                        _collect_returns(node)
+                        has_val = any(
+                            r.value is not None and not (isinstance(r.value, ast.Constant) and r.value.value is None)
+                            for r in returns
                         )
+                        if has_val:
+                            for r in returns:
+                                self.assertIsNotNone(
+                                    r.value,
+                                    f"{path}:{r.lineno} has bare `return` in `{node.name}` (RET502); use `return None`",
+                                )
 
     def test_optional_live_ruff_and_uv_cli_execution(self) -> None:
         """Executes `ruff check` and `uv --version` if the binaries are installed on the host."""

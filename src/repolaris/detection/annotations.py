@@ -10,7 +10,7 @@ and episode-level annotations across automated AI detectors and clinical reviewe
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
@@ -115,16 +115,15 @@ class AnnotationManager:
             if notes:
                 target.notes = notes
             return target
-        else:
-            ts = float(sample) / 500.0  # default 500 Hz fallback if not calibrated
-            return self.add_annotation(
-                sample=sample,
-                timestamp_sec=ts,
-                label=new_label,
-                author=reviewer,
-                is_manual_override=True,
-                notes=notes,
-            )
+        ts = float(sample) / 500.0  # default 500 Hz fallback if not calibrated
+        return self.add_annotation(
+            sample=sample,
+            timestamp_sec=ts,
+            label=new_label,
+            author=reviewer,
+            is_manual_override=True,
+            notes=notes,
+        )
 
     def get_by_label(self, label: str) -> list[ECGAnnotation]:
         """Filters annotations matching a specific AAMI label (e.g. 'V')."""

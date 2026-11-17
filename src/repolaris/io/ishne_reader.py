@@ -37,9 +37,10 @@ Binary Structure:
 from __future__ import annotations
 
 import struct
-from pathlib import Path
 from dataclasses import dataclass
 from datetime import date, time
+from pathlib import Path
+
 import numpy as np
 
 MAGIC = b"ISHNE1.0"
@@ -137,7 +138,7 @@ def read_ishne(filepath: str | Path) -> ISHNERecord:
         magic = f.read(8)
         if not magic.startswith(b"ISHNE"):
             raise ValueError(f"Invalid ISHNE file: expected magic b'ISHNE1.0', got {magic}")
-            
+
         _crc = struct.unpack("<H", f.read(2))[0]
         fixed_block = f.read(512)
         if len(fixed_block) < 512:
@@ -147,7 +148,7 @@ def read_ishne(filepath: str | Path) -> ISHNERecord:
         fmt_prefix = "<4i h 40s 40s 20s 2h 3h 3h 3h 3h h"
         prefix_size = struct.calcsize(fmt_prefix)
         prefix_data = struct.unpack(fmt_prefix, fixed_block[:prefix_size])
-        
+
         var_block_size = prefix_data[0]
         sample_size_ecg = prefix_data[1]  # Samples per channel
         offset_var_block = prefix_data[2]
@@ -179,7 +180,7 @@ def read_ishne(filepath: str | Path) -> ISHNERecord:
         # Remaining fixed block: 12 lead_spec, 12 lead_qual, 12 res, 1 pacemaker, 40s recorder, 1 sampling_rate, 80s, 80s, 88s
         fmt_suffix = "<12h 12h 12h h 40s h 80s 80s 88s"
         suffix_data = struct.unpack(fmt_suffix, fixed_block[prefix_size:])
-        
+
         lead_specs = suffix_data[0:12]
         _lead_quals = suffix_data[12:24]
         resolutions = suffix_data[24:36]
@@ -215,10 +216,10 @@ def read_ishne(filepath: str | Path) -> ISHNERecord:
     for i in range(n_leads):
         res_nv = resolutions[i] if (i < len(resolutions) and resolutions[i] > 0) else 5000  # Default 5 uV
         resolutions_nv.append(res_nv)
-        
+
         # Scale: raw * nV / 1,000,000 = mV
         signals_mv[i] = (multiplexed_matrix[i].astype(np.float32) * res_nv) / 1_000_000.0
-        
+
         spec_code = lead_specs[i] if i < len(lead_specs) else 0
         name = LEAD_CODE_MAP.get(spec_code, f"Channel_{i+1}")
         lead_names.append(name)
@@ -277,7 +278,7 @@ def write_ishne(
     signals_mv = np.asarray(signals_mv, dtype=np.float32)
     if signals_mv.ndim == 1:
         signals_mv = signals_mv.reshape(1, -1)
-        
+
     n_leads, sample_size = signals_mv.shape
     if n_leads > 12:
         raise ValueError("ISHNE 1.0 format supports a maximum of 12 simultaneous leads.")

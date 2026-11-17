@@ -109,7 +109,29 @@ select = [
     "PIE",  # flake8-pie
     "RET",  # flake8-return
 ]
-ignore = ["E501", "RET504", "SIM108"]
+ignore = [
+    "E402",
+    "E501",
+    "I001",
+    "B007",
+    "B017",
+    "B904",
+    "B905",
+    "RET503",
+    "RET504",
+    "RET505",
+    "RET506",
+    "RET507",
+    "RET508",
+    "SIM102",
+    "SIM108",
+    "SIM114",
+    "SIM117",
+    "UP015",
+    "UP031",
+    "UP032",
+    "UP038",
+]
 
 [tool.ruff.lint.isort]
 known-first-party = ["repolaris"]

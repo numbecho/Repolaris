@@ -20,8 +20,8 @@ Coordinates end-to-end processing of electrocardiogram recordings:
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
 import contextlib
+from collections.abc import Callable, Iterator
 from typing import Any
 
 import numpy as np

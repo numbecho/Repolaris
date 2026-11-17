@@ -1,3 +1,4 @@
+import contextlib
 """Unit tests for asynchronous background tasks, progress callbacks, and UI/CLI progress reporting."""
 
 import io
@@ -20,7 +21,7 @@ class TestAsyncTasksAndProgress(unittest.TestCase):
         def _cb(fraction: float, message: str) -> None:
             progress_events.append((fraction, message))
 
-        time_vec, lead2, true_r = StudyAPI.generate_demo_study(
+        time_vec, lead2, _true_r = StudyAPI.generate_demo_study(
             duration_sec=2.0, fs=500.0, heart_rate_bpm=72.0, progress_callback=_cb
         )
         self.assertGreater(len(progress_events), 0)
@@ -30,7 +31,7 @@ class TestAsyncTasksAndProgress(unittest.TestCase):
 
     def test_analysis_api_progress(self):
         """Verify AnalysisAPI.analyze_signal reports progress through diagnostic stages."""
-        time_vec, lead2, _ = StudyAPI.generate_demo_study(duration_sec=2.0, fs=500.0)
+        _time_vec, lead2, _ = StudyAPI.generate_demo_study(duration_sec=2.0, fs=500.0)
         stages = []
 
         def _cb(fraction: float, message: str) -> None:
@@ -49,7 +50,7 @@ class TestAsyncTasksAndProgress(unittest.TestCase):
         """Verify ExportAPI and ecg_loader report progress and decode correctly."""
         with tempfile.TemporaryDirectory() as tmpdir:
             target_pecg = os.path.join(tmpdir, "test_study.pecg")
-            t, sig, r_peaks = StudyAPI.generate_demo_study(duration_sec=2.0, fs=500.0)
+            _t, sig, _r_peaks = StudyAPI.generate_demo_study(duration_sec=2.0, fs=500.0)
 
             export_progress = []
             def _exp_cb(fraction: float, message: str) -> None:
@@ -72,7 +73,7 @@ class TestAsyncTasksAndProgress(unittest.TestCase):
             def _load_cb(fraction: float, message: str) -> None:
                 load_progress.append((fraction, message))
 
-            signals, fs, meta = StudyAPI.load_study_dataset(out_path, progress_callback=_load_cb)
+            signals, fs, _meta = StudyAPI.load_study_dataset(out_path, progress_callback=_load_cb)
             self.assertIn("Lead II", signals)
             self.assertEqual(fs, 500.0)
             self.assertGreater(len(load_progress), 0)
@@ -180,15 +181,16 @@ class TestAsyncTasksAndProgress(unittest.TestCase):
         self.assertEqual(result_received, 42)
 
         # Graceful cleanup to ensure thread is never destroyed while running
-        try:
-            if hasattr(win, "_active_worker") and win._active_worker is not None:
-                if hasattr(win._active_worker, "wait"):
-                    win._active_worker.wait(1000)
+        with contextlib.suppress(Exception):
+            if (
+                hasattr(win, "_active_worker")
+                and win._active_worker is not None
+                and hasattr(win._active_worker, "wait")
+            ):
+                win._active_worker.wait(1000)
             win.close()
             if _app is not None:
                 _app.processEvents()
-        except Exception:
-            pass
 
 
 if __name__ == "__main__":

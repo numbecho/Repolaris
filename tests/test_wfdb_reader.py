@@ -1,7 +1,9 @@
-import unittest
-import tempfile
 import os
+import tempfile
+import unittest
+
 import numpy as np
+
 from repolaris.io.wfdb_reader import read_wfdb
 
 class TestWFDBReader(unittest.TestCase):

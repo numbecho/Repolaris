@@ -1,4 +1,5 @@
 import unittest
+
 from repolaris.detection.events import detect_clinical_events
 
 class TestEventsDetection(unittest.TestCase):

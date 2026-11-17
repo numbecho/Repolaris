@@ -1,9 +1,13 @@
 """Unit tests for Repolaris Internationalization (i18n) Engine."""
 
 import unittest
+
 from repolaris.i18n import (
-    tr, set_locale, get_current_locale, get_supported_locales,
-    TRANSLATIONS
+    TRANSLATIONS,
+    get_current_locale,
+    get_supported_locales,
+    set_locale,
+    tr,
 )
 
 
@@ -198,7 +202,7 @@ class TestI18n(unittest.TestCase):
         self.assertIn("tabs", widgets)
 
         # 5. Verify utils/signal.py has zero GUI dependencies
-        with open("src/repolaris/utils/signal.py", "r", encoding="utf-8") as f:
+        with open("src/repolaris/utils/signal.py", encoding="utf-8") as f:
             code = f.read()
         self.assertNotIn("PyQt", code)
         self.assertNotIn("QWidget", code)

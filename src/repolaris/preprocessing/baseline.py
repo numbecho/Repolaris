@@ -13,7 +13,7 @@ def remove_baseline_wander(data: np.ndarray, fs: float) -> np.ndarray:
     w2 = int(0.600 * fs)
     if w2 % 2 == 0:
         w2 += 1
-    
+
     baseline = median_filter(data, size=w1, mode='reflect')
     baseline = median_filter(baseline, size=w2, mode='reflect')
     return data - baseline

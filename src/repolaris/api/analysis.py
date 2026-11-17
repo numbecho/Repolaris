@@ -9,13 +9,12 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from typing import Any
+
 import numpy as np
 
-from repolaris.config import ECGConfig, DetectionConfig
-from repolaris.detection.pipeline import analyze_ecg, analyze_ecg_stream
-from repolaris.detection.pulse_metrics import compute_qtc
+from repolaris.config import DetectionConfig, ECGConfig
+from repolaris.detection.af_detector import detect_atrial_fibrillation
 from repolaris.detection.dispersion import calculate_qt_dispersion
-from repolaris.detection.twa import compute_spectral_twa, compute_mma_twa
 from repolaris.detection.hrt import compute_heart_rate_turbulence
 from repolaris.detection.hrv import compute_comprehensive_hrv
 from repolaris.detection.hysteresis import (
@@ -23,10 +22,12 @@ from repolaris.detection.hysteresis import (
     compute_effective_rr_linear,
     optimize_hysteresis_parameter,
 )
+from repolaris.detection.pipeline import analyze_ecg, analyze_ecg_stream
+from repolaris.detection.pulse_metrics import compute_qtc
 from repolaris.detection.qtrr import fit_all_qtrr_models
 from repolaris.detection.sqi import rank_leads_two_stage
-from repolaris.detection.af_detector import detect_atrial_fibrillation
 from repolaris.detection.trends import generate_hourly_trends
+from repolaris.detection.twa import compute_mma_twa, compute_spectral_twa
 
 
 class AnalysisAPI:

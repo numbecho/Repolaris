@@ -6,6 +6,7 @@ import io
 import os
 import sys
 import unittest
+
 import numpy as np
 
 from repolaris.api import AnalysisAPI
@@ -25,16 +26,8 @@ from repolaris.detection.hysteresis import (
     optimize_hysteresis_parameter,
 )
 from repolaris.detection.pulse_metrics import compute_qtc
-from repolaris.detection.qtrr import (
-    SUPPORTED_QTRR_MODELS,
-    fit_all_qtrr_models,
-    fit_qtrr_model,
-)
-from repolaris.detection.sqi import (
-    compute_ksqi,
-    compute_ssqi,
-    rank_leads_two_stage,
-)
+from repolaris.detection.qtrr import SUPPORTED_QTRR_MODELS, fit_all_qtrr_models, fit_qtrr_model
+from repolaris.detection.sqi import compute_ksqi, compute_ssqi, rank_leads_two_stage
 from repolaris.detection.t_end import detect_t_end
 from repolaris.detection.twa import compute_mma_twa, compute_spectral_twa
 from repolaris.utils.signal import generate_synthetic_ecg
@@ -64,7 +57,7 @@ class TestV060AutonomicAndRepolarization(unittest.TestCase):
         tp_h, te_h = detect_t_end(self.base_sig, r_idx, self.fs, method="hybrid")
         tp_t, te_t = detect_t_end(self.base_sig, r_idx, self.fs, method="tangent")
         tp_z, te_z = detect_t_end(self.base_sig, r_idx, self.fs, method="zhang_area")
-        tp_th, te_th = detect_t_end(self.base_sig, r_idx, self.fs, method="threshold")
+        tp_th, _te_th = detect_t_end(self.base_sig, r_idx, self.fs, method="threshold")
         self.assertEqual(tp_h, tp_t)
         self.assertEqual(tp_h, tp_z)
         self.assertEqual(tp_h, tp_th)

@@ -5,9 +5,9 @@ Exposes unified controllers for study loading, analysis, and export consumed by 
 
 from __future__ import annotations
 
+import importlib.util
 import sys
 from pathlib import Path
-import importlib.util
 
 def _load_submodule(sub_name: str):
     full_name = f"repolaris.api.{sub_name}"

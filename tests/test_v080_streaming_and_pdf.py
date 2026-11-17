@@ -12,22 +12,23 @@ Validates:
 import os
 import tempfile
 import unittest
+
 import numpy as np
 
-from repolaris.io import (
-    SignalBuffer,
-    open_ecg_buffer,
-    stream_ecg_chunks,
-    generate_clinical_pdf_report,
-    save_pecg,
-)
+from repolaris.api import AnalysisAPI, ExportAPI, StudyAPI
+from repolaris.app import MainWindow, QApplication
+from repolaris.cli import main as cli_main
+from repolaris.detection.annotations import AnnotationManager
 from repolaris.detection.pipeline import analyze_ecg, analyze_ecg_stream
 from repolaris.detection.sqi import evaluate_lead_quality, rank_leads_two_stage
-from repolaris.detection.annotations import AnnotationManager
-from repolaris.api import StudyAPI, AnalysisAPI, ExportAPI
-from repolaris.cli import main as cli_main
-from repolaris.app import MainWindow, QApplication
 from repolaris.i18n import set_locale
+from repolaris.io import (
+    SignalBuffer,
+    generate_clinical_pdf_report,
+    open_ecg_buffer,
+    save_pecg,
+    stream_ecg_chunks,
+)
 
 
 class TestVersion080StreamingAndPDF(unittest.TestCase):

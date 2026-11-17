@@ -19,6 +19,7 @@ References:
 from __future__ import annotations
 
 from typing import Any
+
 import numpy as np
 from scipy.signal import welch
 
@@ -131,7 +132,7 @@ def compute_frequency_domain_hrv(
         }
 
     cum_sec = np.cumsum(nn_ms / 1000.0)
-    t_grid, rr_resampled_sec = resample_berger(cum_sec, fs_resample=fs_resample)
+    _t_grid, rr_resampled_sec = resample_berger(cum_sec, fs_resample=fs_resample)
     rr_resampled_ms = rr_resampled_sec * 1000.0
     # Detrend mean before Welch periodogram
     rr_detrended = rr_resampled_ms - np.mean(rr_resampled_ms)

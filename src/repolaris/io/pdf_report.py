@@ -9,18 +9,18 @@ Generates multi-page printable clinical ECG and Holter reports using matplotlib 
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable
 from datetime import datetime, timezone
-import os
 from pathlib import Path
 from typing import Any
 
 import matplotlib
-
-matplotlib.use("Agg")
-from matplotlib.backends.backend_pdf import PdfPages
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.backends.backend_pdf import PdfPages
+
+matplotlib.use("Agg")
 
 
 

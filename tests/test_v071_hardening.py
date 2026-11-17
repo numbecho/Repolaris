@@ -13,14 +13,20 @@ import os
 import struct
 import tempfile
 import unittest
+
 import numpy as np
 
 from repolaris.detection.af_detector import detect_atrial_fibrillation
-from repolaris.detection.trends import generate_hourly_trends
-from repolaris.detection.classifier import ClassifiedBeat, BeatClass, RhythmPattern, BeatFeatures
+from repolaris.detection.classifier import (
+    BeatClass,
+    BeatFeatures,
+    ClassifiedBeat,
+    RhythmPattern,
+)
 from repolaris.detection.pipeline import analyze_ecg
-from repolaris.io.scp_reader import read_scp_ecg
+from repolaris.detection.trends import generate_hourly_trends
 from repolaris.io.hl7_reader import read_hl7_aecg
+from repolaris.io.scp_reader import read_scp_ecg
 
 
 class TestVersion071Hardening(unittest.TestCase):
@@ -71,7 +77,6 @@ class TestVersion071Hardening(unittest.TestCase):
         fs = 500.0
 
         # Simulate 2.5 hours of beats (~9000 beats)
-        t = 0.0
         for i in range(250):
             # Create a beat every ~1.0s (36s per loop -> scaled up to test binning)
             # We scale time directly: 100 beats in hour 0, 100 beats in hour 1, 50 in hour 2

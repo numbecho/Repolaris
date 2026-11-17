@@ -5,6 +5,7 @@ import struct
 import tempfile
 import unittest
 import zipfile
+
 import numpy as np
 
 from repolaris.detection.pipeline import analyze_ecg
@@ -54,7 +55,7 @@ class TestE3CReader(unittest.TestCase):
                     "indication": "Palpitations",
                 },
             )
-            loaded_sigs, fs, meta = load_ecg_dataset(p)
+            _loaded_sigs, _fs, meta = load_ecg_dataset(p)
             self.assertEqual(meta["format"], "PECG (Portable Clinical ECG)")
             self.assertEqual(meta["patient"]["age"], 52)
             self.assertEqual(meta["patient"]["pacemaker"], "DDD")

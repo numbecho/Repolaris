@@ -8,9 +8,15 @@ from __future__ import annotations
 import os
 from collections.abc import Callable
 from typing import Any
+
 import numpy as np
 
-from repolaris.io.ecg_loader import load_ecg_dataset, open_ecg_buffer, stream_ecg_chunks, SignalBuffer
+from repolaris.io.ecg_loader import (
+    SignalBuffer,
+    load_ecg_dataset,
+    open_ecg_buffer,
+    stream_ecg_chunks,
+)
 from repolaris.utils.signal import generate_synthetic_ecg
 
 

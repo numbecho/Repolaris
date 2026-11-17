@@ -18,12 +18,12 @@ for bounded-memory 24h-48h Holter streaming.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
 import contextlib
 import os
-from pathlib import Path
 import shutil
 import tempfile
+from collections.abc import Callable, Iterator
+from pathlib import Path
 from typing import Any
 
 import numpy as np

@@ -20,9 +20,9 @@ in strict domain and Jacobian conditioning guards to prevent numerical instabili
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Callable
 from typing import Any
-import warnings
 
 import numpy as np
 from scipy.stats import pearsonr

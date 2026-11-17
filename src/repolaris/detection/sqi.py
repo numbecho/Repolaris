@@ -14,6 +14,7 @@ Implements a non-regressive two-stage signal quality architecture:
 from __future__ import annotations
 
 from typing import Any
+
 import numpy as np
 from scipy.signal import welch
 
@@ -186,7 +187,7 @@ def rank_leads_two_stage(
     per_lead: dict[str, dict[str, Any]] = {}
     passing_names: list[str] = []
 
-    for name, sig in zip(names, signals):
+    for name, sig in zip(names, signals, strict=False):
         q = evaluate_lead_quality(sig, fs)
         q["voting_index"] = -6.0
         per_lead[name] = q

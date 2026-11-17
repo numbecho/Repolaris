@@ -17,11 +17,11 @@ Specification:
 from __future__ import annotations
 
 import contextlib
-
 import os
 import xml.etree.ElementTree as ET
-from pathlib import Path
 from dataclasses import dataclass, field
+from pathlib import Path
+
 import numpy as np
 
 
@@ -66,7 +66,7 @@ def is_hl7_xml(filepath: str | Path | os.PathLike[str]) -> bool:
     if not path.is_file() or path.stat().st_size < 50:
         return False
     try:
-        with open(path, "r", encoding="utf-8", errors="ignore") as f:
+        with open(path, encoding="utf-8", errors="ignore") as f:
             head = f.read(2048)
             return ("<AnnotatedECG" in head or "urn:hl7-org:v3" in head) and ("<series" in head or "<sequence" in head)
     except Exception:
@@ -150,9 +150,8 @@ def read_hl7_aecg(filepath: str | Path | os.PathLike[str]) -> HL7Record:
                     inc_val = float(inc_str)
                     if inc_val > 0:
                         fs = 1.0 / inc_val
-            elif tag in ("digits", "value"):
-                if child.text:
-                    digits_text = child.text.strip()
+            elif tag in ("digits", "value") and child.text:
+                digits_text = child.text.strip()
 
         lead_name = HL7_LEAD_NAMES.get(raw_code, raw_code or f"Lead_{len(lead_names) + 1}")
 

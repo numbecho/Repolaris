@@ -17,9 +17,10 @@ Also detects structural ectopic rhythm sequences:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from enum import StrEnum
 from typing import Any
+
 import numpy as np
 
 
@@ -306,17 +307,16 @@ def detect_rhythm_patterns(classified_beats: list[ClassifiedBeat]) -> list[Class
                     classified_beats[k].diagnostic_rationale += f" [VT Run of {run_len} beats]"
                 i += run_len
                 continue
-            elif run_len == 2:
+            if run_len == 2:
                 classified_beats[i].rhythm_pattern = RhythmPattern.COUPLET
                 classified_beats[i + 1].rhythm_pattern = RhythmPattern.COUPLET
                 classified_beats[i].diagnostic_rationale += " [PVC Couplet 1/2]"
                 classified_beats[i + 1].diagnostic_rationale += " [PVC Couplet 2/2]"
                 i += 2
                 continue
-            else:
-                classified_beats[i].rhythm_pattern = RhythmPattern.ISOLATED_ECTOPIC
-                i += 1
-                continue
+            classified_beats[i].rhythm_pattern = RhythmPattern.ISOLATED_ECTOPIC
+            i += 1
+            continue
         i += 1
 
     # Pass 2: Detect Bigeminy (N - V - N - V - N - V ...)

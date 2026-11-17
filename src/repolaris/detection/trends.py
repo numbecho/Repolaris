@@ -11,11 +11,12 @@ Generates clinical hourly distribution tables and trend breakdowns for 24h/48h H
 
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from typing import Any
+
 import numpy as np
 
-from repolaris.detection.classifier import ClassifiedBeat, BeatClass, RhythmPattern
+from repolaris.detection.classifier import BeatClass, ClassifiedBeat, RhythmPattern
 
 
 @dataclass

@@ -22,13 +22,14 @@ Architecture:
 
 from __future__ import annotations
 
-import struct
 import json
-import zlib
-from pathlib import Path
 import os
+import struct
+import zlib
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
+
 import numpy as np
 
 try:
@@ -79,18 +80,18 @@ def save_pecg(
 ) -> str:
     """
     Saves a multi-channel ECG study to a single portable .pecg file.
-    
+
     Parameters:
         compression: "zstd" (fastest & highest ratio), "deflate" / "zlib" (standard universal), or "none" (enables mmap).
     """
     filepath = Path(filepath)
     signals = np.asarray(signals)
-    
+
     if signals.ndim == 1:
         signals = signals.reshape(1, -1)
-        
+
     num_channels, num_samples = signals.shape
-    
+
     # Ensure correct dtype for storage (int16 or float32)
     if np.issubdtype(signals.dtype, np.floating):
         dtype_str = "float32"
@@ -209,7 +210,7 @@ def save_pecg(
 def load_pecg(filepath: str | Path, mmap: bool = False, progress_callback: Callable[[float, str], None] | None = None) -> tuple[dict[str, Any], np.ndarray]:
     """
     Loads a .pecg study package with comprehensive security and sanity checks.
-    
+
     Guards against:
     - Truncated or over-length binary container headers.
     - Massive metadata allocations (> 10 MB ceiling).
@@ -232,15 +233,15 @@ def load_pecg(filepath: str | Path, mmap: bool = False, progress_callback: Calla
         magic = f.read(4)
         if magic != MAGIC:
             raise ValueError(f"Invalid .pecg file: Expected magic b'PECG', got {magic}")
-            
-        version, enc_type, comp_flag, meta_length = struct.unpack("<HBB I", f.read(8))
-        
+
+        _version, enc_type, comp_flag, meta_length = struct.unpack("<HBB I", f.read(8))
+
         # 1. Validate metadata boundary & memory allocation ceiling
         if meta_length > MAX_METADATA_BYTES:
             raise ValueError(f"Security Alert: Metadata block size ({meta_length} B) exceeds the 10 MB safety ceiling.")
         if 12 + meta_length > file_size:
             raise ValueError(f"Corrupt .pecg container: Declared metadata offset (12 + {meta_length} B) extends beyond end-of-file ({file_size} B).")
-            
+
         meta_bytes = f.read(meta_length)
 
     if progress_callback:
@@ -312,7 +313,7 @@ def load_pecg(filepath: str | Path, mmap: bool = False, progress_callback: Calla
         with open(filepath, "rb") as f:
             f.seek(data_offset)
             compressed_bytes = f.read()
-        
+
         # Enforce exact expected decompressed output size to neutralize decompression bombs
         dctx = zstd.ZstdDecompressor()
         try:
@@ -328,7 +329,7 @@ def load_pecg(filepath: str | Path, mmap: bool = False, progress_callback: Calla
         with open(filepath, "rb") as f:
             f.seek(data_offset)
             compressed_bytes = f.read()
-        
+
         # Stream decompress with bounded byte ceiling to neutralize decompression bombs
         decompressor = zlib.decompressobj()
         try:

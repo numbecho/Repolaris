@@ -12,6 +12,7 @@ human-facing localized labels, tooltips, dialogs, and diagnostic descriptions.
 """
 
 from __future__ import annotations
+
 from typing import Any
 
 SUPPORTED_LANGUAGES: dict[str, str] = {
@@ -35,7 +36,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "btn_demo_tooltip": "Generate realistic synthetic ECG rhythm (72 BPM)",
         "btn_export": "📤 Export Case (.pecg)",
         "btn_export_tooltip": "Export de-identified multi-channel study for colleague consultation",
-        
+
         # Caliper Strip
         "calipers_title": "🔍 Digital Calipers:",
         "cal_raw_qt": "Raw QT:",
@@ -212,7 +213,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "status_analyzing": "Analyzing ECG rhythm...",
         "status_exporting": "Exporting study archive...",
     },
-    
+
     "es": {
         # App Header & Actions
         "app_title": "Repolaris",
@@ -225,7 +226,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "btn_demo_tooltip": "Generar ritmo ECG sintético realista (72 LPM)",
         "btn_export": "📤 Exportar Caso (.pecg)",
         "btn_export_tooltip": "Exportar estudio anonimizado multicanal para consulta colegiada",
-        
+
         # Caliper Strip
         "calipers_title": "🔍 Calibradores Digitales:",
         "cal_raw_qt": "QT Medido:",
@@ -415,7 +416,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "btn_demo_tooltip": "Générer un tracé ECG synthétique réaliste (72 BPM)",
         "btn_export": "📤 Exporter Cas (.pecg)",
         "btn_export_tooltip": "Exporter l'étude anonymisée multicanaux pour consultation collégiale",
-        
+
         # Caliper Strip
         "calipers_title": "🔍 Pied à Coulisse Digital:",
         "cal_raw_qt": "QT Brut:",
@@ -605,7 +606,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "btn_demo_tooltip": "Realistischen synthetischen EKG-Rhythmus erzeugen (72 BPM)",
         "btn_export": "📤 Fall Exportieren (.pecg)",
         "btn_export_tooltip": "Anonymisierte Mehrkanalstudie für Kollegen exportieren",
-        
+
         # Caliper Strip
         "calipers_title": "🔍 Digitale Messzange:",
         "cal_raw_qt": "Gemessenes QT:",
@@ -782,7 +783,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "status_analyzing": "EKG-Rhythmus wird analysiert...",
         "status_exporting": "Studienarchiv wird exportiert...",
     },
-    
+
     "pt": {
         # App Header & Actions
         "app_title": "Repolaris",
@@ -795,7 +796,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "btn_demo_tooltip": "Gerar ritmo de ECG sintético realista (72 BPM)",
         "btn_export": "📤 Exportar Caso (.pecg)",
         "btn_export_tooltip": "Exportar estudo multicanal anonimizado para consulta colegiada",
-        
+
         # Caliper Strip
         "calipers_title": "🔍 Calibradores Digitais:",
         "cal_raw_qt": "QT Bruto:",

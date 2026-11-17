@@ -12,20 +12,21 @@ import os
 import struct
 import tempfile
 import unittest
+
 import numpy as np
 
-from repolaris.io import (
-    load_ecg_dataset,
-    sniff_ecg_format,
-    read_dicom_waveform,
-    is_dicom_file,
-    read_hl7_aecg,
-    is_hl7_xml,
-    read_scp_ecg,
-    is_scp_file,
-)
-from repolaris.detection.hamilton_classifier import HamiltonBeatClassifier
 from repolaris.detection.classifier import BeatClass
+from repolaris.detection.hamilton_classifier import HamiltonBeatClassifier
+from repolaris.io import (
+    is_dicom_file,
+    is_hl7_xml,
+    is_scp_file,
+    load_ecg_dataset,
+    read_dicom_waveform,
+    read_hl7_aecg,
+    read_scp_ecg,
+    sniff_ecg_format,
+)
 
 
 class TestVersion070FormatSupport(unittest.TestCase):

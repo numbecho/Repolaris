@@ -18,6 +18,7 @@ References:
 from __future__ import annotations
 
 from typing import Any
+
 import numpy as np
 
 
@@ -29,7 +30,7 @@ def _extract_label(beat: Any) -> str:
         val = beat.get("beat_class", beat.get("label", "N"))
         return str(getattr(val, "value", val)).strip().upper()
     if hasattr(beat, "beat_class"):
-        bc = getattr(beat, "beat_class")
+        bc = beat.beat_class
         return str(getattr(bc, "value", bc)).strip().upper()
     return "N"
 

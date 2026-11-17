@@ -1,10 +1,11 @@
 import unittest
+
 import numpy as np
 
-from repolaris.detection.qtvi import resample_berger, compute_qtvi
-from repolaris.detection.qtrr import fit_qtrr_model
-from repolaris.detection.sqi import compute_psqi, compute_bassqi, evaluate_lead_quality
 from repolaris.detection.pipeline import analyze_ecg
+from repolaris.detection.qtrr import fit_qtrr_model
+from repolaris.detection.qtvi import compute_qtvi, resample_berger
+from repolaris.detection.sqi import compute_bassqi, compute_psqi, evaluate_lead_quality
 from repolaris.utils.signal import generate_synthetic_ecg
 
 
@@ -41,7 +42,7 @@ class TestQTVIQTRRSQI(unittest.TestCase):
 
     def test_sqi_metrics(self):
         fs = 500.0
-        t, sig, _ = generate_synthetic_ecg(duration_sec=6.0, fs=fs, heart_rate_bpm=72.0)
+        _t, sig, _ = generate_synthetic_ecg(duration_sec=6.0, fs=fs, heart_rate_bpm=72.0)
         psqi = compute_psqi(sig, fs)
         bassqi = compute_bassqi(sig, fs)
         quality = evaluate_lead_quality(sig, fs)
@@ -54,7 +55,7 @@ class TestQTVIQTRRSQI(unittest.TestCase):
 
     def test_pipeline_with_qtvi_and_sqi(self):
         fs = 500.0
-        t, sig, _ = generate_synthetic_ecg(duration_sec=10.0, fs=fs, heart_rate_bpm=75.0)
+        _t, sig, _ = generate_synthetic_ecg(duration_sec=10.0, fs=fs, heart_rate_bpm=75.0)
         results = analyze_ecg(sig, fs=fs)
 
         self.assertIn("qtvi", results)

@@ -1,9 +1,11 @@
 import json
-import unittest
-import tempfile
 import os
+import tempfile
+import unittest
+
 import numpy as np
-from repolaris.io.pecg_format import save_pecg, load_pecg
+
+from repolaris.io.pecg_format import load_pecg, save_pecg
 
 class TestPECGFormat(unittest.TestCase):
     def setUp(self):
@@ -15,7 +17,7 @@ class TestPECGFormat(unittest.TestCase):
         lead_v5 = (0.8 * np.cos(2 * np.pi * 1.2 * t)).astype(np.float32)
         self.signals = np.stack([lead_i, lead_ii, lead_v5])
         self.lead_names = ["Lead I", "Lead II", "V5"]
-        
+
         self.patient = {
             "age": 64,
             "race": "Hispanic / Latino",
@@ -23,7 +25,7 @@ class TestPECGFormat(unittest.TestCase):
             "indication": "Syncope, evaluate for drug-induced QT prolongation",
             "pacemaker": "VVI"
         }
-        
+
         self.annotations = {
             "physician_notes": [
                 {"author": "Dr. Cardiologist", "comment": "Review prolonged repolarization around beat 5"}
@@ -47,13 +49,13 @@ class TestPECGFormat(unittest.TestCase):
             annotations=self.annotations,
             compression="none"
         )
-        
+
         meta, sigs = load_pecg(filepath, mmap=False)
         self.assertEqual(meta["patient"]["age"], 64)
         self.assertEqual(meta["patient"]["race"], "Hispanic / Latino")
         self.assertEqual(meta["patient"]["pacemaker"], "VVI")
         np.testing.assert_allclose(sigs, self.signals, rtol=1e-5)
-        
+
         meta, mmap_sigs = load_pecg(filepath, mmap=True)
         self.assertIsInstance(mmap_sigs, np.memmap)
         np.testing.assert_allclose(mmap_sigs[:, 500:1000], self.signals[:, 500:1000], rtol=1e-5)
@@ -69,7 +71,7 @@ class TestPECGFormat(unittest.TestCase):
             annotations=self.annotations,
             compression="deflate"
         )
-        
+
         meta, sigs = load_pecg(filepath)
         self.assertEqual(meta["patient"]["age"], 64)
         self.assertEqual(meta["patient"]["race"], "Hispanic / Latino")

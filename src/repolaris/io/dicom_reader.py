@@ -27,12 +27,12 @@ Binary Structure:
 from __future__ import annotations
 
 import contextlib
-
 import os
 import struct
-from pathlib import Path
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
+
 import numpy as np
 
 # Standard 12-Lead Code Value Mapping (DICOM CID 3001 / SCPECG Lead Codes)

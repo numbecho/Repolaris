@@ -22,8 +22,9 @@ from __future__ import annotations
 
 import os
 import struct
-from pathlib import Path
 from dataclasses import dataclass, field
+from pathlib import Path
+
 import numpy as np
 
 # Standard SCP Lead Identification Codes (CEN EN 1064 Table 8)
@@ -74,7 +75,7 @@ def is_scp_file(filepath: str | Path | os.PathLike[str]) -> bool:
         with open(path, "rb") as f:
             _crc = f.read(2)
             file_len = struct.unpack("<I", f.read(4))[0]
-            sec_crc, sec_id, sec_len = struct.unpack("<HHI", f.read(8))
+            _sec_crc, sec_id, sec_len = struct.unpack("<HHI", f.read(8))
             return sec_id == 0 and sec_len > 16 and file_len <= path.stat().st_size + 16
     except Exception:
         return False
@@ -114,7 +115,7 @@ def read_scp_ecg(filepath: str | Path | os.PathLike[str]) -> SCPRecord:
     _crc, _reported_len = struct.unpack("<HI", data[0:6])
 
     # Section 0 header starts at byte 6 (16 bytes total header)
-    s0_crc, s0_id, s0_len = struct.unpack("<HHI", data[6:14])
+    _s0_crc, s0_id, s0_len = struct.unpack("<HHI", data[6:14])
     if s0_id != 0:
         raise ValueError(f"Invalid SCP file: First section ID is {s0_id}, expected Section 0 pointer table.")
 

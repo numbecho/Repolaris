@@ -9,9 +9,9 @@ Supports:
 from __future__ import annotations
 
 import contextlib
-
-from pathlib import Path
 from dataclasses import dataclass
+from pathlib import Path
+
 import numpy as np
 
 try:
@@ -94,7 +94,7 @@ def read_wfdb(record_path_or_header: str | Path) -> WFDBRecord:
             )
 
     # Pure-Python Native WFDB Parser
-    with open(header_path, "r", encoding="utf-8", errors="ignore") as f:
+    with open(header_path, encoding="utf-8", errors="ignore") as f:
         lines = [line.strip() for line in f if line.strip() and not line.startswith("#")]
 
     if not lines:
@@ -131,7 +131,7 @@ def read_wfdb(record_path_or_header: str | Path) -> WFDBRecord:
         gain_str = tokens[2] if len(tokens) > 2 else "200.0"
         baseline = 0
         unit = "mV"
-        
+
         if "(" in gain_str and ")" in gain_str:
             g_part, rest = gain_str.split("(")
             b_part = rest.split(")")[0]

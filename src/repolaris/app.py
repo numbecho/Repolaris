@@ -12,32 +12,67 @@ All source code remains strictly in English. UI text is managed via repolaris.i1
 
 from __future__ import annotations
 
+from collections.abc import Callable
+import contextlib
 import os
 import sys
-import contextlib
-from collections.abc import Callable
 from typing import Any
+
 import numpy as np
 
+from repolaris.api import AnalysisAPI, ExportAPI, StudyAPI
+from repolaris.config import DetectionConfig, ECGConfig, FilterConfig
+from repolaris.detection.annotations import AnnotationManager
+from repolaris.detection.classifier import BeatClass, detect_rhythm_patterns
+from repolaris.detection.pulse_metrics import summarize_beats
+from repolaris.detection.qtrr import QTRR_MODEL_METADATA, SUPPORTED_QTRR_MODELS
+from repolaris.i18n import SUPPORTED_LANGUAGES, get_current_locale, set_locale, tr
+
 try:
-    import pyqtgraph as pg
+    from PyQt6.QtCore import Qt, QThread, QUrl, pyqtSignal
+    from PyQt6.QtGui import QAction, QActionGroup, QColor, QDesktopServices, QKeySequence
     from PyQt6.QtWidgets import (
-        QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-        QPushButton, QLabel, QFileDialog, QTableWidget, QTableWidgetItem,
-        QHeaderView, QGroupBox, QMessageBox, QTabWidget,
-        QInputDialog, QSplitter, QComboBox, QFrame, QScrollArea, QDialog,
-        QButtonGroup, QProgressBar
+        QApplication,
+        QButtonGroup,
+        QComboBox,
+        QDialog,
+        QFileDialog,
+        QFrame,
+        QGroupBox,
+        QHBoxLayout,
+        QHeaderView,
+        QInputDialog,
+        QLabel,
+        QMainWindow,
+        QMessageBox,
+        QProgressBar,
+        QPushButton,
+        QScrollArea,
+        QSplitter,
+        QTableWidget,
+        QTableWidgetItem,
+        QTabWidget,
+        QVBoxLayout,
+        QWidget,
     )
-    from PyQt6.QtCore import Qt, pyqtSignal, QUrl, QThread
-    from PyQt6.QtGui import QColor, QAction, QKeySequence, QDesktopServices, QActionGroup
+    import pyqtgraph as pg
     HAS_GUI = True
 except ImportError:
     HAS_GUI = False
+
     class _SignalMock:
-        def __init__(self, *args: Any, **kwargs: Any) -> None: pass
-        def connect(self, slot: Any) -> None: pass
-        def emit(self, *args: Any, **kwargs: Any) -> None: pass
-        def blockSignals(self, b: bool) -> None: pass
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            pass
+
+        def connect(self, slot: Any) -> None:
+            pass
+
+        def emit(self, *args: Any, **kwargs: Any) -> None:
+            pass
+
+        def blockSignals(self, b: bool) -> None:
+            pass
+
     def pyqtSignal(*args: Any, **kwargs: Any) -> Any:
         return _SignalMock()
 
@@ -53,7 +88,7 @@ except ImportError:
             self._val = 0
             self._hidden = True
             self._tabs: list[Any] = []
-            self._items: list[ Any] = []
+            self._items: list[Any] = []
             self._curr_idx: int = 0
             self._rows: int = args[0] if (len(args) >= 2 and isinstance(args[0], int)) else 0
             self._cols: int = args[1] if (len(args) >= 2 and isinstance(args[1], int)) else 0
@@ -65,133 +100,221 @@ except ImportError:
             self.currentTextChanged = _SignalMock()
             self.cellClicked = _SignalMock()
             self.cellDoubleClicked = _SignalMock()
-        def setText(self, text: str) -> None: self._text = str(text)
-        def text(self) -> str: return self._text
-        def setValue(self, val: int) -> None: self._val = val
-        def value(self) -> int: return self._val
-        def show(self) -> None: self._hidden = False
-        def hide(self) -> None: self._hidden = True
-        def isHidden(self) -> bool: return self._hidden
-        def width(self) -> int: return 800
-        def height(self) -> int: return 400
-        def blockSignals(self, b: bool) -> None: pass
+
+        def setText(self, text: str) -> None:
+            self._text = str(text)
+
+        def text(self) -> str:
+            return self._text
+
+        def setValue(self, val: int) -> None:
+            self._val = val
+
+        def value(self) -> int:
+            return self._val
+
+        def show(self) -> None:
+            self._hidden = False
+
+        def hide(self) -> None:
+            self._hidden = True
+
+        def isHidden(self) -> bool:
+            return self._hidden
+
+        def width(self) -> int:
+            return 800
+
+        def height(self) -> int:
+            return 400
+
+        def blockSignals(self, b: bool) -> None:
+            pass
+
         def addTab(self, widget: Any, label: str = "") -> None:
             self._tabs.append((widget, label))
+
         def setTabText(self, idx: int, label: str) -> None:
             if 0 <= idx < len(self._tabs):
                 self._tabs[idx] = (self._tabs[idx][0], label)
+
         def addItem(self, label: Any, user_data: Any = None) -> None:
             self._items.append((str(label), user_data))
+
         def clear(self) -> None:
             self._items.clear()
             self._cells.clear()
             self._rows = 0
+
         def setCurrentIndex(self, idx: int) -> None:
             self._curr_idx = int(idx)
+
         def currentIndex(self) -> int:
             return self._curr_idx
+
         def currentText(self) -> str:
             if 0 <= self._curr_idx < len(self._items):
                 return self._items[self._curr_idx][0]
             return ""
+
         def currentData(self) -> Any:
             if 0 <= self._curr_idx < len(self._items):
                 return self._items[self._curr_idx][1]
             return None
+
         def itemData(self, idx: int) -> Any:
             if 0 <= idx < len(self._items):
                 return self._items[idx][1]
             return None
+
         def setRowCount(self, rows: int) -> None:
             self._rows = int(rows)
+
         def rowCount(self) -> int:
             return self._rows
+
         def setItem(self, row: int, col: int, item: Any) -> None:
             self._cells[(int(row), int(col))] = item
+
         def item(self, row: int, col: int) -> Any:
             return self._cells.get((int(row), int(col)))
+
         def count(self) -> int:
             return len(self._tabs) if self._tabs else len(self._items)
+
         def __getattr__(self, name: str) -> Any:
             mock = _QMock()
             setattr(self, name, mock)
             return mock
+
         def __call__(self, *args: Any, **kwargs: Any) -> Any:
             return _QMock()
 
     class _QWindowBaseMock:
         """Strict headless base class for QMainWindow/QDialog without catch-all __getattr__."""
+
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             self._menubar = _QMock()
             self._statusbar = _QMock()
             self._central = None
             self._style = ""
             self._title = ""
-        def setWindowTitle(self, title: str) -> None: self._title = str(title)
-        def windowTitle(self) -> str: return self._title
-        def resize(self, w: int, h: int) -> None: pass
-        def setMinimumSize(self, w: int, h: int) -> None: pass
-        def setMinimumWidth(self, w: int) -> None: pass
-        def setCentralWidget(self, w: Any) -> None: self._central = w
-        def centralWidget(self) -> Any: return self._central
-        def menuBar(self) -> Any: return self._menubar
-        def statusBar(self) -> Any: return self._statusbar
-        def setStatusBar(self, sb: Any) -> None: self._statusbar = sb
-        def setStyleSheet(self, qss: str) -> None: self._style = str(qss)
-        def styleSheet(self) -> str: return self._style
-        def show(self) -> None: pass
-        def close(self) -> None: pass
-        def exec(self) -> int: return 0
-        def accept(self) -> None: pass
-        def reject(self) -> None: pass
-        def addAction(self, action: Any) -> None: pass
-        def closeEvent(self, event: Any) -> None: pass
+
+        def setWindowTitle(self, title: str) -> None:
+            self._title = str(title)
+
+        def windowTitle(self) -> str:
+            return self._title
+
+        def resize(self, w: int, h: int) -> None:
+            pass
+
+        def setMinimumSize(self, w: int, h: int) -> None:
+            pass
+
+        def setMinimumWidth(self, w: int) -> None:
+            pass
+
+        def setCentralWidget(self, w: Any) -> None:
+            self._central = w
+
+        def centralWidget(self) -> Any:
+            return self._central
+
+        def menuBar(self) -> Any:
+            return self._menubar
+
+        def statusBar(self) -> Any:
+            return self._statusbar
+
+        def setStatusBar(self, sb: Any) -> None:
+            self._statusbar = sb
+
+        def setStyleSheet(self, qss: str) -> None:
+            self._style = str(qss)
+
+        def styleSheet(self) -> str:
+            return self._style
+
+        def show(self) -> None:
+            pass
+
+        def close(self) -> None:
+            pass
+
+        def exec(self) -> int:
+            return 0
+
+        def accept(self) -> None:
+            pass
+
+        def reject(self) -> None:
+            pass
+
+        def addAction(self, action: Any) -> None:
+            pass
+
+        def closeEvent(self, event: Any) -> None:
+            pass
 
     QMainWindow = _QWindowBaseMock  # type: ignore
-    QWidget = _QMock      # type: ignore
+    QWidget = _QMock  # type: ignore
     QVBoxLayout = _QMock  # type: ignore
     QHBoxLayout = _QMock  # type: ignore
     QPushButton = _QMock  # type: ignore
-    QLabel = _QMock       # type: ignore
+    QLabel = _QMock  # type: ignore
     QFileDialog = _QMock  # type: ignore
-    QTableWidget = _QMock # type: ignore
-    QTableWidgetItem = _QMock # type: ignore
+    QTableWidget = _QMock  # type: ignore
+    QTableWidgetItem = _QMock  # type: ignore
     QHeaderView = _QMock  # type: ignore
-    QGroupBox = _QMock    # type: ignore
+    QGroupBox = _QMock  # type: ignore
     QMessageBox = _QMock  # type: ignore
-    QTabWidget = _QMock   # type: ignore
-    QInputDialog = _QMock # type: ignore
-    QSplitter = _QMock    # type: ignore
-    QComboBox = _QMock    # type: ignore
-    QFrame = _QMock       # type: ignore
+    QTabWidget = _QMock  # type: ignore
+    QInputDialog = _QMock  # type: ignore
+    QSplitter = _QMock  # type: ignore
+    QComboBox = _QMock  # type: ignore
+    QFrame = _QMock  # type: ignore
     QScrollArea = _QMock  # type: ignore
     QDialog = _QWindowBaseMock  # type: ignore
-    QButtonGroup = _QMock # type: ignore
-    QMenuBar = _QMock     # type: ignore
-    QMenu = _QMock        # type: ignore
-    QProgressBar = _QMock # type: ignore
-    QStatusBar = _QMock   # type: ignore
-    QAction = _QMock      # type: ignore
-    QColor = _QMock       # type: ignore
-    QActionGroup = _QMock # type: ignore
-    QDesktopServices = _QMock # type: ignore
-    QApplication = _QMock # type: ignore
+    QButtonGroup = _QMock  # type: ignore
+    QMenuBar = _QMock  # type: ignore
+    QMenu = _QMock  # type: ignore
+    QProgressBar = _QMock  # type: ignore
+    QStatusBar = _QMock  # type: ignore
+    QAction = _QMock  # type: ignore
+    QColor = _QMock  # type: ignore
+    QActionGroup = _QMock  # type: ignore
+    QDesktopServices = _QMock  # type: ignore
+    QApplication = _QMock  # type: ignore
+
     class _QThreadMock:
-        def __init__(self, *args: Any, **kwargs: Any) -> None: pass
-        def start(self) -> None: pass
-        def wait(self) -> None: pass
-    QThread = _QThreadMock # type: ignore
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            pass
+
+        def start(self) -> None:
+            pass
+
+        def wait(self) -> None:
+            pass
+
+    QThread = _QThreadMock  # type: ignore
+
     class _QKeySequenceMock:
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             pass
+
     QKeySequence = _QKeySequenceMock  # type: ignore
+
     class _QUrlMock:
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             pass
+
         @staticmethod
         def fromLocalFile(path: str) -> Any:
             return _QUrlMock(path)
-    QUrl = _QUrlMock          # type: ignore
+
+    QUrl = _QUrlMock  # type: ignore
+
     class _QtMock:
         class Key:
             Key_Left = 0x01000012
@@ -201,24 +324,19 @@ except ImportError:
             Key_S = 0x53
             Key_F = 0x46
             Key_Q = 0x51
+
         class Orientation:
             Horizontal = 1
             Vertical = 2
+
         class PenStyle:
             SolidLine = 1
             DashLine = 2
             DotLine = 3
             DashDotLine = 4
-    Qt = _QtMock  # type: ignore
-    pg = _QMock() # type: ignore
 
-from repolaris.api import StudyAPI, AnalysisAPI, ExportAPI
-from repolaris.config import ECGConfig, DetectionConfig, FilterConfig
-from repolaris.detection.annotations import AnnotationManager
-from repolaris.detection.classifier import BeatClass, detect_rhythm_patterns
-from repolaris.detection.pulse_metrics import summarize_beats
-from repolaris.detection.qtrr import SUPPORTED_QTRR_MODELS, QTRR_MODEL_METADATA
-from repolaris.i18n import tr, set_locale, get_current_locale, SUPPORTED_LANGUAGES
+    Qt = _QtMock  # type: ignore
+    pg = _QMock()  # type: ignore
 
 
 
@@ -802,7 +920,6 @@ class ECGPlotWidget:
         bottom_axis = self.plot_widget.getAxis("bottom")
         left_axis = self.plot_widget.getAxis("left")
 
-        pen_style = Qt.PenStyle.DotLine if mode == "dots" else Qt.PenStyle.SolidLine
         bottom_axis.setGrid(alpha)
         left_axis.setGrid(alpha)
 
@@ -2637,12 +2754,16 @@ class MainWindow(QMainWindow):
                     on_error(str(exc))
                 else:
                     self.set_task_finished(f"Error: {exc}")
-            return
+            return None
 
-        if hasattr(self, "_active_worker") and self._active_worker is not None:
-            if hasattr(self._active_worker, "isRunning") and self._active_worker.isRunning():
-                self._active_worker.quit()
-                self._active_worker.wait(1000)
+        if (
+            hasattr(self, "_active_worker")
+            and self._active_worker is not None
+            and hasattr(self._active_worker, "isRunning")
+            and self._active_worker.isRunning()
+        ):
+            self._active_worker.quit()
+            self._active_worker.wait(1000)
 
         worker = BackgroundTaskWorker(task_func, *args, **kwargs)
         self._active_worker = worker
@@ -2682,7 +2803,7 @@ class MainWindow(QMainWindow):
             )
 
         def _on_done(demo_res):
-            self.time_data, lead2, true_r = demo_res
+            self.time_data, lead2, _true_r = demo_res
             lead_v5 = lead2 * 0.82
             lead1 = lead2 * 0.65
 

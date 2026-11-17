@@ -1,16 +1,18 @@
-import unittest
-import tempfile
 import os
+import tempfile
+import unittest
 from datetime import date, time
+
 import numpy as np
-from repolaris.io.ishne_reader import write_ishne, read_ishne
+
 from repolaris.io.ecg_loader import load_ecg_dataset, stream_ecg_chunks
+from repolaris.io.ishne_reader import read_ishne, write_ishne
 
 class TestISHNEReader(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.filepath = os.path.join(self.temp_dir.name, "test_holter.ecg")
-        
+
         # 3 leads: Lead I (code 5), Lead II (code 6), V5 (code 15)
         # 1000 samples at 200 Hz = 5 seconds
         self.fs = 200

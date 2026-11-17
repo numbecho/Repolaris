@@ -8,8 +8,9 @@ Holter monitors, and continuous cardiac telemetry.
 
 from __future__ import annotations
 
-from pathlib import Path
 from dataclasses import dataclass
+from pathlib import Path
+
 import numpy as np
 
 
@@ -60,7 +61,7 @@ def read_edf(filepath: str | Path) -> EDFRecord:
 
         # 2. Per-Signal Headers (num_signals * 256 bytes)
         raw_sig_headers = f.read(header_bytes - 256)
-        
+
         def read_fields(length):
             nonlocal raw_sig_headers
             field_bytes = length * num_signals
@@ -104,7 +105,7 @@ def read_edf(filepath: str | Path) -> EDFRecord:
 
         # Calculate byte offset inside each data record
         offset_in_rec = sum(samples_per_record[:ch_idx])
-        
+
         ch_raw = np.empty(actual_records * s_per_rec, dtype=np.int16)
         for rec in range(actual_records):
             rec_start = rec * record_size_samples + offset_in_rec

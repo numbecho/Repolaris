@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import importlib.util
-import sys
 from pathlib import Path
+import sys
 
 _pkg_dir = Path(__file__).resolve().parent
 
@@ -41,111 +41,145 @@ for _sub in (
                 sys.modules[_mod_name] = _mod
                 _spec.loader.exec_module(_mod)
 
-from repolaris.config import ECGConfig, FilterConfig, DetectionConfig
-from repolaris.detection.pipeline import analyze_ecg, analyze_ecg_stream
-from repolaris.detection.pulse_metrics import compute_qtc, summarize_beats
-from repolaris.detection.qtvi import compute_qtvi, resample_berger, optimize_alpha
-from repolaris.detection.qtrr import fit_qtrr_model, fit_all_qtrr_models, SUPPORTED_QTRR_MODELS, QTRR_MODEL_METADATA
-from repolaris.detection.sqi import compute_psqi, compute_bassqi, compute_ksqi, compute_ssqi, evaluate_lead_quality, rank_leads_two_stage
-from repolaris.detection.dispersion import calculate_qt_dispersion, resolve_lead_quorum
-from repolaris.detection.twa import compute_spectral_twa, compute_mma_twa
-from repolaris.detection.hrt import compute_heart_rate_turbulence
-from repolaris.detection.hrv import (
-    compute_time_domain_hrv,
+from repolaris.config import DetectionConfig, ECGConfig, FilterConfig  # noqa: E402
+from repolaris.detection.af_detector import (  # noqa: E402
+    AFBurdenReport,
+    AFEpisode,
+    detect_atrial_fibrillation,
+)
+from repolaris.detection.annotations import AnnotationManager, ECGAnnotation  # noqa: E402
+from repolaris.detection.classifier import (  # noqa: E402
+    BeatClass,
+    BeatFeatures,
+    ClassifiedBeat,
+    RhythmPattern,
+    classify_all_beats,
+    classify_heartbeat,
+)
+from repolaris.detection.dispersion import (  # noqa: E402
+    calculate_qt_dispersion,
+    resolve_lead_quorum,
+)
+from repolaris.detection.hamilton_classifier import HamiltonBeatClassifier  # noqa: E402
+from repolaris.detection.hrt import compute_heart_rate_turbulence  # noqa: E402
+from repolaris.detection.hrv import (  # noqa: E402
+    compute_comprehensive_hrv,
     compute_frequency_domain_hrv,
     compute_nonlinear_hrv,
-    compute_comprehensive_hrv,
+    compute_time_domain_hrv,
 )
-from repolaris.detection.hysteresis import (
+from repolaris.detection.hysteresis import (  # noqa: E402
     compute_effective_rr_exponential,
     compute_effective_rr_linear,
     optimize_hysteresis_parameter,
 )
-from repolaris.detection.classifier import (
-    BeatClass,
-    RhythmPattern,
-    BeatFeatures,
-    ClassifiedBeat,
-    classify_all_beats,
-    classify_heartbeat,
+from repolaris.detection.pipeline import analyze_ecg, analyze_ecg_stream  # noqa: E402
+from repolaris.detection.pulse_metrics import compute_qtc, summarize_beats  # noqa: E402
+from repolaris.detection.qtrr import (  # noqa: E402
+    QTRR_MODEL_METADATA,
+    SUPPORTED_QTRR_MODELS,
+    fit_all_qtrr_models,
+    fit_qtrr_model,
 )
-from repolaris.detection.hamilton_classifier import HamiltonBeatClassifier
-from repolaris.detection.af_detector import detect_atrial_fibrillation, AFBurdenReport, AFEpisode
-from repolaris.detection.trends import generate_hourly_trends, HolterTrendReport, HourlyTrendBin
-from repolaris.detection.annotations import ECGAnnotation, AnnotationManager
-from repolaris.io.ecg_loader import load_ecg_file, load_ecg_dataset, sniff_ecg_format, SignalBuffer, open_ecg_buffer, stream_ecg_chunks
-from repolaris.io.pdf_report import generate_clinical_pdf_report
-from repolaris.io.dicom_reader import read_dicom_waveform, is_dicom_file
-from repolaris.io.hl7_reader import read_hl7_aecg, is_hl7_xml
-from repolaris.io.scp_reader import read_scp_ecg, is_scp_file
-from repolaris.io.pecg_format import save_pecg, load_pecg
-from repolaris.io.e3c_reader import read_e3c
+from repolaris.detection.qtvi import (  # noqa: E402
+    compute_qtvi,
+    optimize_alpha,
+    resample_berger,
+)
+from repolaris.detection.sqi import (  # noqa: E402
+    compute_bassqi,
+    compute_ksqi,
+    compute_psqi,
+    compute_ssqi,
+    evaluate_lead_quality,
+    rank_leads_two_stage,
+)
+from repolaris.detection.trends import (  # noqa: E402
+    HolterTrendReport,
+    HourlyTrendBin,
+    generate_hourly_trends,
+)
+from repolaris.detection.twa import compute_mma_twa, compute_spectral_twa  # noqa: E402
+from repolaris.io.dicom_reader import is_dicom_file, read_dicom_waveform  # noqa: E402
+from repolaris.io.e3c_reader import read_e3c  # noqa: E402
+from repolaris.io.ecg_loader import (  # noqa: E402
+    SignalBuffer,
+    load_ecg_dataset,
+    load_ecg_file,
+    open_ecg_buffer,
+    sniff_ecg_format,
+    stream_ecg_chunks,
+)
+from repolaris.io.hl7_reader import is_hl7_xml, read_hl7_aecg  # noqa: E402
+from repolaris.io.pdf_report import generate_clinical_pdf_report  # noqa: E402
+from repolaris.io.pecg_format import load_pecg, save_pecg  # noqa: E402
+from repolaris.io.scp_reader import is_scp_file, read_scp_ecg  # noqa: E402
 
 __version__ = "0.8.1"
 __all__ = [
+    "AFBurdenReport",
+    "AFEpisode",
+    "AnnotationManager",
+    "BeatClass",
+    "BeatFeatures",
+    "ClassifiedBeat",
+    "DetectionConfig",
+    "ECGAnnotation",
     "ECGConfig",
     "FilterConfig",
-    "DetectionConfig",
+    "HamiltonBeatClassifier",
+    "HolterTrendReport",
+    "HourlyTrendBin",
+    "QTRR_MODEL_METADATA",
+    "RhythmPattern",
+    "SUPPORTED_QTRR_MODELS",
+    "SignalBuffer",
     "analyze_ecg",
     "analyze_ecg_stream",
-    "compute_qtc",
-    "summarize_beats",
-    "compute_qtvi",
-    "resample_berger",
-    "optimize_alpha",
-    "fit_qtrr_model",
-    "fit_all_qtrr_models",
-    "SUPPORTED_QTRR_MODELS",
-    "QTRR_MODEL_METADATA",
-    "compute_psqi",
-    "compute_bassqi",
-    "compute_ksqi",
-    "compute_ssqi",
-    "evaluate_lead_quality",
-    "rank_leads_two_stage",
     "calculate_qt_dispersion",
-    "resolve_lead_quorum",
-    "compute_spectral_twa",
-    "compute_mma_twa",
-    "compute_heart_rate_turbulence",
-    "compute_time_domain_hrv",
-    "compute_frequency_domain_hrv",
-    "compute_nonlinear_hrv",
+    "classify_all_beats",
+    "classify_heartbeat",
+    "compute_bassqi",
     "compute_comprehensive_hrv",
     "compute_effective_rr_exponential",
     "compute_effective_rr_linear",
-    "optimize_hysteresis_parameter",
-    "BeatClass",
-    "RhythmPattern",
-    "BeatFeatures",
-    "ClassifiedBeat",
-    "classify_all_beats",
-    "classify_heartbeat",
-    "HamiltonBeatClassifier",
+    "compute_frequency_domain_hrv",
+    "compute_heart_rate_turbulence",
+    "compute_ksqi",
+    "compute_mma_twa",
+    "compute_nonlinear_hrv",
+    "compute_psqi",
+    "compute_qtc",
+    "compute_qtvi",
+    "compute_spectral_twa",
+    "compute_ssqi",
+    "compute_time_domain_hrv",
     "detect_atrial_fibrillation",
-    "AFBurdenReport",
-    "AFEpisode",
-    "generate_hourly_trends",
-    "HolterTrendReport",
-    "HourlyTrendBin",
-    "ECGAnnotation",
-    "AnnotationManager",
-    "load_ecg_file",
-    "load_ecg_dataset",
-    "sniff_ecg_format",
-    "SignalBuffer",
-    "open_ecg_buffer",
-    "stream_ecg_chunks",
+    "evaluate_lead_quality",
+    "fit_all_qtrr_models",
+    "fit_qtrr_model",
     "generate_clinical_pdf_report",
-    "read_dicom_waveform",
+    "generate_hourly_trends",
     "is_dicom_file",
-    "read_hl7_aecg",
     "is_hl7_xml",
-    "read_scp_ecg",
     "is_scp_file",
-    "save_pecg",
+    "load_ecg_dataset",
+    "load_ecg_file",
     "load_pecg",
+    "open_ecg_buffer",
+    "optimize_alpha",
+    "optimize_hysteresis_parameter",
+    "rank_leads_two_stage",
+    "read_dicom_waveform",
     "read_e3c",
+    "read_hl7_aecg",
+    "read_scp_ecg",
+    "resample_berger",
+    "resolve_lead_quorum",
+    "save_pecg",
+    "sniff_ecg_format",
+    "stream_ecg_chunks",
+    "summarize_beats",
 ]
 
 # Auto-register in-process API and resources layers

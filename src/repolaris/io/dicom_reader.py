@@ -109,7 +109,7 @@ def read_dicom_waveform(
         raise ValueError(f"Security Alert: DICOM file ({file_size} B) exceeds the 500 MB safety ceiling.")
 
     # 1. Preferred route: pydicom if available
-    with contextlib.suppress(ImportError):
+    with contextlib.suppress(Exception):
         return _read_with_pydicom(path)
 
     # 2. Native binary parser fallback

@@ -11,11 +11,14 @@ from __future__ import annotations
 import contextlib
 from dataclasses import dataclass
 from pathlib import Path
+import warnings
 
 import numpy as np
 
 try:
-    import wfdb
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        import wfdb
     HAS_WFDB = True
 except ImportError:
     HAS_WFDB = False

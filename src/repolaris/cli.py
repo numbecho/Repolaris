@@ -107,22 +107,31 @@ def _run_analyze(args: argparse.Namespace) -> dict[str, Any]:
     print(f"Loading {args.file}...")
     lead_param: str | int = int(args.lead) if str(args.lead).isdigit() else str(args.lead)
 
+    meta: dict[str, Any] = {}
     if args.stream:
-        fs = float(args.fs) if args.fs is not None else 500.0
+        fs_init = float(args.fs) if args.fs is not None else 500.0
         print("Executing chunked streaming Holter pipeline...")
         results = AnalysisAPI.analyze_stream(
             args.file,
-            fs=fs,
+            fs=fs_init,
             lead=lead_param,
             progress_callback=print_cli_progress,
         )
+        fs = float(args.fs) if args.fs is not None else float(results.get("fs", fs_init))
+        meta = dict(results.get("metadata") or {})
         sig = results.get("clean_signal")
     else:
-        sig, detected_fs = StudyAPI.load_study_file(
+        signals_dict, detected_fs, meta = StudyAPI.load_study_dataset(
             args.file,
-            lead_param,
             progress_callback=print_cli_progress,
         )
+        lead_keys = list(signals_dict.keys())
+        if isinstance(lead_param, int):
+            sig = signals_dict[lead_keys[min(max(0, lead_param), len(lead_keys) - 1)]]
+        elif lead_param in signals_dict:
+            sig = signals_dict[lead_param]
+        else:
+            sig = next(iter(signals_dict.values()))
         fs = float(args.fs) if args.fs is not None else float(detected_fs)
         print("Executing diagnostic analysis pipeline...")
         results = AnalysisAPI.analyze_signal(sig, fs=fs, progress_callback=print_cli_progress)
@@ -135,6 +144,7 @@ def _run_analyze(args: argparse.Namespace) -> dict[str, Any]:
             signals=sig,
             sampling_rate=fs,
             lead_names=[f"Lead {args.lead}"],
+            patient_info=meta,
             annotations={"beats": ann_mgr.to_dict_list()} if ann_mgr else {},
             events=results.get("events", []),
             progress_callback=print_cli_progress,
@@ -144,6 +154,7 @@ def _run_analyze(args: argparse.Namespace) -> dict[str, Any]:
         ExportAPI.export_clinical_pdf(
             filepath=args.pdf,
             analysis_results=results,
+            patient_metadata=meta,
             fs=fs,
             lead_name=f"Lead {args.lead}",
             progress_callback=print_cli_progress,

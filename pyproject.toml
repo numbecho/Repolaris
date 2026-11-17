@@ -85,6 +85,10 @@ where = ["src"]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 pythonpath = ["src"]
+filterwarnings = [
+    "ignore::DeprecationWarning:wfdb.*",
+    "ignore:The inplace keyword in DataFrame.set_index is deprecated.*",
+]
 
 # --- Modern Astral Tooling Configuration (https://astral.sh/) ---
 [tool.uv]

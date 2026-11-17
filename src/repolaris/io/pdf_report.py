@@ -15,12 +15,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import matplotlib
-import matplotlib.pyplot as plt
-import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
-
-matplotlib.use("Agg")
+from matplotlib.figure import Figure
+import numpy as np
 
 
 
@@ -53,7 +50,7 @@ def _render_page1_summary(
     fs: float,
     lead_name: str,
     progress_callback: Callable[[float, str], None] | None = None,
-) -> plt.Figure:
+) -> Figure:
     """Renders Page 1: Demographics, Executive KPI Summary, Rhythm Strip, and Events Diary."""
     summary = analysis_results.get("summary", {})
     ectopic = analysis_results.get("ectopic_summary", {})
@@ -66,7 +63,7 @@ def _render_page1_summary(
     clean_signal = analysis_results.get("clean_signal", np.zeros(int(fs * 5), dtype=np.float32))
     r_peaks = analysis_results.get("r_peaks", np.array([], dtype=int))
 
-    fig1 = plt.figure(figsize=(8.5, 11.0), dpi=150)
+    fig1 = Figure(figsize=(8.5, 11.0), dpi=150)
     fig1.patch.set_facecolor("#ffffff")
 
     ax_hdr = fig1.add_axes([0.06, 0.90, 0.88, 0.06])
@@ -247,13 +244,13 @@ def _render_page1_summary(
     return fig1
 
 
-def _render_page2_holter_and_dynamics(analysis_results: dict[str, Any]) -> plt.Figure:
+def _render_page2_holter_and_dynamics(analysis_results: dict[str, Any]) -> Figure:
     """Renders Page 2: Hourly Holter Trends Table, Poincaré Plot, and QT-RR Restitution Plot."""
     qtrr = analysis_results.get("qtrr") or {}
     trends = analysis_results.get("trends") or {}
     beats = analysis_results.get("beats", [])
 
-    fig2 = plt.figure(figsize=(8.5, 11.0), dpi=150)
+    fig2 = Figure(figsize=(8.5, 11.0), dpi=150)
     fig2.patch.set_facecolor("#ffffff")
 
     ax_p2_hdr = fig2.add_axes([0.06, 0.92, 0.88, 0.04])
@@ -372,14 +369,14 @@ def generate_clinical_pdf_report(
     with PdfPages(str(out_path)) as pdf:
         fig1 = _render_page1_summary(analysis_results, meta, fs, lead_name, progress_callback=progress_callback)
         pdf.savefig(fig1)
-        plt.close(fig1)
+        fig1.clear()
 
         if progress_callback:
             progress_callback(0.75, "Rendering Holter hourly trends, Poincaré, and QT-RR dynamics...")
 
         fig2 = _render_page2_holter_and_dynamics(analysis_results)
         pdf.savefig(fig2)
-        plt.close(fig2)
+        fig2.clear()
 
     if progress_callback:
         progress_callback(1.00, f"Clinical PDF report saved to {out_path.name}.")

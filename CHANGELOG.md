@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Expanded 8-Column Clinical Tables & 100% 5-Language Parity**: Expanded `beat_table` (adding `Pattern`, `RR (ms)`, `HR (BPM)`), `holter_af_table` (adding `Max HR`, `Shannon Ent.`, `Irregularity`), and `qtrr_models_table` (adding `Slope (α)`, `Pearson r`, `AIC`) to 8 columns each, and localized all remaining banners, labels, and tooltips across `en`, `es`, `fr`, `de`, and `pt`.
 - **Python 3.14 Syntax Modernization & Additive `uv` / `ruff` Tooling Suite (`tests/test_tooling_uv_ruff.py`, `.github/workflows/build-artifacts.yml`)**:
   - Modernized all 56 Python modules across `src/repolaris/` and `tests/` to native `X | Y` unions, built-in generics (`list`, `dict`, `tuple`, `set`), `StrEnum`, `match`/`case` structural pattern matching, and `contextlib.suppress`, eliminating duplicated dispatch ladders and dead code.
-  - Added `.python-version` (`3.14`), `[tool.uv]`, `[tool.ruff]` (`target-version = "py314"`), PEP 735 `[dependency-groups]`, the `uv-ruff-test` CI job, and `tests/test_tooling_uv_ruff.py` alongside the existing `pip` + `unittest` suite (**97 passing unit tests**).
+  - Added `.python-version` (`3.14`), `[tool.uv]`, `[tool.ruff]` (`target-version = "py314"`), PEP 735 `[dependency-groups]`, the `uv-ruff-test` CI job, and `tests/test_tooling_uv_ruff.py` alongside the existing `pip` + `unittest` suite (**99 passing unit tests**).
 
 ### Fixed
 - **Hostile Audit Signal & I/O Hardening (`ecg_loader.py`, `pipeline.py`, `hysteresis.py`, `sqi.py`, `hamilton_classifier.py`, `events.py`, `qtrr.py`, `qtvi.py`)**:

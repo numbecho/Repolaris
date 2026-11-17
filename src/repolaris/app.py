@@ -14,9 +14,13 @@ from __future__ import annotations
 
 from collections.abc import Callable
 import contextlib
+import logging
 import os
 import sys
+import threading
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 import numpy as np
 
@@ -289,13 +293,25 @@ except ImportError:
 
     class _QThreadMock:
         def __init__(self, *args: Any, **kwargs: Any) -> None:
-            pass
+            self._interruption_requested = False
 
         def start(self) -> None:
             pass
 
-        def wait(self) -> None:
+        def quit(self) -> None:
             pass
+
+        def wait(self, msecs: int = -1) -> bool:
+            return True
+
+        def isRunning(self) -> bool:
+            return False
+
+        def requestInterruption(self) -> None:
+            self._interruption_requested = True
+
+        def isInterruptionRequested(self) -> bool:
+            return self._interruption_requested
 
     QThread = _QThreadMock  # type: ignore
 
@@ -342,7 +358,7 @@ except ImportError:
 
 
 class BackgroundTaskWorker(QThread):
-    """Executes long-running API tasks in a dedicated background worker thread."""
+    """Executes long-running API tasks in a dedicated background worker thread with cooperative cancellation."""
     progress = pyqtSignal(float, str)
     finished = pyqtSignal(object)
     error = pyqtSignal(str)
@@ -351,18 +367,50 @@ class BackgroundTaskWorker(QThread):
         super().__init__()
         self.task_func = task_func
         self.args = args
-        self.kwargs = kwargs
+        self.kwargs = dict(kwargs)
+        self._is_cancelled = False
+
+    def cancel(self) -> None:
+        """Marks this worker as superseded/cancelled and requests thread interruption."""
+        self._is_cancelled = True
+        if hasattr(self, "requestInterruption"):
+            with contextlib.suppress(Exception):
+                self.requestInterruption()
+
+    def is_cancelled(self) -> bool:
+        """Returns True if cancellation or thread interruption was requested."""
+        if self._is_cancelled:
+            return True
+        if hasattr(self, "isInterruptionRequested"):
+            with contextlib.suppress(Exception):
+                return bool(self.isInterruptionRequested())
+        return False
 
     def run(self) -> None:
+        task_name = getattr(self.task_func, "__name__", str(self.task_func))
+        thread_name = threading.current_thread().name
+        logger.debug("Starting BackgroundTaskWorker '%s' on thread %s", task_name, thread_name)
         try:
             def _callback(pct: float, msg: str) -> None:
-                self.progress.emit(pct, msg)
+                if not self.is_cancelled():
+                    self.progress.emit(pct, msg)
 
-            self.kwargs["progress_callback"] = _callback
-            result = self.task_func(*self.args, **self.kwargs)
-            self.finished.emit(result)
+            if self.is_cancelled():
+                logger.debug("Skipping cancelled BackgroundTaskWorker '%s' before execution", task_name)
+                return
+
+            call_kwargs = dict(self.kwargs)
+            call_kwargs["progress_callback"] = _callback
+            result = self.task_func(*self.args, **call_kwargs)
+            if not self.is_cancelled():
+                logger.debug("Completed BackgroundTaskWorker '%s' on thread %s", task_name, thread_name)
+                self.finished.emit(result)
+            else:
+                logger.info("Discarding stale result from superseded worker '%s'", task_name)
         except Exception as exc:
-            self.error.emit(str(exc))
+            logger.exception("Error in BackgroundTaskWorker '%s': %s", task_name, exc)
+            if not self.is_cancelled():
+                self.error.emit(str(exc))
 
 # -----------------------------------------------------------------------------
 # THEME SPECIFICATIONS (Dark, Light, Color Blind Friendly)
@@ -1308,6 +1356,7 @@ class MainWindow(QMainWindow):
         self.current_hysteresis_mode: str = "exponential"
         self.current_t_end_method: str = "hybrid"
         self._active_worker: Any | None = None
+        self._retired_workers: list[Any] = []
 
         self._setup_ui()
         self._load_synthetic_demo()
@@ -2728,6 +2777,27 @@ class MainWindow(QMainWindow):
         if hasattr(self, "lbl_status_msg") and hasattr(self.lbl_status_msg, "setText"):
             self.lbl_status_msg.setText(final_message)
 
+    def _retire_active_worker(self, timeout_ms: int = 1000) -> None:
+        """Cancels any active background worker and retains running threads until they exit safely."""
+        if not hasattr(self, "_retired_workers"):
+            self._retired_workers = []
+        prev = getattr(self, "_active_worker", None)
+        if prev is None:
+            return
+        self._active_worker = None
+        if hasattr(prev, "cancel"):
+            prev.cancel()
+        if hasattr(prev, "isRunning") and prev.isRunning():
+            logger.info("Superseding active BackgroundTaskWorker; waiting up to %d ms", timeout_ms)
+            prev.quit()
+            if not prev.wait(timeout_ms):
+                logger.warning("Superseded worker still running after %d ms; holding reference in _retired_workers", timeout_ms)
+                self._retired_workers.append(prev)
+        # Prune any retired workers that have finished
+        self._retired_workers = [
+            w for w in self._retired_workers if hasattr(w, "isRunning") and w.isRunning()
+        ]
+
     def _run_background_task(
         self,
         task_func: Callable[..., Any],
@@ -2736,8 +2806,9 @@ class MainWindow(QMainWindow):
         initial_msg: str = "Processing...",
         *args: Any,
         **kwargs: Any
-    ) -> None:
+    ) -> Any | None:
         """Runs a heavy API task either in a QThread (GUI mode) or synchronously (mock mode)."""
+        self._retire_active_worker(timeout_ms=500)
         self.set_task_progress(0.0, initial_msg)
 
         if not HAS_GUI:
@@ -2745,38 +2816,43 @@ class MainWindow(QMainWindow):
                 def _prog(pct: float, msg: str) -> None:
                     self.set_task_progress(pct, msg)
 
-                kwargs["progress_callback"] = _prog
-                res = task_func(*args, **kwargs)
+                call_kwargs = dict(kwargs)
+                call_kwargs["progress_callback"] = _prog
+                res = task_func(*args, **call_kwargs)
                 on_success(res)
                 self.set_task_finished(tr("status_ready"))
             except Exception as exc:
+                logger.exception("Synchronous background task failed: %s", exc)
                 if on_error:
                     on_error(str(exc))
                 else:
                     self.set_task_finished(f"Error: {exc}")
             return None
 
-        if (
-            hasattr(self, "_active_worker")
-            and self._active_worker is not None
-            and hasattr(self._active_worker, "isRunning")
-            and self._active_worker.isRunning()
-        ):
-            self._active_worker.quit()
-            self._active_worker.wait(1000)
-
         worker = BackgroundTaskWorker(task_func, *args, **kwargs)
         self._active_worker = worker
 
         def _on_worker_progress(pct: float, msg: str) -> None:
+            if self._active_worker is not worker or worker.is_cancelled():
+                return
             self.set_task_progress(pct, msg)
 
         def _on_worker_finished(result: Any) -> None:
+            if hasattr(self, "_retired_workers") and worker in self._retired_workers:
+                self._retired_workers.remove(worker)
+            if self._active_worker is not worker or worker.is_cancelled():
+                logger.debug("Ignored finished signal from superseded BackgroundTaskWorker")
+                return
             self._active_worker = None
             on_success(result)
             self.set_task_finished(tr("status_ready"))
 
         def _on_worker_error(err_msg: str) -> None:
+            if hasattr(self, "_retired_workers") and worker in self._retired_workers:
+                self._retired_workers.remove(worker)
+            if self._active_worker is not worker or worker.is_cancelled():
+                logger.debug("Ignored error signal from superseded BackgroundTaskWorker: %s", err_msg)
+                return
             self._active_worker = None
             self.set_task_finished(f"Error: {err_msg}")
             if on_error:
@@ -2797,9 +2873,11 @@ class MainWindow(QMainWindow):
         if hasattr(self, "lbl_file_badge") and hasattr(self.lbl_file_badge, "setText"):
             self.lbl_file_badge.setText(self.current_filename)
 
+        demo_fs = float(self.fs)
+
         def _task(progress_callback=None):
             return StudyAPI.generate_demo_study(
-                duration_sec=12.0, fs=self.fs, heart_rate_bpm=72.0, progress_callback=progress_callback
+                duration_sec=12.0, fs=demo_fs, heart_rate_bpm=72.0, progress_callback=progress_callback
             )
 
         def _on_done(demo_res):
@@ -3641,15 +3719,18 @@ class MainWindow(QMainWindow):
             lead_names = [self.current_lead_name]
             lead_matrix = self.signal_data
 
+        export_fs = float(self.fs)
+        export_events = list(self.analysis_results.get("events", [])) if self.analysis_results else []
+
         def _task(progress_callback=None):
             return ExportAPI.export_study_pecg(
                 filepath=path,
                 signals=lead_matrix,
-                sampling_rate=self.fs,
+                sampling_rate=export_fs,
                 lead_names=lead_names,
                 patient_info={"age": age, "race": race, "sex": "UNKNOWN", "indication": notes, "pacemaker": pacemaker},
                 annotations=ann_payload,
-                events=self.analysis_results.get("events", []) if self.analysis_results else [],
+                events=export_events,
                 compression="zstd",
                 progress_callback=progress_callback,
             )
@@ -3813,13 +3894,18 @@ class MainWindow(QMainWindow):
         if not path:
             return
 
+        results_snap = dict(self.analysis_results)
+        meta_snap = dict(self.current_metadata) if self.current_metadata else {}
+        fs_snap = float(self.fs)
+        lead_snap = str(self.current_lead_name)
+
         def _task(progress_callback=None):
             return ExportAPI.export_clinical_pdf(
                 filepath=path,
-                analysis_results=self.analysis_results,
-                patient_metadata=self.current_metadata,
-                fs=self.fs,
-                lead_name=self.current_lead_name,
+                analysis_results=results_snap,
+                patient_metadata=meta_snap,
+                fs=fs_snap,
+                lead_name=lead_snap,
                 progress_callback=progress_callback,
             )
 
@@ -3833,12 +3919,14 @@ class MainWindow(QMainWindow):
         )
 
     def closeEvent(self, event: Any) -> None:
-        """Safely clean up any active background worker thread before window destruction."""
-        if hasattr(self, "_active_worker") and self._active_worker is not None:
-            if hasattr(self._active_worker, "isRunning") and self._active_worker.isRunning():
-                self._active_worker.quit()
-                self._active_worker.wait(2000)
-            self._active_worker = None
+        """Safely clean up any active or retired background worker threads before window destruction."""
+        self._retire_active_worker(timeout_ms=2000)
+        for retired in list(getattr(self, "_retired_workers", [])):
+            if hasattr(retired, "isRunning") and retired.isRunning():
+                retired.quit()
+                retired.wait(1000)
+        if hasattr(self, "_retired_workers"):
+            self._retired_workers.clear()
         if hasattr(super(), "closeEvent"):
             super().closeEvent(event)
 

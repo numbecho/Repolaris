@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import importlib.util
+import logging
 from pathlib import Path
 import sys
+
+logging.getLogger(__name__).addHandler(logging.NullHandler())
 
 _pkg_dir = Path(__file__).resolve().parent
 

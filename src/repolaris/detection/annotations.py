@@ -12,7 +12,10 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
+import logging
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -109,6 +112,13 @@ class AnnotationManager:
                 target = ann
 
         if target is not None:
+            logger.info(
+                "Audit override at sample %d: '%s' -> '%s' by %s",
+                target.sample,
+                target.label,
+                new_label.upper(),
+                reviewer,
+            )
             target.label = new_label.upper()
             target.author = reviewer
             target.is_manual_override = True

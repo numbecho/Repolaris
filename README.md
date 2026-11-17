@@ -5,7 +5,8 @@
 [![Version](https://img.shields.io/badge/Version-v0.8.1-cyan.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.14%2B-brightgreen.svg)](pyproject.toml)
-[![Tests](https://img.shields.io/badge/Tests-97%20Passed-success.svg)](tests/)
+[![Tests](https://img.shields.io/badge/Tests-99%20Passed-success.svg)](tests/)
+[![Coverage](https://img.shields.io/badge/Coverage-85%25%20Engine%20%7C%2074%25%20Total-indigo.svg)](tests/)
 [![GUI](https://img.shields.io/badge/GUI-PyQt6%20%2B%20PyQtGraph-purple.svg)](src/repolaris/app.py)
 [![Wiki](https://img.shields.io/badge/Documentation-Wiki-orange.svg)](wiki/Home.md)
 
@@ -109,7 +110,7 @@ repolaris-gui
 ## Code Quality & Testing
 
 ```bash
-# Option A: Run the 97-test automated verification suite with standard Python unittest
+# Option A: Run the 99-test automated verification suite with standard Python unittest
 QT_QPA_PLATFORM=offscreen PYTHONPATH=src python3 -m unittest discover tests -v
 
 # Option B: Lint, format, and test with Astral uv & Ruff (Python 3.14)

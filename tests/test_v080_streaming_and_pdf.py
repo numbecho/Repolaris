@@ -414,6 +414,30 @@ class TestVersion080StreamingAndPDF(unittest.TestCase):
         win.keyPressEvent(_DummyKeyEvent(text_char="N"))
         self.assertEqual(win.analysis_results["beats"][1]["beat_class"], "N")
 
+    def test_post_v081_audit_stream_sqi_twa_fs_and_threadsafe_pdf(self) -> None:
+        """Verifies analyze_ecg_stream returns detected fs, metadata, aggregated SQI, and peak TWA, and pdf_report uses OO Figure."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pecg_path = os.path.join(tmpdir, "stream_250hz.pecg")
+            sig_250 = np.sin(np.linspace(0, 20 * np.pi, 250 * 12)).astype(np.float32)
+            save_pecg(
+                pecg_path,
+                signals=sig_250[None, :],
+                sampling_rate=250.0,
+                lead_names=["Lead II"],
+                patient_info={"patient_id": "AUDIT-250", "age": 61, "sex": "M"},
+            )
+            res = analyze_ecg_stream(pecg_path, chunk_duration_sec=6.0, overlap_sec=1.0)
+            self.assertEqual(res.get("fs"), 250.0)
+            self.assertIn("metadata", res)
+            self.assertIn("sqi", res)
+            self.assertIn("psqi", res["sqi"])
+            self.assertIsNotNone(res.get("twa"))
+
+            from pathlib import Path as _Path
+            pdf_code = _Path("src/repolaris/io/pdf_report.py").read_text(encoding="utf-8")
+            self.assertNotIn("plt.figure", pdf_code)
+            self.assertIn("from matplotlib.figure import Figure", pdf_code)
+
 
 if __name__ == "__main__":
     unittest.main()

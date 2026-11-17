@@ -1,4 +1,5 @@
 import contextlib
+import logging
 """Unit tests for asynchronous background tasks, progress callbacks, and UI/CLI progress reporting."""
 
 import io
@@ -193,6 +194,65 @@ class TestAsyncTasksAndProgress(unittest.TestCase):
             win.close()
             if _app is not None:
                 _app.processEvents()
+
+    def test_qthread_worker_cancellation_and_structured_logging(self) -> None:
+        """Verifies BackgroundTaskWorker cooperative cancellation, _retired_workers retention, and structured logging."""
+        from repolaris.app import BackgroundTaskWorker, MainWindow
+        from repolaris.detection.annotations import AnnotationManager
+
+        executed = []
+
+        def _task(progress_callback=None):
+            if progress_callback:
+                progress_callback(0.5, "Halfway")
+            executed.append(True)
+            return "ok"
+
+        # 1. Verify cancelled worker suppresses execution and signal emission
+        w_cancelled = BackgroundTaskWorker(_task)
+        w_cancelled.cancel()
+        self.assertTrue(w_cancelled.is_cancelled())
+        w_cancelled.run()
+        self.assertEqual(len(executed), 0)
+
+        # 2. Verify active worker emits structured debug logs and AnnotationManager emits info audit logs
+        with self.assertLogs("repolaris", level=logging.DEBUG) as log_cm:
+            w_active = BackgroundTaskWorker(_task)
+            w_active.run()
+            mgr = AnnotationManager()
+            mgr.add_annotation(sample=250, timestamp_sec=0.5, label="N")
+            mgr.override_beat_label(sample=250, new_label="V", reviewer="Dr. Holter")
+
+        self.assertEqual(len(executed), 1)
+        joined_logs = "\n".join(log_cm.output)
+        self.assertIn("BackgroundTaskWorker", joined_logs)
+        self.assertIn("Audit override at sample 250", joined_logs)
+
+        # 3. Verify MainWindow._retire_active_worker holds still-running superseded workers in _retired_workers
+        win = MainWindow()
+
+        class _StubRunningWorker:
+            def __init__(self) -> None:
+                self.cancelled = False
+
+            def cancel(self) -> None:
+                self.cancelled = True
+
+            def isRunning(self) -> bool:
+                return True
+
+            def quit(self) -> None:
+                pass
+
+            def wait(self, _ms: int = 0) -> bool:
+                return False
+
+        stub = _StubRunningWorker()
+        win._active_worker = stub
+        win._retire_active_worker(timeout_ms=10)
+        self.assertTrue(stub.cancelled)
+        self.assertIsNone(win._active_worker)
+        self.assertIn(stub, win._retired_workers)
 
 
 if __name__ == "__main__":

@@ -20,7 +20,6 @@ in strict domain and Jacobian conditioning guards to prevent numerical instabili
 
 from __future__ import annotations
 
-import warnings
 from collections.abc import Callable
 from typing import Any
 
@@ -121,22 +120,20 @@ _BASIS_TRANSFORMS: dict[str, Callable[[np.ndarray], np.ndarray]] = {
 
 
 def _safe_linear_fit(x: np.ndarray, y: np.ndarray) -> tuple[float, float, bool]:
-    """Performs a 1st-degree least-squares fit with Vandermonde and low-variance conditioning guards."""
-    if len(x) < 2 or float(np.std(x)) <= 1e-9:
+    """Performs a closed-form 1st-degree least-squares fit with Tikhonov low-variance conditioning guards."""
+    if len(x) < 2:
         return 0.0, float(np.mean(y)) if len(y) > 0 else 0.0, False
-    x_std = float(np.std(x))
-    if x_std < 2e-3:
-        xm = float(np.mean(x))
-        ym = float(np.mean(y))
-        dx = x - xm
-        dy = y - ym
-        slope = float(np.dot(dx, dy) / (np.dot(dx, dx) + 1e-2))
-        intercept = float(ym - slope * xm)
-        return slope, intercept, True
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        poly = np.polyfit(x, y, 1)
-    slope, intercept = float(poly[0]), float(poly[1])
+    xm = float(np.mean(x))
+    ym = float(np.mean(y))
+    dx = x - xm
+    ss_xx = float(np.dot(dx, dx))
+    x_std = float(np.sqrt(ss_xx / len(x)))
+    if x_std <= 1e-9:
+        return 0.0, ym, False
+    dy = y - ym
+    denom = (ss_xx + 1e-2) if x_std < 2e-3 else ss_xx
+    slope = float(np.dot(dx, dy) / denom)
+    intercept = float(ym - slope * xm)
     ok = bool(np.isfinite(slope) and np.isfinite(intercept))
     return slope, intercept, ok
 

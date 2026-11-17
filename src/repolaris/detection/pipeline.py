@@ -29,7 +29,7 @@ import numpy as np
 from repolaris.config import ECGConfig
 from repolaris.detection.af_detector import detect_atrial_fibrillation
 from repolaris.detection.annotations import AnnotationManager
-from repolaris.detection.classifier import ClassifiedBeat, classify_all_beats
+from repolaris.detection.classifier import ClassifiedBeat, classify_all_beats, detect_rhythm_patterns
 from repolaris.detection.dispersion import calculate_qt_dispersion
 from repolaris.detection.events import detect_clinical_events
 from repolaris.detection.hamilton_classifier import HamiltonBeatClassifier
@@ -312,6 +312,7 @@ def analyze_ecg(
     if progress_callback:
         progress_callback(1.00, f"Diagnostic analysis complete ({n_peaks} beats processed).")
     return {
+        "fs": float(fs),
         "clean_signal": clean_signal,
         "r_peaks": r_peaks,
         "beats": beats,
@@ -397,6 +398,8 @@ def analyze_ecg_stream(
     all_beats: list[dict[str, Any]] = []
     all_classified: list[ClassifiedBeat] = []
     sqi_list: list[dict[str, Any]] = []
+    twa_list: list[dict[str, Any]] = []
+    stream_meta: dict[str, Any] = {}
     preview_signal: np.ndarray | None = None
     actual_fs = fs
     total_len = 0
@@ -408,6 +411,8 @@ def analyze_ecg_stream(
         core_start = int(ch["core_start_sample"])
         core_end = int(ch["core_end_sample"])
         sig_win = ch["signal"]
+        if not stream_meta and isinstance(ch.get("metadata"), dict):
+            stream_meta = dict(ch["metadata"])
 
         if progress_callback and total_len > 0:
             frac = min(0.85, (core_end / total_len) * 0.85)
@@ -420,6 +425,8 @@ def analyze_ecg_stream(
         if preview_signal is None:
             preview_signal = res_win["clean_signal"][: min(len(res_win["clean_signal"]), int(actual_fs * 30))]
         sqi_list.append(res_win["sqi"])
+        if res_win.get("twa"):
+            twa_list.append(res_win["twa"])
 
         for b, cb in zip(res_win["beats"], res_win["classified_beats"], strict=False):
             global_r = int(b["r_peak_sample"]) + w_start
@@ -456,6 +463,12 @@ def analyze_ecg_stream(
                 all_r_peaks.append(global_r)
                 all_beats.append(b_copy)
                 all_classified.append(cb_copy)
+
+    if all_classified:
+        detect_rhythm_patterns(all_classified)
+        for b_dict, cb_item in zip(all_beats, all_classified, strict=False):
+            b_dict["rhythm_pattern"] = cb_item.rhythm_pattern.value
+            b_dict["diagnostic_rationale"] = cb_item.diagnostic_rationale
 
     r_peaks_arr = np.array(all_r_peaks, dtype=np.int64)
     summary = summarize_beats(all_beats)
@@ -499,7 +512,24 @@ def analyze_ecg_stream(
     if progress_callback:
         progress_callback(1.00, f"Streamed analysis complete ({tot_b} beats across {rec_dur:.1f}s).")
 
+    agg_sqi: dict[str, Any] = {}
+    if sqi_list:
+        agg_sqi = dict(sqi_list[0])
+        for k in ("psqi", "bassqi", "ksqi", "ssqi", "snr_db"):
+            vals = [float(s[k]) for s in sqi_list if k in s and isinstance(s[k], int | float)]
+            if vals:
+                agg_sqi[k] = round(float(np.mean(vals)), 4)
+
+    peak_twa = None
+    if twa_list:
+        peak_twa = max(
+            twa_list,
+            key=lambda d: float(d.get("mma", {}).get("max_v_mma_uv", 0.0)),
+        )
+
     return {
+        "fs": actual_fs,
+        "metadata": stream_meta,
         "clean_signal": preview_signal if preview_signal is not None else np.zeros(0, dtype=np.float32),
         "r_peaks": r_peaks_arr,
         "beats": all_beats,
@@ -510,11 +540,11 @@ def analyze_ecg_stream(
         "summary": summary,
         "qtvi": qtvi_score,
         "qtrr": qtrr_metrics,
-        "sqi": sqi_list[0] if sqi_list else {},
+        "sqi": agg_sqi,
         "lead_voting": None,
         "hrv": hrv_metrics,
         "hrt": hrt_metrics,
-        "twa": None,
+        "twa": peak_twa,
         "hysteresis": hysteresis_metrics,
         "dispersion": None,
         "af_report": af_report.to_dict(),

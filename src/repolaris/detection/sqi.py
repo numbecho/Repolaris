@@ -37,7 +37,7 @@ def compute_band_power(
     if not np.any(band_mask):
         return 0.0
 
-    trapz_fn = getattr(np, "trapezoid", getattr(np, "trapz", None))
+    trapz_fn = getattr(np, "trapezoid", None) or getattr(np, "trapz", None)
     return float(trapz_fn(psd[band_mask], freqs[band_mask]))
 
 

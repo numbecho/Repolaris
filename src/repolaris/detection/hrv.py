@@ -140,7 +140,7 @@ def compute_frequency_domain_hrv(
     nperseg = min(len(rr_detrended), 256)
     freqs, psd = welch(rr_detrended, fs=fs_resample, nperseg=nperseg)
 
-    trapz_fn = getattr(np, "trapezoid", getattr(np, "trapz", None))
+    trapz_fn = getattr(np, "trapezoid", None) or getattr(np, "trapz", None)
 
     def _band_power(f_low: float, f_high: float) -> float:
         mask = (freqs >= f_low) & (freqs <= f_high)

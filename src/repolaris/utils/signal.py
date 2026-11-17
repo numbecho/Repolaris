@@ -1,16 +1,24 @@
+from __future__ import annotations
+
 import numpy as np
 
-def generate_synthetic_ecg(duration_sec: float = 10.0, fs: float = 500.0, heart_rate_bpm: float = 72.0, noise_std: float = 0.02):
-    """Generates a realistic synthetic ECG lead using asymmetric Gaussian wave components."""
+
+def generate_synthetic_ecg(
+    duration_sec: float = 10.0,
+    fs: float = 500.0,
+    heart_rate_bpm: float = 72.0,
+    noise_std: float = 0.02,
+):
+    """Generates a realistic synthetic ECG lead using localized Gaussian P-QRS-T wave components."""
     total_samples = int(duration_sec * fs)
     t = np.linspace(0, duration_sec, total_samples, endpoint=False)
-    signal = np.zeros(total_samples)
+    signal = np.zeros(total_samples, dtype=np.float64)
 
     rr_interval_sec = 60.0 / heart_rate_bpm
     beat_times = np.arange(0.5 * rr_interval_sec, duration_sec - 0.2, rr_interval_sec)
     r_peak_indices = (beat_times * fs).astype(int)
 
-    # Gaussian wave parameters: (amplitude, time_offset_sec, width_sec)
+    # Gaussian wave parameters: (amplitude_mv, time_offset_sec, width_sec)
     waves = [
         (0.15, -0.16, 0.035),   # P-wave
         (-0.15, -0.04, 0.015),  # Q-wave
@@ -19,10 +27,16 @@ def generate_synthetic_ecg(duration_sec: float = 10.0, fs: float = 500.0, heart_
         (0.30, 0.22, 0.070),    # T-wave
     ]
 
+    # Evaluate each beat within a local window (+/- 0.6s) for O(N_samples) complexity
+    half_win = int(0.65 * fs)
     for bt in beat_times:
+        center = int(round(bt * fs))
+        s0 = max(0, center - half_win)
+        s1 = min(total_samples, center + half_win)
+        t_local = t[s0:s1]
         for amp, offset, width in waves:
             mu = bt + offset
-            signal += amp * np.exp(-0.5 * ((t - mu) / width) ** 2)
+            signal[s0:s1] += amp * np.exp(-0.5 * ((t_local - mu) / width) ** 2)
 
     if noise_std > 0:
         rng = np.random.default_rng(42)

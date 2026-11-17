@@ -34,11 +34,12 @@ Binary Structure:
 - Continuous multiplexed 16-bit signed integer samples (little-endian)
 """
 
+from __future__ import annotations
+
 import struct
 from pathlib import Path
-from dataclasses import dataclass, field
-from datetime import datetime, date, time
-from typing import Optional, List, Dict, Any, Tuple
+from dataclasses import dataclass
+from datetime import date, time
 import numpy as np
 
 MAGIC = b"ISHNE1.0"
@@ -96,13 +97,13 @@ class ISHNERecord:
     last_name: str
     sex: str
     race: str
-    birth_date: Optional[date]
-    record_date: Optional[date]
-    start_time: Optional[time]
+    birth_date: date | None
+    record_date: date | None
+    start_time: time | None
     sampling_rate: float
     num_leads: int
-    lead_names: List[str]
-    resolutions_nv: List[int]
+    lead_names: list[str]
+    resolutions_nv: list[int]
     total_samples: int
     duration_sec: float
     clinical_notes: str
@@ -114,7 +115,7 @@ class ISHNERecord:
         return PACEMAKER_CODE_MAP.get(self.pacemaker, f"Code_{self.pacemaker}")
 
     @property
-    def age_years(self) -> Optional[int]:
+    def age_years(self) -> int | None:
         if self.birth_date and self.record_date:
             return self.record_date.year - self.birth_date.year - (
                 (self.record_date.month, self.record_date.day) < (self.birth_date.month, self.birth_date.day)
@@ -261,14 +262,14 @@ def write_ishne(
     signals_mv: np.ndarray,
     sampling_rate: int,
     lead_codes: list[int],
-    resolutions_nv: Optional[list[int]] = None,
+    resolutions_nv: list[int] | None = None,
     patient_id: str = "ANONYMOUS",
     first_name: str = "",
     last_name: str = "",
     sex_code: int = 0,
     race_code: int = 0,
-    record_date: Optional[date] = None,
-    start_time: Optional[time] = None,
+    record_date: date | None = None,
+    start_time: time | None = None,
     clinical_notes: str = ""
 ) -> str:
     """Creates a standards-compliant ISHNE 1.0 Holter (.ecg) binary file."""

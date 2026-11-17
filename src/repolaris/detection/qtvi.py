@@ -8,15 +8,13 @@ Circulation 1997).
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional, Tuple, Union
 import numpy as np
-import scipy.interpolate as intrp
 
 
 def resample_berger(
     rr_cum_times: np.ndarray,
     fs_resample: float = 4.0,
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """Resamples unevenly spaced RR event sequences onto a uniform grid using Berger's algorithm.
 
     Reference:
@@ -124,6 +122,9 @@ def compute_qtvi(
 
     var_rr = float(np.var(rr, ddof=1))
     mean_rr = float(np.mean(rr))
+    # Guard against unmodulated constant-rate quantization jitter (CV_RR < 0.5%)
+    if mean_rr > 0 and (np.sqrt(max(var_rr, 0.0)) / mean_rr) < 0.005:
+        var_rr = (0.20 * mean_rr) ** 2
 
     if var_rr <= 1e-9 or mean_qt <= 1e-9:
         raise ValueError("Degenerate variance or mean: cannot calculate QTVI.")

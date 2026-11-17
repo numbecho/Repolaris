@@ -16,11 +16,12 @@ Specification:
 
 from __future__ import annotations
 
+import contextlib
+
 import os
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Optional, List, Dict, Any, Tuple, Union
 import numpy as np
 
 
@@ -54,12 +55,12 @@ class HL7Record:
     sampling_rate: float
     num_leads: int
     num_samples: int
-    lead_names: List[str]
+    lead_names: list[str]
     signals: np.ndarray  # Shape: (num_leads, num_samples) in physical millivolts (mV)
-    units: List[str] = field(default_factory=list)
+    units: list[str] = field(default_factory=list)
 
 
-def is_hl7_xml(filepath: Union[str, Path, os.PathLike[str]]) -> bool:
+def is_hl7_xml(filepath: str | Path | os.PathLike[str]) -> bool:
     """Verifies whether a file is an HL7 Annotated ECG XML document."""
     path = Path(filepath)
     if not path.is_file() or path.stat().st_size < 50:
@@ -72,7 +73,7 @@ def is_hl7_xml(filepath: Union[str, Path, os.PathLike[str]]) -> bool:
         return False
 
 
-def read_hl7_aecg(filepath: Union[str, Path, os.PathLike[str]]) -> HL7Record:
+def read_hl7_aecg(filepath: str | Path | os.PathLike[str]) -> HL7Record:
     """Parses an HL7 aECG XML recording and converts digit sequences to physical millivolts.
 
     Args:
@@ -117,9 +118,9 @@ def read_hl7_aecg(filepath: Union[str, Path, os.PathLike[str]]) -> HL7Record:
             if val:
                 effective_time = val.strip()
 
-    lead_signals: List[np.ndarray] = []
-    lead_names: List[str] = []
-    units: List[str] = []
+    lead_signals: list[np.ndarray] = []
+    lead_names: list[str] = []
+    units: list[str] = []
 
     # Find all sequence elements containing waveform digits
     for seq in root.iter():
@@ -144,13 +145,11 @@ def read_hl7_aecg(filepath: Union[str, Path, os.PathLike[str]]) -> HL7Record:
                 except ValueError:
                     scale_val = 0.005
             elif tag == "increment":
-                try:
+                with contextlib.suppress(ValueError):
                     inc_str = child.get("value", "0.002").strip().replace(",", ".")
                     inc_val = float(inc_str)
                     if inc_val > 0:
                         fs = 1.0 / inc_val
-                except ValueError:
-                    pass
             elif tag in ("digits", "value"):
                 if child.text:
                     digits_text = child.text.strip()

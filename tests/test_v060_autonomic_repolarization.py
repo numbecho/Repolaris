@@ -10,7 +10,7 @@ import numpy as np
 
 from repolaris.api import AnalysisAPI
 from repolaris.cli import main as cli_main
-from repolaris.config import FilterConfig, DetectionConfig
+from repolaris.config import FilterConfig
 from repolaris.detection.dispersion import calculate_qt_dispersion, resolve_lead_quorum
 from repolaris.detection.hrt import compute_heart_rate_turbulence
 from repolaris.detection.hrv import (
@@ -24,7 +24,6 @@ from repolaris.detection.hysteresis import (
     compute_effective_rr_linear,
     optimize_hysteresis_parameter,
 )
-from repolaris.detection.pipeline import analyze_ecg
 from repolaris.detection.pulse_metrics import compute_qtc
 from repolaris.detection.qtrr import (
     SUPPORTED_QTRR_MODELS,
@@ -34,7 +33,6 @@ from repolaris.detection.qtrr import (
 from repolaris.detection.sqi import (
     compute_ksqi,
     compute_ssqi,
-    evaluate_lead_quality,
     rank_leads_two_stage,
 )
 from repolaris.detection.t_end import detect_t_end

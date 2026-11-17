@@ -6,7 +6,8 @@ Handles case container serialization, de-identification, .pecg packaging, and cl
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union
+from collections.abc import Callable
+from typing import Any
 import numpy as np
 
 from repolaris.io.pecg_format import save_pecg
@@ -18,15 +19,15 @@ class ExportAPI:
 
     @staticmethod
     def export_study_pecg(
-        filepath: Union[str, Path],
+        filepath: str | Path,
         signals: np.ndarray,
         sampling_rate: float,
-        lead_names: List[str],
-        patient_info: Optional[Dict[str, Any]] = None,
-        annotations: Optional[Dict[str, Any]] = None,
-        events: Optional[List[Any]] = None,
+        lead_names: list[str],
+        patient_info: dict[str, Any] | None = None,
+        annotations: dict[str, Any] | None = None,
+        events: list[Any] | None = None,
         compression: str = "zstd",
-        progress_callback: Optional[Callable[[float, str], None]] = None,
+        progress_callback: Callable[[float, str], None] | None = None,
     ) -> str:
         """Packages multi-lead signals, calibrated fiducials, and metadata into a .pecg archive."""
         return save_pecg(
@@ -43,12 +44,12 @@ class ExportAPI:
 
     @staticmethod
     def export_clinical_pdf(
-        filepath: Union[str, Path],
-        analysis_results: Dict[str, Any],
-        patient_metadata: Optional[Dict[str, Any]] = None,
+        filepath: str | Path,
+        analysis_results: dict[str, Any],
+        patient_metadata: dict[str, Any] | None = None,
         fs: float = 500.0,
         lead_name: str = "Lead II",
-        progress_callback: Optional[Callable[[float, str], None]] = None,
+        progress_callback: Callable[[float, str], None] | None = None,
     ) -> str:
         """Generates a printable multi-page clinical PDF report."""
         return generate_clinical_pdf_report(

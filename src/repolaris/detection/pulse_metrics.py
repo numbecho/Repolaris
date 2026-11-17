@@ -10,11 +10,11 @@ Formulas:
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, List
+from typing import Any
 import numpy as np
 
 
-def compute_qtc(qt_sec: float, rr_sec: float) -> Dict[str, float]:
+def compute_qtc(qt_sec: float, rr_sec: float) -> dict[str, float]:
     """Computes rate-corrected QT intervals across all standard clinical formulas.
 
     Args:
@@ -50,7 +50,7 @@ def compute_qtc(qt_sec: float, rr_sec: float) -> Dict[str, float]:
     }
 
 
-def summarize_beats(beats: List[Dict[str, Any]]) -> Dict[str, Any]:
+def summarize_beats(beats: list[dict[str, Any]]) -> dict[str, Any]:
     """Computes summary statistics across detected beats, safely handling None and NaN values."""
     if not beats:
         return {

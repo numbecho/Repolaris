@@ -24,7 +24,6 @@ import os
 import struct
 from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Optional, List, Dict, Any, Tuple, Union
 import numpy as np
 
 # Standard SCP Lead Identification Codes (CEN EN 1064 Table 8)
@@ -59,14 +58,14 @@ class SCPRecord:
     sampling_rate: float
     num_leads: int
     num_samples: int
-    lead_names: List[str]
+    lead_names: list[str]
     signals: np.ndarray  # Shape: (num_leads, num_samples) in physical millivolts (mV)
-    units: List[str] = field(default_factory=list)
+    units: list[str] = field(default_factory=list)
     patient_id: str = "ANONYMOUS"
     patient_name: str = "PATIENT"
 
 
-def is_scp_file(filepath: Union[str, Path, os.PathLike[str]]) -> bool:
+def is_scp_file(filepath: str | Path | os.PathLike[str]) -> bool:
     """Verifies whether a file is an SCP-ECG binary file by inspecting Section 0 pointers."""
     path = Path(filepath)
     if not path.is_file() or path.stat().st_size < 32:
@@ -81,7 +80,7 @@ def is_scp_file(filepath: Union[str, Path, os.PathLike[str]]) -> bool:
         return False
 
 
-def read_scp_ecg(filepath: Union[str, Path, os.PathLike[str]]) -> SCPRecord:
+def read_scp_ecg(filepath: str | Path | os.PathLike[str]) -> SCPRecord:
     """Parses an SCP-ECG (EN 1064) file and returns physical waveforms in millivolts.
 
     Decodes Section 0 (pointers), Section 3 (lead specs), and Section 6 (rhythm data).
@@ -120,7 +119,7 @@ def read_scp_ecg(filepath: Union[str, Path, os.PathLike[str]]) -> SCPRecord:
         raise ValueError(f"Invalid SCP file: First section ID is {s0_id}, expected Section 0 pointer table.")
 
     # Read pointer table in Section 0 body (starts at byte 6 + 16 = 22)
-    sec_pointers: Dict[int, Tuple[int, int]] = {}  # sec_id -> (length, offset_0_based)
+    sec_pointers: dict[int, tuple[int, int]] = {}  # sec_id -> (length, offset_0_based)
     offset = 22
     s0_end = 6 + s0_len
     while offset + 10 <= s0_end and offset + 10 <= len(data):
@@ -153,7 +152,7 @@ def read_scp_ecg(filepath: Union[str, Path, os.PathLike[str]]) -> SCPRecord:
     if n_leads <= 0 or n_leads > 64:
         raise ValueError(f"Invalid SCP lead count: {n_leads}")
 
-    lead_names: List[str] = []
+    lead_names: list[str] = []
     # Each lead in Section 3 has: 4B start sample, 4B end sample, 1B lead id
     l_off = s3_body + 4
     for _ in range(n_leads):
@@ -187,7 +186,7 @@ def read_scp_ecg(filepath: Union[str, Path, os.PathLike[str]]) -> SCPRecord:
         lead_byte_counts.append(cnt)
         cur_ptr += 2
 
-    signals: List[np.ndarray] = []
+    signals: list[np.ndarray] = []
     for ch in range(n_leads):
         cnt = lead_byte_counts[ch]
         ch_bytes = data[cur_ptr : cur_ptr + cnt]

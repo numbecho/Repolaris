@@ -15,10 +15,9 @@ import tempfile
 import unittest
 import numpy as np
 
-from repolaris.detection.af_detector import detect_atrial_fibrillation, compute_rr_entropy, compute_rr_irregularity
+from repolaris.detection.af_detector import detect_atrial_fibrillation
 from repolaris.detection.trends import generate_hourly_trends
 from repolaris.detection.classifier import ClassifiedBeat, BeatClass, RhythmPattern, BeatFeatures
-from repolaris.detection.hamilton_classifier import HamiltonBeatClassifier
 from repolaris.detection.pipeline import analyze_ecg
 from repolaris.io.scp_reader import read_scp_ecg
 from repolaris.io.hl7_reader import read_hl7_aecg

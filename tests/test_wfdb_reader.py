@@ -1,7 +1,6 @@
 import unittest
 import tempfile
 import os
-from pathlib import Path
 import numpy as np
 from repolaris.io.wfdb_reader import read_wfdb
 

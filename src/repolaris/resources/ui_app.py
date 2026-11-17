@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 try:
-    from PyQt6 import QtCore, QtGui, QtWidgets
+    from PyQt6 import QtCore, QtWidgets
     import pyqtgraph as pg
     HAS_GUI = True
 except ImportError:
@@ -84,6 +84,14 @@ class Ui_MainWindow(object):
         self.btn_export.setObjectName("btn_export")
         self.top_layout.addWidget(self.btn_export)
 
+        self.btn_export_pdf = QtWidgets.QPushButton(self.topBar) if HAS_GUI else QtWidgets()
+        self.btn_export_pdf.setObjectName("btn_export_pdf")
+        self.top_layout.addWidget(self.btn_export_pdf)
+
+        self.btn_close = QtWidgets.QPushButton(self.topBar) if HAS_GUI else QtWidgets()
+        self.btn_close.setObjectName("btn_close")
+        self.top_layout.addWidget(self.btn_close)
+
         self.root_layout.addWidget(self.topBar)
 
         # Main Splitter (Waveform Canvas & Inspector Tabs)
@@ -147,6 +155,12 @@ class Ui_MainWindow(object):
         self.btn_add_line = QtWidgets.QPushButton(self.canvas_bar) if HAS_GUI else QtWidgets()
         self.btn_add_line.setObjectName("btn_add_line")
         self.c_layout.addWidget(self.btn_add_line)
+        self.btn_prev_beat = QtWidgets.QPushButton(self.canvas_bar) if HAS_GUI else QtWidgets()
+        self.btn_prev_beat.setObjectName("btn_prev_beat")
+        self.c_layout.addWidget(self.btn_prev_beat)
+        self.btn_next_beat = QtWidgets.QPushButton(self.canvas_bar) if HAS_GUI else QtWidgets()
+        self.btn_next_beat.setObjectName("btn_next_beat")
+        self.c_layout.addWidget(self.btn_next_beat)
 
         self.lbl_zoom = QtWidgets.QLabel(self.canvas_bar) if HAS_GUI else QtWidgets()
         self.lbl_zoom.setObjectName("lbl_zoom")
@@ -206,6 +220,12 @@ class Ui_MainWindow(object):
         self.lbl_cal_qt = QtWidgets.QLabel(self.cal_strip) if HAS_GUI else QtWidgets()
         self.lbl_cal_qt.setObjectName("lbl_cal_qt")
         self.cal_layout.addWidget(self.lbl_cal_qt)
+        self.lbl_tag_rr = QtWidgets.QLabel(self.cal_strip) if HAS_GUI else QtWidgets()
+        self.lbl_tag_rr.setObjectName("lbl_tag_rr")
+        self.cal_layout.addWidget(self.lbl_tag_rr)
+        self.lbl_cal_rr = QtWidgets.QLabel(self.cal_strip) if HAS_GUI else QtWidgets()
+        self.lbl_cal_rr.setObjectName("lbl_cal_rr")
+        self.cal_layout.addWidget(self.lbl_cal_rr)
 
         self.lbl_tag_bazett = QtWidgets.QLabel(self.cal_strip) if HAS_GUI else QtWidgets()
         self.lbl_tag_bazett.setObjectName("lbl_tag_bazett")
@@ -296,9 +316,17 @@ class Ui_MainWindow(object):
         self.adv_layout = QtWidgets.QVBoxLayout(self.adv_group) if HAS_GUI else QtWidgets()
         self.lbl_adv_qtvi = QtWidgets.QLabel(self.adv_group) if HAS_GUI else QtWidgets()
         self.lbl_adv_qtrr = QtWidgets.QLabel(self.adv_group) if HAS_GUI else QtWidgets()
+        self.lbl_adv_hyst = QtWidgets.QLabel(self.adv_group) if HAS_GUI else QtWidgets()
+        self.lbl_adv_hrv = QtWidgets.QLabel(self.adv_group) if HAS_GUI else QtWidgets()
+        self.lbl_adv_hrt = QtWidgets.QLabel(self.adv_group) if HAS_GUI else QtWidgets()
+        self.lbl_adv_twa = QtWidgets.QLabel(self.adv_group) if HAS_GUI else QtWidgets()
         self.lbl_adv_total = QtWidgets.QLabel(self.adv_group) if HAS_GUI else QtWidgets()
         self.adv_layout.addWidget(self.lbl_adv_qtvi)
         self.adv_layout.addWidget(self.lbl_adv_qtrr)
+        self.adv_layout.addWidget(self.lbl_adv_hyst)
+        self.adv_layout.addWidget(self.lbl_adv_hrv)
+        self.adv_layout.addWidget(self.lbl_adv_hrt)
+        self.adv_layout.addWidget(self.lbl_adv_twa)
         self.adv_layout.addWidget(self.lbl_adv_total)
         self.ov_layout.addWidget(self.adv_group)
         self.tabs.addTab(self.tab_overview, "Overview")
@@ -321,7 +349,39 @@ class Ui_MainWindow(object):
         self.b_layout.addWidget(self.beat_table)
         self.tabs.addTab(self.tab_beats, "All Beats")
 
-        # 4. Study & Patient Inspector Tab
+        # 4. QT-RR Dynamics Tab
+        self.tab_qtrr = QtWidgets.QWidget() if HAS_GUI else QtWidgets()
+        self.tab_qtrr.setObjectName("tab_qtrr")
+        self.qtrr_layout = QtWidgets.QVBoxLayout(self.tab_qtrr) if HAS_GUI else QtWidgets()
+        self.combo_qtrr_model = QtWidgets.QComboBox(self.tab_qtrr) if HAS_GUI else QtWidgets()
+        self.combo_qtrr_model.setObjectName("combo_qtrr_model")
+        self.qtrr_plot_widget = pg.PlotWidget(self.tab_qtrr) if HAS_GUI and hasattr(pg, "PlotWidget") else QtWidgets()
+        self.qtrr_plot_widget.setObjectName("qtrr_plot_widget")
+        self.lbl_qtrr_stats = QtWidgets.QLabel(self.tab_qtrr) if HAS_GUI else QtWidgets()
+        self.lbl_qtrr_stats.setObjectName("lbl_qtrr_stats")
+        self.qtrr_layout.addWidget(self.combo_qtrr_model)
+        self.qtrr_layout.addWidget(self.qtrr_plot_widget)
+        self.qtrr_layout.addWidget(self.lbl_qtrr_stats)
+        self.tabs.addTab(self.tab_qtrr, "QT-RR Dynamics")
+
+        # 5. Holter Triage Tab
+        self.tab_holter = QtWidgets.QWidget() if HAS_GUI else QtWidgets()
+        self.tab_holter.setObjectName("tab_holter")
+        self.holter_layout = QtWidgets.QVBoxLayout(self.tab_holter) if HAS_GUI else QtWidgets()
+        self.card_af_status_val = QtWidgets.QLabel(self.tab_holter) if HAS_GUI else QtWidgets()
+        self.card_af_burden_val = QtWidgets.QLabel(self.tab_holter) if HAS_GUI else QtWidgets()
+        self.card_af_cv_val = QtWidgets.QLabel(self.tab_holter) if HAS_GUI else QtWidgets()
+        self.card_af_sampen_val = QtWidgets.QLabel(self.tab_holter) if HAS_GUI else QtWidgets()
+        self.holter_hourly_table = QtWidgets.QTableWidget(self.tab_holter) if HAS_GUI else QtWidgets()
+        self.holter_hourly_table.setObjectName("holter_hourly_table")
+        self.holter_layout.addWidget(self.card_af_status_val)
+        self.holter_layout.addWidget(self.card_af_burden_val)
+        self.holter_layout.addWidget(self.card_af_cv_val)
+        self.holter_layout.addWidget(self.card_af_sampen_val)
+        self.holter_layout.addWidget(self.holter_hourly_table)
+        self.tabs.addTab(self.tab_holter, "Holter Triage")
+
+        # 6. Study & Patient Inspector Tab
         self.tab_metadata = QtWidgets.QWidget() if HAS_GUI else QtWidgets()
         self.tab_metadata.setObjectName("tab_metadata")
         self.meta_layout = QtWidgets.QVBoxLayout(self.tab_metadata) if HAS_GUI else QtWidgets()
@@ -369,6 +429,8 @@ class Ui_MainWindow(object):
         self.btn_open.setText("📂 Open Study")
         self.btn_demo.setText("⚡ Demo Rhythm")
         self.btn_export.setText("📤 Export Study")
+        self.btn_export_pdf.setText("📄 PDF Report")
+        self.btn_close.setText("✕ Close Study")
         self.lbl_canvas_title.setText("ECG Waveform — Lead II")
         self.lbl_canvas_scheme.setText("Theme:")
         self.lbl_grid.setText("Grid:")
@@ -388,6 +450,8 @@ class Ui_MainWindow(object):
         self.tabs.setTabText(self.tabs.indexOf(self.tab_overview), "📊 Overview")
         self.tabs.setTabText(self.tabs.indexOf(self.tab_events), "🚨 Events Diary")
         self.tabs.setTabText(self.tabs.indexOf(self.tab_beats), "📋 All Beats")
+        self.tabs.setTabText(self.tabs.indexOf(self.tab_qtrr), "📈 QT-RR Dynamics")
+        self.tabs.setTabText(self.tabs.indexOf(self.tab_holter), "🕒 Holter Triage")
         self.tabs.setTabText(self.tabs.indexOf(self.tab_metadata), "📋 Study & Patient")
         self.grp_a_box.setTitle("Core Demographics & Identification")
         self.grp_b_box.setTitle("Clinical Indications & Acquisition Parameters")

@@ -13,42 +13,38 @@ We recommend using [Astral `uv`](https://astral.sh/uv) for fast environment setu
 git clone https://github.com/numbecho/repolaris.git
 cd repolaris
 
-# Create virtual environment and install development dependencies
-uv venv .venv
-source .venv/bin/activate       # On Windows: .venv\Scripts\activate
-uv pip install -e ".[gui,wfdb,dev]"
+# Provision Python 3.14 and sync environment
+uv python install 3.14
+uv sync --all-extras --dev
 ```
 
 ---
 
 ## 2. Code Quality & Formatting (`ruff`)
 
-Repolaris strictly adheres to modern Python packaging (PEP 517/621) and uses [Astral `ruff`](https://astral.sh/ruff) for linting and formatting.
+Repolaris strictly adheres to modern Python packaging (PEP 517/621/639) and uses [Astral `ruff`](https://astral.sh/ruff) for linting and formatting.
 
 ### Run Linter
 ```bash
-ruff check .
+uv run ruff check src tests
 ```
 
 ### Auto-Fix Formatting
 ```bash
-ruff check --fix .
-ruff format .
+uv run ruff check --fix src tests
+uv run ruff format src tests
 ```
 
 ### Configuration (`pyproject.toml`)
 ```toml
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py314"
 
 [tool.ruff.lint]
-select = ["E", "W", "F", "I", "UP", "B", "SIM"]
+select = ["E", "W", "F", "I", "UP", "B", "SIM", "C4", "PIE", "RET"]
 ignore = ["E501"]
 ```
-
----
-
 
 ---
 
@@ -67,38 +63,42 @@ python -m repolaris.resources.compile_ui
 pyuic6 src/repolaris/resources/app.ui -o src/repolaris/resources/ui_app.py
 ```
 
+---
+
 ## 4. Strict Type Safety (PEP 484 / 585 / 604)
 
 All new code must include static type annotations:
-* Use modern union operators (`int | float | None` instead of `Optional[Union[int, float]]`).
-* Use built-in generic collections (`list[str]`, `dict[str, Any]` instead of `typing.List`).
+* Use modern union operators (`int | float | None` or `Optional[Union[...]]` with `from __future__ import annotations`).
 * Verify with `mypy`:
   ```bash
-  mypy src/repolaris
+  uv run mypy src/repolaris
   ```
 
 ---
 
 ## 5. Automated Testing
 
-All pull requests must pass the complete unit test suite:
+All pull requests must pass the complete 97-test unit test suite:
 
 ```bash
-# Run with Python unittest
-python3 -m unittest discover tests
+# Run with Python unittest (headless-safe)
+QT_QPA_PLATFORM=offscreen PYTHONPATH=src python3 -m unittest discover tests -v
 
-# Or run with pytest
-pytest tests/ -v
+# Or run with Astral uv & pytest
+QT_QPA_PLATFORM=offscreen uv run pytest -v
+
+# Run dedicated uv & ruff tooling verification suite
+QT_QPA_PLATFORM=offscreen PYTHONPATH=src python3 -m unittest tests/test_tooling_uv_ruff.py -v
 ```
 
 ### Adding New Test Cases
-Place unit tests in `tests/test_*.py`. Use synthetic ECG generators (`repolaris.utils.signal.generate_synthetic_ecg`) to create reproducible test fixtures with known heart rates and QT durations.
+Place unit tests in `tests/test_*.py`. Use synthetic ECG generators (`repolaris.utils.signal.generate_synthetic_ecg` or `StudyAPI.generate_demo_study`) to create reproducible test fixtures with known heart rates and QT durations.
 
 ---
 
 ## 6. Syncing Wiki with GitHub
 
-The wiki documentation files in this directory are formatted for GitHub Wikis. To publish or synchronize updates:
+The wiki documentation files in `wiki/` (mirrored in `docs/wiki/`) are formatted for GitHub Wikis. To publish or synchronize updates:
 
 ```bash
 # Clone your repository's wiki git repository

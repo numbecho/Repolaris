@@ -3,6 +3,7 @@ import tempfile
 import os
 import numpy as np
 from repolaris.io.edf_reader import read_edf
+from repolaris.io.ecg_loader import load_ecg_dataset
 
 class TestEDFReader(unittest.TestCase):
     def setUp(self):
@@ -64,6 +65,9 @@ class TestEDFReader(unittest.TestCase):
         rec = read_edf(self.edf_path)
         self.assertEqual(rec.patient_id, "PATIENT_ID_42")
         self.assertEqual(rec.num_signals, 2)
+        sigs_dict, fs_loaded, meta_loaded = load_ecg_dataset(self.edf_path)
+        self.assertEqual(fs_loaded, 250.0)
+        self.assertEqual(len(sigs_dict), 2)
         self.assertEqual(rec.duration_sec, 2.0)
         self.assertIn("ECG I", rec.lead_names[0])
         self.assertEqual(rec.signals.shape, (2, 500))

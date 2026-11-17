@@ -18,8 +18,8 @@ Also detects structural ectopic rhythm sequences:
 from __future__ import annotations
 
 from dataclasses import dataclass, asdict
-from enum import Enum, StrEnum
-from typing import Any, Dict, List, Optional, Tuple, Union
+from enum import StrEnum
+from typing import Any
 import numpy as np
 
 
@@ -59,7 +59,7 @@ class BeatFeatures:
     template_correlation: float   # Pearson correlation with patient's dominant median normal template
     polarity: int                 # Dominant polarity (+1 positive R, -1 negative QS)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serializes features to a dictionary."""
         return asdict(self)
 
@@ -76,7 +76,7 @@ class ClassifiedBeat:
     features: BeatFeatures
     diagnostic_rationale: str
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serializes classified beat to a JSON-compatible dictionary."""
         d = asdict(self)
         d["beat_class"] = self.beat_class.value
@@ -208,7 +208,7 @@ def classify_heartbeat(
     pvc_pre_rr_threshold: float = 0.82,
     pvc_width_threshold_ms: float = 110.0,
     pvc_corr_threshold: float = 0.75,
-) -> Tuple[BeatClass, float, str]:
+) -> tuple[BeatClass, float, str]:
     """Classifies a heartbeat using AAMI EC57 diagnostic criteria.
 
     Decision Rules:
@@ -276,7 +276,7 @@ def classify_heartbeat(
     return BeatClass.NORMAL, conf, rationale
 
 
-def detect_rhythm_patterns(classified_beats: List[ClassifiedBeat]) -> List[ClassifiedBeat]:
+def detect_rhythm_patterns(classified_beats: list[ClassifiedBeat]) -> list[ClassifiedBeat]:
     """Identifies multi-beat rhythm structures (Bigeminy, Trigeminy, Couplets, VT runs).
 
     Args:
@@ -352,7 +352,7 @@ def classify_all_beats(
     q_onsets: np.ndarray,
     t_ends: np.ndarray,
     fs: float,
-) -> Tuple[List[ClassifiedBeat], Dict[str, Any]]:
+) -> tuple[list[ClassifiedBeat], dict[str, Any]]:
     """Master workflow: extracts features, classifies every beat, and detects rhythm patterns.
 
     Args:
@@ -376,7 +376,7 @@ def classify_all_beats(
     median_rr = float(np.median(rr_intervals))
     median_template = compute_median_template(signal, r_peaks, fs)
 
-    classified_beats: List[ClassifiedBeat] = []
+    classified_beats: list[ClassifiedBeat] = []
 
     # 2. Extract features and classify each beat
     for idx in range(n_peaks):
@@ -411,14 +411,14 @@ def classify_all_beats(
     classified_beats = detect_rhythm_patterns(classified_beats)
 
     # 4. Generate epidemiological burden summary
-    counts: Dict[str, int] = {
+    counts: dict[str, int] = {
         BeatClass.NORMAL.value: 0,
         BeatClass.PVC.value: 0,
         BeatClass.PAC.value: 0,
         BeatClass.FUSION.value: 0,
         BeatClass.UNKNOWN.value: 0,
     }
-    rhythm_counts: Dict[str, int] = {
+    rhythm_counts: dict[str, int] = {
         RhythmPattern.BIGEMINY.value: 0,
         RhythmPattern.TRIGEMINY.value: 0,
         RhythmPattern.COUPLET.value: 0,

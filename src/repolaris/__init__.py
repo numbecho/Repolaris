@@ -81,7 +81,7 @@ from repolaris.io.scp_reader import read_scp_ecg, is_scp_file
 from repolaris.io.pecg_format import save_pecg, load_pecg
 from repolaris.io.e3c_reader import read_e3c
 
-__version__ = "0.8.0"
+__version__ = "0.8.1"
 __all__ = [
     "ECGConfig",
     "FilterConfig",

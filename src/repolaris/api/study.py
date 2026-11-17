@@ -6,7 +6,8 @@ Handles study loading, format negotiation, ingestion boundary validation, and li
 from __future__ import annotations
 
 import os
-from typing import Any, Callable, Dict, Optional, Tuple, Union
+from collections.abc import Callable
+from typing import Any
 import numpy as np
 
 from repolaris.io.ecg_loader import load_ecg_dataset, open_ecg_buffer, stream_ecg_chunks, SignalBuffer
@@ -19,9 +20,9 @@ class StudyAPI:
     @staticmethod
     def load_study_file(
         file_path: str,
-        lead: Union[int, str] = 0,
-        progress_callback: Optional[Callable[[float, str], None]] = None
-    ) -> Tuple[np.ndarray, float]:
+        lead: int | str = 0,
+        progress_callback: Callable[[float, str], None] | None = None
+    ) -> tuple[np.ndarray, float]:
         """Loads a single lead trace and sampling rate from any supported ECG file."""
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"ECG study file not found: {file_path}")
@@ -37,8 +38,8 @@ class StudyAPI:
     @staticmethod
     def load_study_dataset(
         file_path: str,
-        progress_callback: Optional[Callable[[float, str], None]] = None
-    ) -> Tuple[Dict[str, np.ndarray], float, Dict[str, Any]]:
+        progress_callback: Callable[[float, str], None] | None = None
+    ) -> tuple[dict[str, np.ndarray], float, dict[str, Any]]:
         """Loads multi-lead signals and extracted metadata from any supported ECG container."""
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"ECG study file not found: {file_path}")
@@ -50,8 +51,8 @@ class StudyAPI:
         fs: float = 500.0,
         heart_rate_bpm: float = 72.0,
         noise_std: float = 0.02,
-        progress_callback: Optional[Callable[[float, str], None]] = None
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        progress_callback: Callable[[float, str], None] | None = None
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Generates a standardized synthetic benchmark ECG study."""
         if progress_callback:
             progress_callback(0.20, f"Synthesizing {duration_sec:.1f}s benchmark rhythm ({heart_rate_bpm:.0f} BPM)...")
@@ -69,7 +70,7 @@ class StudyAPI:
     def open_study_buffer(
         file_path: str,
         mmap_threshold_samples: int = 1_800_000,
-        progress_callback: Optional[Callable[[float, str], None]] = None,
+        progress_callback: Callable[[float, str], None] | None = None,
     ) -> SignalBuffer:
         """Opens an ECG study into an out-of-core SignalBuffer (backed by np.memmap for long Holters)."""
         if not os.path.exists(file_path):
@@ -79,10 +80,10 @@ class StudyAPI:
     @staticmethod
     def stream_study_chunks(
         file_path: str,
-        lead: Union[int, str] = 0,
+        lead: int | str = 0,
         chunk_duration_sec: float = 300.0,
         overlap_sec: float = 5.0,
-        progress_callback: Optional[Callable[[float, str], None]] = None,
+        progress_callback: Callable[[float, str], None] | None = None,
     ):
         """Streams overlapping waveform chunks from a supported ECG file."""
         if not os.path.exists(file_path):

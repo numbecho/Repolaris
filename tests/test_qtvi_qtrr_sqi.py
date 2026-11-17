@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 
-from repolaris.detection.qtvi import resample_berger, compute_qtvi, optimize_alpha
+from repolaris.detection.qtvi import resample_berger, compute_qtvi
 from repolaris.detection.qtrr import fit_qtrr_model
 from repolaris.detection.sqi import compute_psqi, compute_bassqi, evaluate_lead_quality
 from repolaris.detection.pipeline import analyze_ecg

@@ -16,7 +16,6 @@ import numpy as np
 
 from repolaris.io import (
     load_ecg_dataset,
-    load_ecg_file,
     sniff_ecg_format,
     read_dicom_waveform,
     is_dicom_file,

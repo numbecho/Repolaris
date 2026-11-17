@@ -1,5 +1,4 @@
 import unittest
-import numpy as np
 
 from repolaris.detection.classifier import (
     BeatClass,
@@ -8,11 +7,8 @@ from repolaris.detection.classifier import (
     ClassifiedBeat,
     classify_heartbeat,
     detect_rhythm_patterns,
-    classify_all_beats,
-    compute_median_template,
 )
-from repolaris.detection.annotations import ECGAnnotation, AnnotationManager
-from repolaris.utils.signal import generate_synthetic_ecg
+from repolaris.detection.annotations import AnnotationManager
 
 
 class TestClassifierAndAnnotations(unittest.TestCase):

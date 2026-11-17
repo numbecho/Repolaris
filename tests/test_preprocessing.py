@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from repolaris.preprocessing.filter import bandpass_filter, notch_filter
+from repolaris.preprocessing.filter import bandpass_filter
 from repolaris.preprocessing.baseline import remove_baseline_wander
 
 class TestPreprocessing(unittest.TestCase):

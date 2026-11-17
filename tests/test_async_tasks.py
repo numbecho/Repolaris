@@ -6,11 +6,10 @@ import sys
 import tempfile
 import unittest
 import xml.etree.ElementTree as ET
-import numpy as np
 
 from repolaris.api import StudyAPI, AnalysisAPI, ExportAPI
 from repolaris.cli import print_cli_progress
-from repolaris.app import MainWindow, BackgroundTaskWorker
+from repolaris.app import MainWindow
 
 
 class TestAsyncTasksAndProgress(unittest.TestCase):

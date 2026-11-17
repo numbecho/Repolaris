@@ -13,7 +13,7 @@ Implements a non-regressive two-stage signal quality architecture:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 import numpy as np
 from scipy.signal import welch
 
@@ -70,11 +70,7 @@ def compute_bassqi(signal: np.ndarray, fs: float) -> float:
 
 
 def compute_ksqi(signal: np.ndarray) -> float:
-    """Computes the fourth standardized moment (kurtosis, kSQI) of the ECG lead.
-
-    Clean sinus ECGs with sharp QRS complexes exhibit super-Gaussian kurtosis (kSQI > 5),
-    whereas thermal/EMG Gaussian noise approaches kSQI ~ 3 (Li et al., 2014).
-    """
+    """Computes the fourth standardized moment (kurtosis, kSQI) of the ECG lead."""
     x = np.asarray(signal, dtype=np.float64)
     if len(x) < 4:
         return 0.0
@@ -100,26 +96,19 @@ def compute_ssqi(signal: np.ndarray) -> float:
 def evaluate_lead_quality(
     signal: np.ndarray,
     fs: float,
-) -> Dict[str, Union[float, str, bool]]:
+    conditioned_signal: np.ndarray | None = None,
+) -> dict[str, float | str | bool]:
     """Evaluates Stage 1 absolute multi-metric quality parameters for an ECG lead.
 
-    Args:
-        signal: 1D ECG waveform array.
-        fs: Sampling frequency in Hz.
-
-    Returns:
-        A dictionary containing:
-            - 'psqi': QRS relative power index in [0, 1].
-            - 'bassqi': Baseline stability index in [0, 1].
-            - 'ksqi': Kurtosis signal quality index.
-            - 'ssqi': Absolute skewness signal quality index.
-            - 'snr_db': Estimated signal-to-noise ratio in decibels.
-            - 'non_flat_ratio': Fraction of non-flatline samples in [0, 1].
-            - 'passed_absolute_gate': True if lead meets clinical diagnostic floor.
-            - 'verdict': Diagnostic usability assessment ('EXCELLENT', 'ACCEPTABLE', 'POOR').
+    When `conditioned_signal` is provided, baseline stability (`bassqi`) and high-frequency
+    noise (`snr_db`) are evaluated on the raw physical signal before stopband attenuation,
+    while QRS energy concentration (`psqi`) and morphology moments (`ksqi`, `ssqi`) are
+    evaluated on the baseline-suppressed trace.
     """
-    x = np.asarray(signal, dtype=np.float64)
-    if len(x) < 10 or float(np.std(x)) <= 1e-6:
+    raw_x = np.asarray(signal, dtype=np.float64)
+    cond_x = np.asarray(conditioned_signal, dtype=np.float64) if conditioned_signal is not None else raw_x
+
+    if len(raw_x) < 10 or float(np.std(raw_x)) <= 1e-6:
         return {
             "psqi": 0.0,
             "bassqi": 0.0,
@@ -131,23 +120,34 @@ def evaluate_lead_quality(
             "verdict": "POOR",
         }
 
-    psqi_val = compute_psqi(x, fs)
-    bassqi_val = compute_bassqi(x, fs)
-    ksqi_val = compute_ksqi(x)
-    ssqi_val = compute_ssqi(x)
+    psqi_val = compute_psqi(cond_x, fs)
+    bassqi_val = compute_bassqi(raw_x, fs)
+    ksqi_val = compute_ksqi(cond_x)
+    ssqi_val = compute_ssqi(cond_x)
 
-    diffs = np.abs(np.diff(x))
+    diffs = np.abs(np.diff(raw_x))
     non_flat_ratio = float(np.mean(diffs > 1e-6)) if len(diffs) > 0 else 0.0
 
-    # Estimate SNR as ratio of QRS band power (5-40Hz) to high-frequency noise (>40Hz)
-    p_qrs = compute_band_power(x, fs, 5.0, 40.0)
-    p_noise = compute_band_power(x, fs, 40.0, min(fs / 2.0 - 1.0, 100.0))
+    p_qrs = compute_band_power(raw_x, fs, 5.0, 40.0)
+    p_noise = compute_band_power(raw_x, fs, 40.0, min(fs / 2.0 - 1.0, 100.0))
 
     snr_db = 40.0 if p_noise <= 1e-12 else float(10.0 * np.log10(max(p_qrs / p_noise, 1e-3)))
 
-    if psqi_val >= 0.5 and bassqi_val >= 0.7 and non_flat_ratio >= 0.8:
+    if (
+        psqi_val >= 0.50
+        and bassqi_val >= 0.70
+        and non_flat_ratio >= 0.80
+        and ksqi_val >= 3.0
+        and snr_db >= 10.0
+    ):
         verdict = "EXCELLENT"
-    elif psqi_val >= 0.3 and bassqi_val >= 0.4 and non_flat_ratio >= 0.5:
+    elif (
+        psqi_val >= 0.30
+        and bassqi_val >= 0.40
+        and non_flat_ratio >= 0.50
+        and ksqi_val >= 1.5
+        and snr_db >= 3.0
+    ):
         verdict = "ACCEPTABLE"
     else:
         verdict = "POOR"
@@ -167,18 +167,11 @@ def evaluate_lead_quality(
 
 
 def rank_leads_two_stage(
-    lead_signals: Union[Dict[str, np.ndarray], np.ndarray],
+    lead_signals: dict[str, np.ndarray] | np.ndarray,
     fs: float,
-    lead_names: Optional[List[str]] = None,
-) -> Dict[str, Any]:
-    """Executes Two-Stage SQA Lead Ranking (Absolute Gate + 6-Index Pairwise Voting VI in [-6, +6]).
-
-    Stage 1 rejects any lead whose absolute quality verdict is 'POOR' (preventing detached or
-    saturated leads from ever winning a relative vote).
-    Stage 2 performs pairwise comparisons across 6 quality indices ('psqi', 'bassqi', 'ksqi',
-    'ssqi', 'snr_db', 'non_flat_ratio') among passing leads, scaling each lead's net pairwise
-    score into [-6.0, +6.0] (Suárez-León et al., 2018; Li et al., 2014).
-    """
+    lead_names: list[str] | None = None,
+) -> dict[str, Any]:
+    """Executes Two-Stage SQA Lead Ranking (Absolute Gate + 6-Index Pairwise Voting VI in [-6, +6])."""
     if isinstance(lead_signals, dict):
         names = list(lead_signals.keys())
         signals = [np.asarray(lead_signals[k], dtype=np.float64) for k in names]
@@ -190,8 +183,8 @@ def rank_leads_two_stage(
         names = lead_names if (lead_names and len(lead_names) == n_leads) else [f"Lead_{i+1}" for i in range(n_leads)]
         signals = [arr[i] for i in range(n_leads)]
 
-    per_lead: Dict[str, Dict[str, Any]] = {}
-    passing_names: List[str] = []
+    per_lead: dict[str, dict[str, Any]] = {}
+    passing_names: list[str] = []
 
     for name, sig in zip(names, signals):
         q = evaluate_lead_quality(sig, fs)
@@ -218,38 +211,35 @@ def rank_leads_two_stage(
         return {
             "quorum_passed": True,
             "recommended_lead": only_lead,
-            "passing_leads": [only_lead],
-            "rejected_leads": [n for n in names if n != only_lead],
+            "passing_leads": passing_names,
+            "rejected_leads": [n for n in names if n not in passing_names],
             "per_lead": per_lead,
         }
 
-    # Pairwise voting among Stage 1 passing leads across the 6 indices
-    for i, lead_a in enumerate(passing_names):
-        raw_points = 0.0
-        qa = per_lead[lead_a]
-        for j, lead_b in enumerate(passing_names):
-            if i == j:
-                continue
-            qb = per_lead[lead_b]
-            for mk in metric_keys:
-                diff = float(qa[mk]) - float(qb[mk])
-                if diff > 1e-9:
-                    raw_points += 1.0
-                elif diff < -1e-9:
-                    raw_points -= 1.0
-        # Normalize by (n_pass - 1) opponents so VI is strictly bounded in [-6.0, +6.0]
-        per_lead[lead_a]["voting_index"] = float(np.clip(raw_points / float(n_pass - 1), -6.0, 6.0))
+    for k_name in passing_names:
+        net_wins = 0.0
+        for m_key in metric_keys:
+            val_k = float(per_lead[k_name][m_key])
+            for j_name in passing_names:
+                if k_name == j_name:
+                    continue
+                val_j = float(per_lead[j_name][m_key])
+                if val_k > val_j + 1e-9:
+                    net_wins += 1.0
+                elif val_k < val_j - 1e-9:
+                    net_wins -= 1.0
+        vi_score = net_wins / float(n_pass - 1)
+        per_lead[k_name]["voting_index"] = float(np.clip(vi_score, -6.0, 6.0))
 
-    passing_sorted = sorted(
+    best_lead = max(
         passing_names,
-        key=lambda k: (float(per_lead[k]["voting_index"]), float(per_lead[k]["snr_db"])),
-        reverse=True,
+        key=lambda n: (float(per_lead[n]["voting_index"]), float(per_lead[n]["snr_db"])),
     )
 
     return {
         "quorum_passed": True,
-        "recommended_lead": passing_sorted[0],
-        "passing_leads": passing_sorted,
+        "recommended_lead": best_lead,
+        "passing_leads": passing_names,
         "rejected_leads": [n for n in names if n not in passing_names],
         "per_lead": per_lead,
     }

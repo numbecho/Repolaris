@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from typing import Optional
 import numpy as np
 from scipy import signal
 from repolaris.config import FilterConfig
 
 
-def bandpass_filter(data: np.ndarray, fs: float, cfg: Optional[FilterConfig] = None) -> np.ndarray:
+def bandpass_filter(data: np.ndarray, fs: float, cfg: FilterConfig | None = None) -> np.ndarray:
     """Zero-phase Butterworth bandpass filter."""
     if cfg is None:
         cfg = FilterConfig()

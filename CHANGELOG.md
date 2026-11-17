@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1] - 2026-11-16
+
+### Added
+- **Clinical Workstation UX Upgrades (`repolaris.app`, `repolaris.i18n`, `repolaris.resources`)**:
+  - **Keyboard Beat Navigation (`Left`/`Right` Arrows & `◀`/`▶` Toolbar Buttons)**: Added `prev_beat()`, `next_beat()`, `btn_prev_beat`, and `btn_next_beat` to step cycle-by-cycle, sync `beat_table` row selection, and center Q/T calipers.
+  - **Single-Key AAMI Reclassification Hotkeys (`N`, `V`, `S`, `F`, `Q`)**: Added `reclassify_active_beat()` and `keyPressEvent()` bindings so pressing `N`, `V`, `S`, `F`, or `Q` reclassifies the active beat in-place, re-evaluates `detect_rhythm_patterns()`, recalculates `ectopic_summary`, `hrv`, and `hrt`, and logs an immutable audit entry in `AnnotationManager`.
+  - **Color-Coded Ectopic R-Peak Markers & On-Canvas Tags (`ECGPlotWidget.display_signal`)**: Color-codes R-peak markers by AAMI class (`#34d399` Normal, `#f87171` PVC, `#fbbf24` PAC, `#c084fc` Fusion) and renders on-canvas `pg.TextItem` tags (`V`, `S`, `F`, `Q`) above non-normal R-peaks.
+  - **Live Caliper `RR` Readout & Persistent Caliper Drag Calibration (`_on_caliper_dragged`)**: Added `lbl_tag_rr` / `lbl_cal_rr` to the caliper HUD strip and persisted manual Q-onset/T-end drags directly into `analysis_results["beats"]`, `summary`, `beat_table`, and `card_qtc`.
+  - **Expanded 8-Column Clinical Tables & 100% 5-Language Parity**: Expanded `beat_table` (adding `Pattern`, `RR (ms)`, `HR (BPM)`), `holter_af_table` (adding `Max HR`, `Shannon Ent.`, `Irregularity`), and `qtrr_models_table` (adding `Slope (α)`, `Pearson r`, `AIC`) to 8 columns each, and localized all remaining banners, labels, and tooltips across `en`, `es`, `fr`, `de`, and `pt`.
+- **Python 3.14 Syntax Modernization & Additive `uv` / `ruff` Tooling Suite (`tests/test_tooling_uv_ruff.py`, `.github/workflows/build-artifacts.yml`)**:
+  - Modernized all 56 Python modules across `src/repolaris/` and `tests/` to native `X | Y` unions, built-in generics (`list`, `dict`, `tuple`, `set`), `StrEnum`, `match`/`case` structural pattern matching, and `contextlib.suppress`, eliminating duplicated dispatch ladders and dead code.
+  - Added `.python-version` (`3.14`), `[tool.uv]`, `[tool.ruff]` (`target-version = "py314"`), PEP 735 `[dependency-groups]`, the `uv-ruff-test` CI job, and `tests/test_tooling_uv_ruff.py` alongside the existing `pip` + `unittest` suite (**97 passing unit tests**).
+
+### Fixed
+- **Hostile Audit Signal & I/O Hardening (`ecg_loader.py`, `pipeline.py`, `hysteresis.py`, `sqi.py`, `hamilton_classifier.py`, `events.py`, `qtrr.py`, `qtvi.py`)**:
+  - Fixed `load_ecg_dataset()` attribute mappings for ISHNE (`.ecg`) and EDF (`.edf`) records, added `SignalBuffer.close()` context-manager cleanup for temporary `np.memmap` directories, and removed the 10-second minimum chunk clamp in `stream_ecg_chunks()`.
+  - Fixed hysteresis effective RR key resolution (`rr_eff_ew_sec` / `rr_eff_lw_sec`), assigned forward RR interval to Beat 0, evaluated `basSQI` and `snr_db` on raw pre-filtered signals while enforcing `kSQI` and `snr_db` in Stage 1 SQI gating, wired `HamiltonBeatClassifier` into `analyze_ecg()`, and added Tikhonov ridge stabilization for constant-rate QT-RR regression.
+
 ## [0.8.0] - 2026-11-14
 
 ### Added

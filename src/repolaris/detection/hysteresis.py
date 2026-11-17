@@ -28,20 +28,7 @@ def compute_effective_rr_exponential(
     lambda_param: float = 0.04,
     window_beats: int = 180,
 ) -> np.ndarray:
-    """Calculates memory-weighted effective cycle length (RR_eff) via Exponential Weighting (EW).
-
-    Implements the state-space recursive filter:
-        RR_eff[i] = (1 - alpha) * RR_eff[i-1] + alpha * RR[i],  where alpha = 1 - exp(-lambda)
-    which matches normalized exponential lag weights w_k = exp(-lambda * k) / sum(exp(-lambda * j)).
-
-    Args:
-        rr_intervals_sec: 1D array of RR intervals in seconds.
-        lambda_param: Exponential decay constant per beat (lambda > 0).
-        window_beats: Historical memory horizon N in beats (default: 180).
-
-    Returns:
-        1D array of exponentially weighted effective RR intervals (seconds).
-    """
+    """Calculates memory-weighted effective cycle length (RR_eff) via Exponential Weighting (EW)."""
     rr = np.asarray(rr_intervals_sec, dtype=np.float64)
     n = len(rr)
     if n == 0:
@@ -52,9 +39,13 @@ def compute_effective_rr_exponential(
     alpha = float(np.clip(alpha, 1e-5, 1.0))
 
     rr_eff = np.empty(n, dtype=np.float64)
-    rr_eff[0] = rr[0]
+    # Seed initial state with first positive physiological RR interval if rr[0] == 0.0
+    pos_rr = rr[rr > 0.2]
+    seed_rr = float(pos_rr[0]) if len(pos_rr) > 0 else float(rr[0])
+    rr_eff[0] = seed_rr if rr[0] <= 0.2 else float(rr[0])
     for i in range(1, n):
-        rr_eff[i] = (1.0 - alpha) * rr_eff[i - 1] + alpha * rr[i]
+        curr = float(rr[i]) if rr[i] > 0.2 else rr_eff[i - 1]
+        rr_eff[i] = (1.0 - alpha) * rr_eff[i - 1] + alpha * curr
     return rr_eff
 
 
@@ -62,22 +53,15 @@ def compute_effective_rr_linear(
     rr_intervals_sec: np.ndarray | list[float],
     memory_beats: int = 60,
 ) -> np.ndarray:
-    """Calculates memory-weighted effective cycle length (RR_eff) via Linear Weighting (LW).
-
-    Applies normalized linear weights:
-        w_k(M) = 2 * (M - k) / (M * (M + 1)),  for k = 0, ..., M - 1.
-
-    Args:
-        rr_intervals_sec: 1D array of RR intervals in seconds.
-        memory_beats: Number of historical beats M included in linear kernel (default: 60).
-
-    Returns:
-        1D array of linearly weighted effective RR intervals (seconds).
-    """
-    rr = np.asarray(rr_intervals_sec, dtype=np.float64)
+    """Calculates memory-weighted effective cycle length (RR_eff) via Linear Weighting (LW)."""
+    rr = np.asarray(rr_intervals_sec, dtype=np.float64).copy()
     n = len(rr)
     if n == 0:
         return np.zeros(0, dtype=np.float64)
+
+    pos_rr = rr[rr > 0.2]
+    if len(pos_rr) > 0:
+        rr[rr <= 0.2] = float(pos_rr[0])
 
     m_win = max(2, int(memory_beats))
     rr_eff = np.empty(n, dtype=np.float64)
@@ -86,7 +70,6 @@ def compute_effective_rr_linear(
         eff_m = min(i + 1, m_win)
         k_idx = np.arange(eff_m, dtype=np.float64)
         weights = 2.0 * (eff_m - k_idx) / float(eff_m * (eff_m + 1))
-        # Reverse slice of most recent eff_m beats: [RR_i, RR_{i-1}, ..., RR_{i-eff_m+1}]
         recent_rr = rr[i - eff_m + 1 : i + 1][::-1]
         rr_eff[i] = float(np.dot(weights, recent_rr))
 
@@ -99,28 +82,7 @@ def optimize_hysteresis_parameter(
     model_type: str = "linear",
     lambda_grid: np.ndarray | None = None,
 ) -> dict[str, Any]:
-    """Optimizes patient-specific memory decay constant (lambda*) minimizing restitution residuals.
-
-    Args:
-        qt_intervals_sec: 1D array of QT intervals in seconds (or ms; auto-scaled).
-        rr_intervals_sec: 1D array of RR intervals in seconds (or ms; auto-scaled).
-        model_type: Restitution regression model ('linear', 'hyperbolic', 'parabolic_log', etc.).
-        lambda_grid: Optional 1D search grid of candidate lambda values.
-
-    Returns:
-        Dictionary containing:
-            - 'optimal_lambda': Optimal exponential decay constant lambda* (1/beat).
-            - 't90_beats': 90% adaptation lag in cardiac cycles (-ln(0.1) / lambda*).
-            - 't90_sec': 90% adaptation latency in seconds.
-            - 'half_life_sec': 50% adaptation half-life t_{1/2} in seconds.
-            - 'rr_eff_ew_sec': Exponentially weighted effective RR series (seconds).
-            - 'rr_eff_lw_sec': Linearly weighted effective RR series (seconds).
-            - 'qtc_hysteresis_ms': Hysteresis-corrected Fridericia QTc series in ms.
-            - 'raw_residual_rmse_ms': Uncorrected instantaneous QT-RR restitution RMSE (ms).
-            - 'hysteresis_residual_rmse_ms': Memory-compensated QT-RR_eff restitution RMSE (ms).
-            - 'loop_reduction_percent': Percentage reduction in restitution loop residual error.
-            - 'restitution_fit': Fitted restitution parameters on (RR_eff, QT).
-    """
+    """Optimizes patient-specific memory decay constant (lambda*) minimizing restitution residuals."""
     qt = np.asarray(qt_intervals_sec, dtype=np.float64)
     rr = np.asarray(rr_intervals_sec, dtype=np.float64)
 
@@ -131,14 +93,17 @@ def optimize_hysteresis_parameter(
     if min_len < 5:
         raise ValueError("At least 5 paired QT-RR observations are required for hysteresis modeling.")
 
-    # Convert to seconds if passed in milliseconds
     qt_sec = qt / 1000.0 if float(np.median(qt)) > 10.0 else qt.copy()
     rr_sec = rr / 1000.0 if float(np.median(rr)) > 10.0 else rr.copy()
+
+    # Replace any non-positive initial RR (e.g. beat 0 rr_sec=0.0) with first valid physiological RR
+    pos_rr = rr_sec[rr_sec > 0.2]
+    if len(pos_rr) > 0:
+        rr_sec[rr_sec <= 0.2] = float(pos_rr[0])
 
     if lambda_grid is None:
         lambda_grid = np.geomspace(0.005, 1.5, 45)
 
-    # Evaluate raw instantaneous residual error
     raw_fit = fit_qtrr_model(rr_sec, qt_sec, model=model_type)
     raw_pred = raw_fit["predict_fn"](rr_sec)
     raw_rmse_ms = float(np.sqrt(np.mean(((qt_sec - raw_pred) * 1000.0) ** 2)))
@@ -169,11 +134,9 @@ def optimize_hysteresis_parameter(
     t90_sec = float(t90_beats * mean_rr_sec)
     half_life_sec = float((np.log(2.0) / best_lambda) * mean_rr_sec)
 
-    # Compute corresponding linear weighting memory window matching t90_beats
     lw_window = max(3, int(round(t90_beats)))
     rr_eff_lw = compute_effective_rr_linear(rr_sec, memory_beats=lw_window)
 
-    # Hysteresis-compensated Fridericia QTc in milliseconds: QT / (RR_eff)^(1/3)
     safe_rr_eff = np.maximum(best_rr_eff, 0.2)
     qtc_hyst_ms = (qt_sec * 1000.0) / (safe_rr_eff ** (1.0 / 3.0))
 
@@ -190,6 +153,7 @@ def optimize_hysteresis_parameter(
         "half_life_sec": half_life_sec,
         "rr_eff_ew_sec": best_rr_eff,
         "rr_eff_lw_sec": rr_eff_lw,
+        "effective_rr_sec": best_rr_eff,
         "qtc_hysteresis_ms": qtc_hyst_ms,
         "raw_residual_rmse_ms": raw_rmse_ms,
         "hysteresis_residual_rmse_ms": hyst_rmse_ms,

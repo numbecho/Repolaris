@@ -1,7 +1,6 @@
 # Packaging, Distribution & CI/CD Guide
 
-This guide covers the two-tier packaging strategy for **Repolaris**:
-1. **[Briefcase (BeeWare)](https://briefcase.readthedocs.io/) for Distribution Releases**: Wraps the application into native platform installers (Windows `.msi`, macOS `.dmg`, Linux `.AppImage` / `.deb`) with system integration, desktop shortcuts, and clean uninstallation.
+This guide covers the native desktop packaging and continuous integration strategy for **Repolaris** using **[Briefcase (BeeWare)](https://briefcase.readthedocs.io/)**, which wraps the application into native platform installers (Windows `.msi`, macOS `.dmg`, Linux `.AppImage` / `.deb`) with system integration, desktop shortcuts, and clean uninstallation.
 
 ---
 
@@ -9,12 +8,11 @@ This guide covers the two-tier packaging strategy for **Repolaris**:
 
 | Feature | BeeWare Briefcase Distribution |
 | :--- | :--- |
-| :--- | :--- |
-| **Primary Goal** | Polished end-user installer for hospital clinics |
-| **Output Type** | Native platform installer (`.msi`, `.dmg`, `.AppImage`) |
-| **IP Protection** | Standard (packaged Python wheels) |
+| **Primary Goal** | Polished end-user installer for hospital clinics and research workstations |
+| **Output Type** | Native platform installer (`.msi`, `.dmg`, `.AppImage`, `.deb`) |
+| **Packaging Standard** | PEP 621 & PEP 639 (`pyproject.toml` `[tool.briefcase]`) |
 | **OS Registration** | Full (Start Menu, Programs & Features, desktop icon) |
-| **Build Driver** | `pyproject.toml` (`[tool.briefcase]`) |
+| **CI Automation** | GitHub Actions matrix (`.github/workflows/build-artifacts.yml`) |
 
 ---
 
@@ -22,7 +20,7 @@ This guide covers the two-tier packaging strategy for **Repolaris**:
 
 ### Windows Build Environment
 
-1. **Python $\ge 3.12$ (64-bit)**: Ensure Python is installed from [python.org](https://www.python.org/) with "Add to PATH" checked.
+1. **Python $\ge 3.14$ (64-bit)**: Ensure Python is installed from [python.org](https://www.python.org/) with "Add to PATH" checked.
 2. **Microsoft Visual C++ Build Tools**:
    - Download the [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/).
    - In the installer, select **Desktop development with C++** (includes MSVC compiler and Windows SDK).
@@ -44,10 +42,13 @@ sudo apt-get install -y \
     g++ \
     patchelf \
     ccache \
-    libgl1-mesa-dev \
-    libgl1-mesa-glx \
+    libgl1 \
+    libegl1 \
     libxkbcommon-x11-0 \
-    appstream
+    libgtk-3-dev \
+    appstream \
+    dpkg-dev \
+    debhelper
 ```
 
 ### macOS Build Environment
@@ -61,8 +62,6 @@ xcode-select --install
 ---
 
 ## 3. Local Build Instructions
-
-### B. Building a Native Installer with Briefcase
 
 Install Briefcase:
 
@@ -84,9 +83,9 @@ briefcase package
 ```
 
 The resulting installers are located in `dist/`:
-- **Windows**: `dist/Repolaris-0.8.0.msi`
-- **macOS**: `dist/Repolaris-0.8.0.dmg`
-- **Linux**: `dist/Repolaris-0.8.0.AppImage` (or `.deb`)
+- **Windows**: `dist/Repolaris-0.8.1.msi`
+- **macOS**: `dist/Repolaris-0.8.1.dmg`
+- **Linux**: `dist/Repolaris-0.8.1.AppImage` (or `.deb`)
 
 ---
 
@@ -95,16 +94,17 @@ The resulting installers are located in `dist/`:
 Repolaris includes an automated multi-platform GitHub Actions workflow located at `.github/workflows/build-artifacts.yml`.
 
 ### Workflow Triggers
-* **Push to `main`**: Runs full signal engine tests and packages trial builds.
+* **Push to `main` & Pull Requests**: Runs the full 90-test signal engine, streaming, PDF report, and i18n verification suite and builds cross-platform packages.
 * **Release Tags (`v*`)**: Compiles official release installers and attaches them to build artifacts.
-* **Manual Dispatch**: Can be triggered manually on-demand from the GitHub Actions tab.
+* **Manual Dispatch**: Can be triggered on-demand from the GitHub Actions tab.
 
 ### Matrix Pipeline Stages
-1. **`test` Job**: Runs the 90-case unit test suite on Python 3.12+ across all I/O readers, restitution algorithms, Berger QTVI, and i18n translation parity.
+1. **`test` Job**: Runs the standard `pip` + `python -m unittest discover tests` verification suite across all 97 unit tests.
+2. **`uv-ruff-test` Job**: Uses `astral-sh/setup-uv@v5` with Python 3.14 to run `uv sync --all-extras --dev`, `uv run ruff check src tests`, `uv run ruff format --check src tests`, and `uv run pytest -v`. across all I/O readers, streaming buffers, restitution algorithms, Berger QTVI, PDF report generation, and i18n translation parity.
 3. **`briefcase-release` Job**: Parallel matrix generating Windows MSI, macOS DMG, and Linux AppImage/DEB installers. Uploads `repolaris-distribution-<OS>` artifacts (30-day retention).
 
 ---
 
 ## 5. Troubleshooting & Best Practices
 
-* **Qt Display Failures on Headless Linux**: In CI/CD or docker testing environments without an X11 server, set `QT_QPA_PLATFORM=offscreen` to prevent Qt initialization errors.
+* **Qt Display Failures on Headless Linux**: In CI/CD or Docker testing environments without an X11 server, set `QT_QPA_PLATFORM=offscreen` (configured by default in `.github/workflows/build-artifacts.yml`) to prevent Qt initialization errors.

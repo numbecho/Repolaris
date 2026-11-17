@@ -14,7 +14,7 @@ Methodology:
 from __future__ import annotations
 
 from dataclasses import dataclass, asdict
-from typing import List, Dict, Any, Tuple, Optional
+from typing import Any
 import numpy as np
 
 
@@ -34,7 +34,7 @@ class AFEpisode:
     rhythm_irregularity: float
     confidence: float
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -47,10 +47,10 @@ class AFBurdenReport:
     num_episodes: int
     longest_episode_sec: float
     mean_episode_duration_sec: float
-    episodes: List[AFEpisode]
+    episodes: list[AFEpisode]
     entropy_score: float
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
         d["episodes"] = [ep.to_dict() for ep in self.episodes]
         return d
@@ -150,7 +150,7 @@ def detect_atrial_fibrillation(
             is_af_beat[min(i + 1, n_peaks - 1)] = True
 
     # Segment contiguous AF runs
-    episodes: List[AFEpisode] = []
+    episodes: list[AFEpisode] = []
     in_episode = False
     ep_start = 0
 

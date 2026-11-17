@@ -1,6 +1,6 @@
 # Workstation GUI Guide
 
-The Repolaris workstation GUI (`repolaris-gui`) provides a 60fps hardware-accelerated environment for interactive Holter analysis, caliper calibration, spatial repolarization inspection, and autonomic triage.
+The Repolaris workstation GUI (`repolaris-gui`) provides a 60fps hardware-accelerated environment for interactive Holter analysis, caliper calibration, QT-RR restitution modeling, hourly Holter triage, and printable clinical PDF reporting.
 
 ---
 
@@ -9,35 +9,31 @@ The Repolaris workstation GUI (`repolaris-gui`) provides a 60fps hardware-accele
 ```bash
 repolaris-gui
 ```
-*(Legacy alias: `pyecg-gui`)*
 
 ---
 
 ## 2. Interface Layout
 
 ```
-+----------------------------------------------------------------------------------+
-| Repolaris - Interactive QT Caliper & Autonomic Workstation (PyQtGraph)           |
-+----------------------------------------------------------------------------------+
-| [ECG Waveform — Lead II] [Canvas: Dark v] [Grid: Lines v] [📐 25 mm/s | 10 mm/mV] |
-| [Main Waveform Canvas - 60fps PyQtGraph]              | [Sidebar Controls]       |
-|                                                       | ------------------------ |
-|   /\          /\          /\          /\              | [Open File] [Demo] [⚙️ Settings] |
-|  /  \  _/\   /  \  _/\   /  \  _/\   /  \  _/\        | Active Lead: [Lead II v] |
-| /    \/   \_/    \/   \_/    \/   \_/    \/   \_      | ------------------------ |
-|   |         |                                         | Live Caliper Readout:    |
-|   |<-Region>|                                         |  QT: 412.0 ms            |
-| (Gold)    (Purple)                                    |  Bazett QTc: 438.2 ms    |
-| Q-Onset   T-End                                       |  Fridericia: 429.1 ms    |
-|                                                       | ------------------------ |
-|                                                       | Navigation Tabs:         |
-|                                                       | [Overview] [Events]      |
-|                                                       | [Beats] [Study Info]     |
-|                                                       | [Dispersion*] [HRV]      |
-|                                                       | [HRT] [TWA] [Hyst]       |
-+----------------------------------------------------------------------------------+
++--------------------------------------------------------------------------------------------------+
+| Repolaris - Interactive QT Caliper & Autonomic Workstation (PyQtGraph)                           |
++--------------------------------------------------------------------------------------------------+
+| [📂 Open] [⚡ Demo] [📤 Export (.pecg)] [📄 PDF Report] [Channel: Lead II v] [⚙️ Settings]       |
++--------------------------------------------------------------------------------------------------+
+| [ECG Waveform — Lead II] [Canvas: Dark v] [⊞ Lines] [⁚ Dots] [⊘ Off] [📏 Calipers] [📐 25 mm/s]   |
+| [Main Waveform Canvas - 60fps PyQtGraph]                  | [Clinical Inspector Tabs (6 Tabs)]   |
+|                                                           | ------------------------------------ |
+|   /\          /\          /\          /\                  | 1. 📊 Clinical Overview              |
+|  /  \  _/\   /  \  _/\   /  \  _/\   /  \  _/\            | 2. 🚨 Events Diary                   |
+| /    \/   \_/    \/   \_/    \/   \_/    \/   \_          | 3. 📋 All Heartbeats                 |
+|   |         |                                             | 4. 📈 QT-RR Dynamics                 |
+|   |<-Region>|                                             | 5. 🕒 Holter Triage                  |
+| (Gold)    (Purple)                                        | 6. 📋 Study & Patient                |
+| Q-Onset   T-End                                           |                                      |
+| --------------------------------------------------------- |                                      |
+| [Live Caliper Readout HUD: QT | RR | Bazett | Fridericia] |                                      |
++--------------------------------------------------------------------------------------------------+
 ```
-*\*The Spatial Dispersion tab is conditionally enabled when $\ge 3$ synchronous leads are detected.*
 
 ---
 
@@ -45,26 +41,27 @@ repolaris-gui
 
 ### 3.0 Application Menu Bar (`QMenuBar`)
 The workstation incorporates a native desktop menu bar organized into three dedicated menus:
-* **File (`File(open study | export study | close study || exit)`):**
-  * **Open Study (`Ctrl+O`):** Launches file dialog to load clinical ECG records (`.pecg`, `.ecg`, `.edf`, `.hea`, `.csv`).
+* **File:**
+  * **Open Study (`Ctrl+O`):** Launches file dialog to load clinical ECG records (`.dcm`, `.xml`, `.scp`, `.pecg`, `.ecg`, `.e3c`, `.edf`, `.hea`, `.csv`, `.npy`).
   * **Export Study (`Ctrl+E`):** Packages waveforms, calibrated calipers, and triage events into a compressed `.pecg` container for colleague exchange.
+  * **Export Clinical PDF Report (`Ctrl+P`):** Generates a 2-page printable clinical PDF report (`generate_clinical_pdf_report`) with demographics, KPI summary, 10-second calibrated rhythm strip, Events Diary, hourly Holter table, Poincaré plot, and QT-RR restitution curve.
   * **Close Study (`Ctrl+W`):** Closes the currently loaded study, clears waveform curves and tables, and resets the workspace to an empty state.
   * **Exit (`Ctrl+Q`):** Safely terminates the application.
-* **Preferences (`Preferences(Languages | Interface theme | Canvas theme | calipers toggle)`):**
+* **Preferences:**
   * **Languages (Dropdown Submenu):** Provides direct live switching across English (`en`), Español (`es`), Français (`fr`), Deutsch (`de`), and Português (`pt`).
   * **Interface Theme (Dropdown Submenu):** Switches the application window styling between **Clinical Dark**, **Clinical Light**, and **Color Blind Safe**.
   * **Canvas Theme (Dropdown Submenu):** Selects independent plot palettes (**Dark**, **Clinical Paper**, **Classic ECG Pink Paper**, **Color Blind Safe**, or **Emerald Phosphor**).
-  * **Calipers (Toggle Action, `Ctrl+K`):** Checkable toggle action that shows or hides draggable caliper lines and the bottom caliper HUD strip, synchronized with the canvas toolbar button.
-* **Help (`Help(shortcut link to wiki | License | about)`):**
-  * **Documentation & Wiki (`F1`):** Direct shortcut link opening the official Repolaris documentation wiki and clinical user guide.
+  * **Calipers (`Ctrl+K`):** Checkable toggle action that shows or hides draggable caliper lines and the bottom caliper HUD strip.
+* **Help:**
+  * **Documentation & Wiki (`F1`):** Opens the Repolaris documentation wiki and clinical user guide.
   * **License:** Displays the open-source Apache-2.0 software license terms and conditions.
-  * **About Repolaris:** Displays the About dialog featuring brand identity, electrophysiology credits (AHA/ACC/HRS, FDA E14, AAMI EC57), and release version (v0.8.0).
+  * **About Repolaris:** Displays the About dialog featuring brand identity, electrophysiology credits (AHA/ACC/HRS, FDA E14, AAMI EC57), and release version (v0.8.1).
 
 ### 3.1 Dynamic Multi-Lead Dropdown & Lead Switching
-* Located in the **Study Controls** panel directly under the Open/Reload buttons.
-* When opening multi-channel recordings (e.g., 12-lead ISHNE `.ecg`, 3-channel Holters, multi-lead `.pecg`, or EDF+), the dropdown automatically discovers and enumerates all available channels (e.g., `Lead I`, `Lead II`, `V1`–`V6`).
-* Automatically selects **Lead II** (or **V5**) by default in accordance with AHA/ACC/HRS and FDA E14 clinical guidelines for optimal T-wave prominence and steepest repolarization downslope.
-* Selecting any channel instantly switches the active signal, re-executes the morphological delineation pipeline, and dynamically recalculates R-peak fiducials, caliper positions, QTc metrics, and the Events Diary for that specific lead.
+* Located in the top toolbar next to the file action buttons.
+* When opening multi-channel recordings (e.g., 12-lead DICOM/SCP/HL7, 3-channel ISHNE Holters, multi-lead `.pecg`, or EDF+), the dropdown automatically enumerates all available channels (e.g., `Lead I`, `Lead II`, `V1`–`V6`).
+* Automatically selects **Lead II** (or **V5**) by default in accordance with AHA/ACC/HRS and FDA E14 clinical guidelines for optimal T-wave prominence.
+* Selecting any channel switches the active signal, re-executes the delineation pipeline, and recalculates R-peak fiducials, caliper positions, QTc metrics, and the Events Diary for that lead.
 
 ### 3.2 Draggable Digital Calipers
 * **Gold Caliper Line (Q-Onset):** Click and drag along the time axis to adjust the start of ventricular depolarization.
@@ -72,102 +69,68 @@ The workstation incorporates a native desktop menu bar organized into three dedi
 * **Semi-Transparent Shaded Region:** Highlights the active measurement interval.
 * **Live HUD Readout:** As calipers move, raw QT duration and rate-corrected $QT_c$ (Bazett and Fridericia) recalculate dynamically at 60 updates per second.
 
-### 3.3 Clinical Events Diary
-* Located in the right sidebar under the **`🚨 Events Diary`** tab.
-* Lists all classified critical episodes (Severe QTc, Sinus Pauses, Ectopic Beats, Tachycardia/Bradycardia, MTWA runs).
-* **Click-to-Seek:** Clicking any entry immediately pans the main viewport and positions the calipers directly on that beat.
+### 3.3 Exporting Anonymized Studies (`.pecg`) & Clinical PDF Reports (`.pdf`)
+* **`.pecg` Study Bundle (`📤 Export Case (.pecg)`):** Prompts for de-identified patient demographics (Age, Sex, Race, Pacemaker status, Indication) and packages all recorded leads, caliper overrides, and annotations into a single compressed `.pecg` file.
+* **Printable PDF Report (`📄 PDF Report` / `Ctrl+P`):** Exports a 2-page vector PDF report ready for hospital chart archival or physician sign-off.
 
-### 3.4 Manual Beat Reclassification Dialog
-* Double-clicking any beat marker/row in the beat table opens the **Physician Reclassification Dialog**.
-* Select a new AAMI EC57 class (`N`, `V`, `S`, `F`, `Q`) and enter clinical notes.
-* Overrides are logged with timestamps in the `AnnotationManager` audit history.
+### 3.4 Workstation Settings & Algorithm Selectors (`⚙️ Settings`)
+Click **`⚙️ Settings`** in the top navigation bar to configure both visual styling and electrophysiological algorithms:
+* **Interface Language Selector:** Live switching between English (`en`), Español (`es`), Français (`fr`), Deutsch (`de`), and Português (`pt`).
+* **Interface & Canvas Themes:** Choose between **Clinical Dark**, **Clinical Light**, and **High Contrast / Color Blind Safe** window themes, plus 5 independent waveform canvas palettes.
+* **Electrophysiology Algorithm Selectors:**
+  * **QT-RR Restitution Model:** Select any of the **10 Pueyo (2004) biparametric models** (`linear`, `hyperbolic`, `parabolic_log`, `logarithmic`, `shifted_log`, `exponential`, `arctan`, `tanh`, `arcsinh`, `arccosh`) or `Auto-Select Best Model (Min AIC)`.
+  * **Hysteresis Memory Kernel:** Toggle multi-beat hysteresis compensation between **Exponential Weighting (`EW`)**, **Linear Weighting (`LW`)**, or **Uncompensated (`Raw RR`)**.
+  * **T-End Delineation Mode:** Switch between **Hybrid Steepest Descent (`hybrid`)**, **ICH E14 Tangent (`tangent`)**, **Zhang 2006 Sliding-Window Area (`zhang_area`)**, and **Amplitude Threshold (`threshold`)**.
 
-### 3.5 Exporting Anonymized Studies (`.pecg`)
-* Click **`📤 Export Anonymized Study (.pecg)`** in the control panel.
-* Enter patient demographics (Age, Sex, Race) and consultation notes.
-* The system packages the raw waveforms (preserving all original recorded leads), physician caliper adjustments, and triage events into a single compressed `.pecg` container for colleague exchange.
-
-### 3.6 Study & Patient Metadata Inspector
-* Positioned as the **final tab** in the clinical inspector sidebar (`📋 Study & Patient`).
-* Structured into two dedicated clinical parameter cards:
-  * **Core Patient Demographics & Timing**: Displays universal anchor fields present across all clinical recordings: Patient ID / Subject Code, Biological Sex / Gender (essential for sex-specific QTc baselines), Age / Date of Birth, and Acquisition Date & Start Time.
-  * **Clinical Context & Study Specifications**: Gracefully populates format-specific fields: Pacemaker Implant Status (`NO`, `YES`, `VVI`, `DDD`, `AAI`, `CRT`), Clinical Indication / Referral Reason, Race / Ethnicity, Patient Full Name (or automated HIPAA/GDPR De-identification notice for `.pecg` files), Source File Format & Container Version, Recording Hardware / Device Model, Lead Count & Sampling Frequency ($f_s$), Total Duration, and Embedded Consultation / Review Notes.
-
-### 3.7 Workstation Settings & Color Scheme (Theme Dialog)
-* Click **`⚙️ Settings`** in the top navigation bar to open the preferences modal dialog.
-* **Interface Language Selector:** Allows instant live switching between English (`en`), Español (`es`), Français (`fr`), Deutsch (`de`), and Português (`pt`).
-* **Visual Theme / Color Scheme Options:**
-  * **Clinical Dark (Default):** Low-glare deep navy/slate palette (`#0f111a` background, `#1a1e2e` cards, cyan waveform `#38bdf8`) engineered for continuous multi-hour diagnostic reading and reduced optical fatigue.
-  * **Clinical Light (Paper):** High-illumination clean medical paper palette (`#f1f5f9` / `#ffffff`) with deep ocean blue waveforms (`#0284c7`) and crimson R-peaks, optimized for well-lit hospital environments.
-  * **High Contrast / Color Blind Safe:** Universally accessible scheme based on the Okabe-Ito / Paul Tol color palette (`#121212` background, sky blue waveform `#56b4e9`, high-visibility yellow R-peaks `#f0e442`, and distinct line styles: dashed orange Q-caliper vs. dash-dot blue T-caliper). Conforms to WCAG AAA contrast ratios and completely avoids red-green and blue-yellow perceptual confusion.
-* All visual theme and language changes take effect immediately across all windows, tables, plots, calipers, and dialogs without reloading recordings.
-
-### 3.8 Waveform Canvas Controls, Clinical Grid, Calipers & Zoom
-* **Independent Canvas Color Scheme Dropdown:** Located directly on the canvas header toolbar (and in the Settings dialog), providing independent selection of the waveform display palette:
-  * **Dark (Obsidian & Cyan):** Vibrant medical cyan lead plot (`#38bdf8`) on deep obsidian canvas (`#13151f`), with bright gold Q-caliper and neon fuchsia T-caliper.
-  * **Clinical Paper (White & Midnight):** Deep ocean blue lead plot (`#0369a1`) on pure medical white canvas (`#ffffff`), with deep amber Q-caliper and vivid purple T-caliper.
-  * **Classic ECG Paper (Pink Grid & Black):** Standard thermal paper pink background (`#fff1f2`) with red millimeter grid (`#fda4af`), jet black lead plot (`#0f172a`), electric royal blue Q-caliper, and flame orange T-caliper.
-  * **High Contrast / Color Blind Safe:** Pure pitch black canvas (`#000000`), Okabe-Ito sky blue lead plot (`#56b4e9`), yellow diamond R-peaks (`#f0e442`), and contrasting dashed orange Q-caliper vs. dash-dot white/blue T-caliper (WCAG AAA compliant).
-  * **Emerald Phosphor (Night Green):** Deep night emerald canvas (`#021a0f`) with neon green lead plot (`#22c55e`) and bright orange/coral calipers.
-* **Segmented Grid Toggle Buttons (`⊞ Lines`, `⁚ Dots`, `⊘ Off`):**
-  * **Lines (`⊞ Lines`):** Displays solid grid lines highlighting international clinical ECG calibration standards ($25\text{ mm/s}$ sweep speed, $10\text{ mm/mV}$ voltage gain).
-  * **Dots (`⁚ Dots`):** Renders a matrix of dotted grid intersection coordinates for low-density orientation.
-  * **Off (`⊘ Off`):** Completely clears grid lines for an unobstructed raw waveform view.
-* **Conditional Clinical Scale Indicator Badge:**
-  * **Grid-Linked Visibility:** The scale indicator badge (pinned to the top right corner of the plot and displayed in the header toolbar) is **only visible when a grid is enabled** (`Lines` or `Dots`). If the grid is toggled to `Off`, the scale label and value are automatically hidden.
-  * **Dynamic Scaling Value:** Reflects the active clinical paper sweep speed and voltage gain (e.g. `📐 Scale: 25 mm/s | 10 mm/mV`, `📐 Scale: 50 mm/s | 20 mm/mV`).
-* **Draggable Vertical Measurement Lines (Calipers & Cursors):**
-  * **`📏 Calipers` Toggle Button:** Instantly toggles the visibility of the draggable vertical caliper lines and the bottom caliper measurement HUD strip.
-  * **`⟲ Center` Button:** Re-centers the draggable vertical measurement lines within the currently visible viewport window (positioning Q-onset and T-end 10% on either side of center).
-  * **`➕ Line` Button:** Dynamically drops an additional interactive draggable vertical cursor (`angle=90`, `movable=True`) with real-time timestamp tooltips to facilitate arbitrary interval measurements (PR interval, QRS duration, or RR cycle).
+### 3.5 Waveform Canvas Controls, Clinical Grid, Calipers & Zoom
+* **Segmented Grid Toggle Buttons (`⊞ Lines`, `⁚ Dots`, `⊘ Off`):** Switch between solid millimeter calibration lines, dotted intersections, or an unobstructed canvas.
+* **Conditional Clinical Scale Indicator Badge:** Displays the active clinical sweep speed and voltage gain (e.g., `📐 Scale: 25 mm/s | 10 mm/mV`) whenever the grid is enabled (`Lines` or `Dots`).
+* **Caliper, Cursor & Beat Stepping Controls (`📏 Calipers`, `⟲ Center`, `➕ Line`, `◀`, `▶`):** Toggle caliper visibility, re-center calipers in the current viewport, drop extra vertical measurement cursors, or step beat-by-beat with **`◀` / `▶`** (`Left` / `Right` arrow keys).
+* **Single-Key AAMI Reclassification Hotkeys (`N`, `V`, `S`, `F`, `Q`):** Pressing `N` (Normal), `V` (PVC), `S` (PAC), `F` (Fusion), or `Q` (Artifact) immediately reclassifies the active beat, updates on-canvas ectopic markers, recalculates PVC/PAC burden, rhythm sequences, HRV, and HRT, and logs an immutable audit entry in `AnnotationManager`.
+* **Color-Coded Ectopic R-Peak Markers & On-Canvas Tags:** Normal beats (`N`, `#34d399`), PVCs (`V`, `#f87171`), PACs (`S`, `#fbbf24`), and Fusion beats (`F`, `#c084fc`) are color-coded directly on the waveform trace, with text tags (`V`, `S`, `F`, `Q`) rendered above non-normal R-peaks.
 * **Clinical ECG Step-Wise Zoom Engine:**
-  * **Standardized Paper Sweep Speeds (X-Axis):** Selectable between $12.5\text{ mm/s}$ (half-speed overview / $20\text{ s}$ standard span), $25.0\text{ mm/s}$ (clinical diagnostic standard / $10\text{ s}$ span), $50.0\text{ mm/s}$ (high-resolution repolarization inspection / $5\text{ s}$ span), and $100.0\text{ mm/s}$ (maximum temporal detail / $2.5\text{ s}$ span).
-  * **Standardized Voltage Gains (Y-Axis):** Selectable between $2.5\text{ mm/mV}$ ($0.25\times$), $5.0\text{ mm/mV}$ ($0.5\times$ / half standard), $10.0\text{ mm/mV}$ ($1.0\times$ / clinical standard), and $20.0\text{ mm/mV}$ ($2.0\times$ / double standard).
-  * **Quick Navigation Buttons:**
-    * **`−` (Zoom Out):** Steps down to the preceding clinical speed or gain.
-    * **`+` (Zoom In):** Steps up to the next clinical speed or gain.
-    * **`1:1` (Reset):** Snaps directly to standard baseline clinical calibration ($25\text{ mm/s}$ and $10\text{ mm/mV}$).
-    * **`⤢` (Fit):** Autoscales the view to fit the entire recording duration.
-* **Clinical Axis Nomenclature & Timestamp Formatting:**
-  * **Y-Axis:** Explicitly labeled **`Voltage (mV)`**.
-  * **X-Axis:** Explicitly labeled **`Time (hh:mm:ss:xxx)`**, with tick labels formatted down to millisecond precision (`00:00:00:040`, `00:01:15:250`) via the custom `TimeAxisItem`.
+  * **Sweep Speeds (X-Axis):** $12.5$, $25.0$ (standard), $50.0$, and $100.0\text{ mm/s}$.
+  * **Voltage Gains (Y-Axis):** $2.5$, $5.0$, $10.0$ (standard), and $20.0\text{ mm/mV}$.
+  * **Quick Navigation Buttons:** `−` (Zoom Out), `+` (Zoom In), `1:1` (Reset to $25\text{ mm/s}$ & $10\text{ mm/mV}$), and `⤢` (Fit full recording).
+* **Millisecond Time Axis (`TimeAxisItem`):** Formats X-axis timestamps as `hh:mm:ss:xxx`.
 
 ---
 
-## 4. Conditional Multi-Lead Gating & UI Adaptation
+## 4. The Six Clinical Inspector Tabs
 
-Repolaris incorporates an automated channel-sensing state machine based on `len(multi_lead_signals)` to adapt the UI dynamically between wearable patches and 12-lead Holters:
+The right-hand dock (`self.tabs`) organizes all diagnostic metrics, interactive plots, and tables into six dedicated tabs:
 
-| Clinical Mode | Channel Quorum | QT Dispersion ($QT_d$) Behavior | Single-Lead Autonomic Suite Behavior |
+### 4.1 `📊 Clinical Overview`
+* Displays executive KPI cards for **Mean Heart Rate**, **Ventricular Repolarization ($QT_c$ Bazett / Fridericia / Framingham / Hodges)**, **Ectopic Beat Burden (PVC / PAC counts & AAMI classes)**, and **Lead Signal Quality (SQI Status, SNR, $p\text{SQI}$, $bas\text{SQI}$)**.
+* Summarizes advanced autonomic and repolarization indices including **Berger QTVI**, **QT-RR Slope & Individualized $QT_{c,\text{ind}}$**, **Hysteresis $\lambda^*$ & Adaptation Latency ($t_{90}$)**, **HRV ($SDNN$, $RMSSD$, $LF/HF$, $SD1/SD2$)**, **Heart Rate Turbulence ($TO$, $TS$, ISHNE Category)**, **Microvolt T-Wave Alternans (Spectral & MMA)**, and **Multi-Lead QT Dispersion ($QT_d$, $T_{pe,d}$)**.
+
+### 4.2 `🚨 Events Diary`
+* Lists all automatically flagged clinical episodes: Severe QTc Prolongation ($\ge 500\text{ ms}$), Borderline QTc ($\ge 480\text{ ms}$), Short QTc ($\le 340\text{ ms}$), Sinus Pauses ($\ge 2.0\text{ s}$), Bradycardia/Tachycardia extremes, and Ectopic runs.
+* **Click-to-Seek:** Clicking any row pans the waveform canvas directly to that event and aligns the Q-onset and T-end calipers on the offending beat.
+
+### 4.3 `📋 All Heartbeats`
+* Displays a beat-by-beat table of every detected cardiac cycle with Timestamp, AAMI EC57 Class (`N`, `V`, `S`, `F`, `Q`), Rhythm Pattern (`NSR`, `Bigeminy`, `Trigeminy`, `Couplet`, `VT`), RR interval, instantaneous BPM, raw QT, and rate-corrected $QT_c$.
+* **Physician Reclassification Dialog:** Double-clicking any beat opens the manual override modal to reclassify the beat and record an immutable ISO 8601 audit entry in `AnnotationManager`.
+
+### 4.4 `📈 QT-RR Dynamics`
+* **Interactive PyQtGraph Restitution Cloud (`qtrr_plot_widget`):** Plots raw $(RR, QT)$ pairs alongside hysteresis-compensated $(RR_\text{eff}, QT)$ points, overlays the continuous fitted Pueyo (2004) regression curve, and marks the patient-specific individualized $QT_{c,\text{ind}}$ at $RR = 1.0\text{ s}$.
+* **Clickable 10-Model Leaderboard (`qtrr_models_table`):** Ranks all 10 Pueyo (2004) biparametric models by AIC, $R^2$, Pearson $r$, RMSE (ms), slope $\beta$, and $QT_{c,\text{ind}}$. Clicking any row immediately switches the active regression curve on the plot.
+
+### 4.5 `🕒 Holter Triage`
+* **Executive Holter & AF Banner (`lbl_holter_summary_banner`):** Displays total AF burden percentage, episode count, longest AF episode duration, total PVCs/PACs, and sinus pauses.
+* **Hourly Holter Distribution Table (`holter_trends_table`):** Breaks multi-hour recordings into 1-hour epochs showing `Hour`, `Beats`, `Mean HR`, `Min/Max HR`, `PVCs`, `PACs`, `Couplets/VT`, `Pauses`, and `AF %`. Clicking any hour row seeks the main waveform canvas to the start of that hour.
+* **Sustained AF / Flutter Episodes Table (`holter_af_table`):** Lists every detected AF episode ($\ge 30\text{ s}$) with onset time, duration, mean/max HR, Shannon entropy, and MAD irregularity score. Clicking any episode seeks the main canvas directly to the episode onset.
+
+### 4.6 `📋 Study & Patient`
+* Displays **Core Patient Demographics & Timing** (Patient ID, Biological Sex, Age, Acquisition Date) and **Clinical Context & Study Specifications** (Pacemaker Status, Clinical Indication, Race/Ethnicity, De-identification Status, Source Format, Sampling Frequency $f_s$, Lead Count, Total Duration, and Review Notes).
+
+---
+
+## 5. Conditional Multi-Lead Gating
+
+Repolaris automatically adapts its diagnostic calculations based on the number of synchronous leads loaded:
+
+| Clinical Mode | Channel Quorum | QT Dispersion ($QT_d$) Behavior | Single-Lead Autonomic & Holter Suite |
 | :--- | :--- | :--- | :--- |
-| **Wearable Patch / Single-Lead** | $< 3$ Leads | **Disabled / Badged:** Spatial Dispersion tab is grayed out or hidden. Overview KPI card displays `N/A — Single Lead`. | **Fully Active:** HRV, HRT, TWA, and QT-RR Hysteresis remain fully operational on the active lead. |
-| **Holter / 12-Lead Diagnostic** | $\ge 3$ Leads | **Fully Unlocked:** Enables the Spatial Dispersion tab, multi-channel butterfly overlay, and 12-lead polar radar plot. | **Fully Active:** Evaluated on the selected lead, with cross-lead validation where applicable. |
-
----
-
-## 5. Advanced Electrocardiographic Diagnostic Docks
-
-### 5.1 Spatial QT Dispersion View (Multi-Lead Only)
-* **Multi-Lead Butterfly Overlay:** Displays all qualified leads superposed in semi-transparent traces, visually exposing the regional variation between global $Q_\text{onset}$ and the spread of $T_\text{end}$ offsets.
-* **12-Lead Polar Radar Widget:** Maps lead locations against localized QT and $T_{pe}$ intervals, exposing the anatomical vector of maximal repolarization delay.
-* **Dynamic Dispersion Timeline Ribbon:** Renders an interactive ribbon under the main time axis color-coded into Green ($QT_d < 50\text{ ms}$), Amber ($50\text{--}65\text{ ms}$), and Red ($> 65\text{ ms}$).
-
-### 5.2 Microvolt T-Wave Alternans (TWA) Diagnostic Dock
-* **ST-T Alternans Overlay:** Plots superposed median odd (blue) and even (orange) ST-T segments with shaded delta regions illustrating microvolt divergence.
-* **Alternans Periodogram Waterfall:** Displays a 2D/3D spectral waterfall chart highlighting peak power at $f = 0.5\text{ cycles/beat}$ relative to the noise band.
-* **Ambulatory Trend Strip:** Graphs continuous Modified Moving Average ($V_\text{MMA}$) against instantaneous Heart Rate.
-
-### 5.3 Heart Rate Turbulence (HRT) Inspector
-* **Ensemble Post-PVC Tachogram:** Plots normalized interval averages from $NN_{-2}$ to $NN_{20}$ following qualifying solitary PVCs, displaying the characteristic early acceleration dip and late decelerative recovery.
-* **Turbulence Slope (TS) Regression Line:** Overlays the steepest positive 5-beat regression line in cyan.
-* **Autonomic Risk Badge:** Highlights clinical categorization (Category 0 / 1 / 2) on the overview summary.
-
-### 5.4 Comprehensive HRV Autonomic Dashboard
-* **Poincaré Plot Dock:** Displays a 2D scatter plot of $NN_i$ vs. $NN_{i+1}$ with fitted major ($SD2$) and minor ($SD1$) ellipse axes.
-* **Welch Spectral Distribution Widget:** Visualizes power spectral density across VLF (gray), LF (amber), and HF (blue) frequency bands, accompanied by a dynamic $LF/HF$ balance dial.
-* **24-Hour Circadian Boxplots:** Renders hourly distributions of $SDNN$ and $RMSSD$ to monitor circadian autonomic shifts.
-
-### 5.5 Multi-Beat QT-RR Hysteresis Dock
-* **Phase-Plane Loop Collapse Plot:** Graphs raw $QT\text{ vs. }RR$ (displaying wide hysteresis loops during acceleration/deceleration) beside $QT\text{ vs. }RR_\text{eff}$ (displaying the loop collapsed into a tight single restitution curve).
-* **Memory Decay Slider:** Interactive slider allowing clinicians to tune the exponential decay parameter ($\lambda$) or memory window ($N$) to observe real-time loop narrowing and residual variance reduction.
-* **Stabilized Dual-Trace Timeline:** Overlays volatile raw $QT_c$ against smoothed hysteresis-corrected $QTc_\text{hyst}$.
+| **Wearable Patch / Single-Lead** | $< 3$ Leads | **Gated (`N/A — Single Lead`):** Bypasses spatial dispersion to prevent degenerate zero-dispersion values. | **Fully Active:** QTVI, 10-model QT-RR restitution, Hysteresis, HRV, HRT, TWA, AF Burden, and Hourly Holter Trends run on the active lead. |
+| **Holter / 12-Lead Diagnostic** | $\ge 3$ Leads | **Active:** Computes inter-lead $QT_d$, Fridericia-corrected $QTc_d$, precordial $T_{pe,d}$, and Stage 2 six-index pairwise lead voting ($VI_k$). | **Fully Active:** Evaluated on the optimal or user-selected lead alongside multi-lead spatial dispersion. |

@@ -15,7 +15,8 @@ from __future__ import annotations
 import os
 import sys
 import contextlib
-from typing import Any, Callable, Dict, List, Optional
+from collections.abc import Callable
+from typing import Any
 import numpy as np
 
 try:
@@ -25,7 +26,7 @@ try:
         QPushButton, QLabel, QFileDialog, QTableWidget, QTableWidgetItem,
         QHeaderView, QGroupBox, QMessageBox, QTabWidget,
         QInputDialog, QSplitter, QComboBox, QFrame, QScrollArea, QDialog,
-        QButtonGroup, QMenuBar, QMenu, QProgressBar, QStatusBar
+        QButtonGroup, QProgressBar
     )
     from PyQt6.QtCore import Qt, pyqtSignal, QUrl, QThread
     from PyQt6.QtGui import QColor, QAction, QKeySequence, QDesktopServices, QActionGroup
@@ -51,13 +52,19 @@ except ImportError:
             self._text = args[0] if (args and isinstance(args[0], str)) else ""
             self._val = 0
             self._hidden = True
-            self._tabs: List[Any] = []
+            self._tabs: list[Any] = []
+            self._items: list[ Any] = []
+            self._curr_idx: int = 0
+            self._rows: int = args[0] if (len(args) >= 2 and isinstance(args[0], int)) else 0
+            self._cols: int = args[1] if (len(args) >= 2 and isinstance(args[1], int)) else 0
+            self._cells: dict[Any, Any] = {}
             self.triggered = _SignalMock()
             self.toggled = _SignalMock()
             self.clicked = _SignalMock()
             self.currentIndexChanged = _SignalMock()
             self.currentTextChanged = _SignalMock()
             self.cellClicked = _SignalMock()
+            self.cellDoubleClicked = _SignalMock()
         def setText(self, text: str) -> None: self._text = str(text)
         def text(self) -> str: return self._text
         def setValue(self, val: int) -> None: self._val = val
@@ -65,11 +72,46 @@ except ImportError:
         def show(self) -> None: self._hidden = False
         def hide(self) -> None: self._hidden = True
         def isHidden(self) -> bool: return self._hidden
+        def width(self) -> int: return 800
+        def height(self) -> int: return 400
         def blockSignals(self, b: bool) -> None: pass
         def addTab(self, widget: Any, label: str = "") -> None:
             self._tabs.append((widget, label))
+        def setTabText(self, idx: int, label: str) -> None:
+            if 0 <= idx < len(self._tabs):
+                self._tabs[idx] = (self._tabs[idx][0], label)
+        def addItem(self, label: Any, user_data: Any = None) -> None:
+            self._items.append((str(label), user_data))
+        def clear(self) -> None:
+            self._items.clear()
+            self._cells.clear()
+            self._rows = 0
+        def setCurrentIndex(self, idx: int) -> None:
+            self._curr_idx = int(idx)
+        def currentIndex(self) -> int:
+            return self._curr_idx
+        def currentText(self) -> str:
+            if 0 <= self._curr_idx < len(self._items):
+                return self._items[self._curr_idx][0]
+            return ""
+        def currentData(self) -> Any:
+            if 0 <= self._curr_idx < len(self._items):
+                return self._items[self._curr_idx][1]
+            return None
+        def itemData(self, idx: int) -> Any:
+            if 0 <= idx < len(self._items):
+                return self._items[idx][1]
+            return None
+        def setRowCount(self, rows: int) -> None:
+            self._rows = int(rows)
+        def rowCount(self) -> int:
+            return self._rows
+        def setItem(self, row: int, col: int, item: Any) -> None:
+            self._cells[(int(row), int(col))] = item
+        def item(self, row: int, col: int) -> Any:
+            return self._cells.get((int(row), int(col)))
         def count(self) -> int:
-            return len(self._tabs)
+            return len(self._tabs) if self._tabs else len(self._items)
         def __getattr__(self, name: str) -> Any:
             mock = _QMock()
             setattr(self, name, mock)
@@ -77,7 +119,35 @@ except ImportError:
         def __call__(self, *args: Any, **kwargs: Any) -> Any:
             return _QMock()
 
-    QMainWindow = _QMock  # type: ignore
+    class _QWindowBaseMock:
+        """Strict headless base class for QMainWindow/QDialog without catch-all __getattr__."""
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            self._menubar = _QMock()
+            self._statusbar = _QMock()
+            self._central = None
+            self._style = ""
+            self._title = ""
+        def setWindowTitle(self, title: str) -> None: self._title = str(title)
+        def windowTitle(self) -> str: return self._title
+        def resize(self, w: int, h: int) -> None: pass
+        def setMinimumSize(self, w: int, h: int) -> None: pass
+        def setMinimumWidth(self, w: int) -> None: pass
+        def setCentralWidget(self, w: Any) -> None: self._central = w
+        def centralWidget(self) -> Any: return self._central
+        def menuBar(self) -> Any: return self._menubar
+        def statusBar(self) -> Any: return self._statusbar
+        def setStatusBar(self, sb: Any) -> None: self._statusbar = sb
+        def setStyleSheet(self, qss: str) -> None: self._style = str(qss)
+        def styleSheet(self) -> str: return self._style
+        def show(self) -> None: pass
+        def close(self) -> None: pass
+        def exec(self) -> int: return 0
+        def accept(self) -> None: pass
+        def reject(self) -> None: pass
+        def addAction(self, action: Any) -> None: pass
+        def closeEvent(self, event: Any) -> None: pass
+
+    QMainWindow = _QWindowBaseMock  # type: ignore
     QWidget = _QMock      # type: ignore
     QVBoxLayout = _QMock  # type: ignore
     QHBoxLayout = _QMock  # type: ignore
@@ -95,13 +165,14 @@ except ImportError:
     QComboBox = _QMock    # type: ignore
     QFrame = _QMock       # type: ignore
     QScrollArea = _QMock  # type: ignore
-    QDialog = _QMock      # type: ignore
+    QDialog = _QWindowBaseMock  # type: ignore
     QButtonGroup = _QMock # type: ignore
     QMenuBar = _QMock     # type: ignore
     QMenu = _QMock        # type: ignore
     QProgressBar = _QMock # type: ignore
     QStatusBar = _QMock   # type: ignore
     QAction = _QMock      # type: ignore
+    QColor = _QMock       # type: ignore
     QActionGroup = _QMock # type: ignore
     QDesktopServices = _QMock # type: ignore
     QApplication = _QMock # type: ignore
@@ -122,6 +193,14 @@ except ImportError:
             return _QUrlMock(path)
     QUrl = _QUrlMock          # type: ignore
     class _QtMock:
+        class Key:
+            Key_Left = 0x01000012
+            Key_Right = 0x01000014
+            Key_N = 0x4E
+            Key_V = 0x56
+            Key_S = 0x53
+            Key_F = 0x46
+            Key_Q = 0x51
         class Orientation:
             Horizontal = 1
             Vertical = 2
@@ -135,8 +214,9 @@ except ImportError:
 
 from repolaris.api import StudyAPI, AnalysisAPI, ExportAPI
 from repolaris.config import ECGConfig, DetectionConfig, FilterConfig
-from repolaris.detection.classifier import BeatClass
 from repolaris.detection.annotations import AnnotationManager
+from repolaris.detection.classifier import BeatClass, detect_rhythm_patterns
+from repolaris.detection.pulse_metrics import summarize_beats
 from repolaris.detection.qtrr import SUPPORTED_QTRR_MODELS, QTRR_MODEL_METADATA
 from repolaris.i18n import tr, set_locale, get_current_locale, SUPPORTED_LANGUAGES
 
@@ -169,7 +249,7 @@ class BackgroundTaskWorker(QThread):
 # -----------------------------------------------------------------------------
 # THEME SPECIFICATIONS (Dark, Light, Color Blind Friendly)
 # -----------------------------------------------------------------------------
-THEMES: Dict[str, Dict[str, Any]] = {
+THEMES: dict[str, dict[str, Any]] = {
     "dark": {
         "id": "dark",
         "name_key": "theme_dark",
@@ -341,10 +421,21 @@ THEMES: Dict[str, Dict[str, Any]] = {
 # -----------------------------------------------------------------------------
 # INDEPENDENT CANVAS THEMES (Contrasting Waveform, Calipers & Grid)
 # -----------------------------------------------------------------------------
-CLINICAL_SPEEDS: List[float] = [12.5, 25.0, 50.0, 100.0]  # Standard ECG sweep speeds (mm/s)
-CLINICAL_GAINS: List[float] = [2.5, 5.0, 10.0, 20.0]      # Standard ECG voltage sensitivities (mm/mV)
+_BEAT_CLASS_COLORS: dict[str, str] = {
+    "V": "#f87171",
+    "S": "#fbbf24",
+    "F": "#c084fc",
+    "N": "#34d399",
+}
+_SEVERITY_COLORS: dict[str, str] = {
+    "CRITICAL": "#f87171",
+    "WARNING": "#fbbf24",
+}
 
-CANVAS_THEMES: Dict[str, Dict[str, Any]] = {
+CLINICAL_SPEEDS: list[float] = [12.5, 25.0, 50.0, 100.0]  # Standard ECG sweep speeds (mm/s)
+CLINICAL_GAINS: list[float] = [2.5, 5.0, 10.0, 20.0]      # Standard ECG voltage sensitivities (mm/mV)
+
+CANVAS_THEMES: dict[str, dict[str, Any]] = {
     "dark": {
         "id": "dark",
         "name_key": "canvas_dark",
@@ -452,92 +543,50 @@ CANVAS_THEMES: Dict[str, Dict[str, Any]] = {
     }
 }
 
-if HAS_GUI:
-    class TimeAxisItem(pg.AxisItem):
-        """Custom AxisItem formatting timestamps into clinical hh:mm:ss:xxx format with millisecond precision."""
-        def __init__(self, orientation: str = "bottom", millisecond_separator: str = ":", **kwargs: Any) -> None:
+_AxisItemBase = pg.AxisItem if HAS_GUI else object
+
+
+class TimeAxisItem(_AxisItemBase):  # type: ignore[misc]
+    """Custom AxisItem formatting timestamps into clinical hh:mm:ss:xxx format with millisecond precision."""
+
+    def __init__(self, orientation: str = "bottom", millisecond_separator: str = ":", **kwargs: Any) -> None:
+        if HAS_GUI:
             super().__init__(orientation=orientation, **kwargs)
-            self.millisecond_separator = millisecond_separator
+        self.millisecond_separator = millisecond_separator
 
-        def format_timestamp(self, val: float, include_millis: bool = True) -> str:
-            """Formats seconds into hh:mm:ss or hh:mm:ss:xxx with millisecond precision."""
-            if val is None or not np.isfinite(val):
-                return ""
-            is_neg = val < 0
-            v = abs(float(val))
-            hours = int(v // 3600)
-            minutes = int((v % 3600) // 60)
-            int_secs = int(v % 60)
-            millis = int(round((v - int(v)) * 1000))
-            if millis >= 1000:
-                millis = 0
-                int_secs += 1
-                if int_secs >= 60:
-                    int_secs = 0
-                    minutes += 1
-                    if minutes >= 60:
-                        minutes = 0
-                        hours += 1
-            prefix = "-" if is_neg else ""
-            if include_millis:
-                sep = self.millisecond_separator
-                return f"{prefix}{hours:02d}:{minutes:02d}:{int_secs:02d}{sep}{millis:03d}"
-            else:
-                return f"{prefix}{hours:02d}:{minutes:02d}:{int_secs:02d}"
+    def format_timestamp(self, val: float, include_millis: bool = True) -> str:
+        """Formats seconds into hh:mm:ss or hh:mm:ss:xxx with millisecond precision."""
+        if val is None or not np.isfinite(val):
+            return ""
+        is_neg = val < 0
+        v = abs(float(val))
+        hours = int(v // 3600)
+        minutes = int((v % 3600) // 60)
+        int_secs = int(v % 60)
+        millis = int(round((v - int(v)) * 1000))
+        if millis >= 1000:
+            millis = 0
+            int_secs += 1
+            if int_secs >= 60:
+                int_secs = 0
+                minutes += 1
+                if minutes >= 60:
+                    minutes = 0
+                    hours += 1
+        prefix = "-" if is_neg else ""
+        if include_millis:
+            return f"{prefix}{hours:02d}:{minutes:02d}:{int_secs:02d}{self.millisecond_separator}{millis:03d}"
+        return f"{prefix}{hours:02d}:{minutes:02d}:{int_secs:02d}"
 
-        def tickStrings(self, values: list, scale: float, spacing: float) -> list[str]:
-            strings = []
-            include_millis = spacing < 1.0
-            for val in values:
-                strings.append(self.format_timestamp(val, include_millis=include_millis))
-            return strings
-else:
-    class TimeAxisItem:  # type: ignore
-        """Mock TimeAxisItem for headless testing environment with clinical millisecond precision."""
-        def __init__(self, orientation: str = "bottom", millisecond_separator: str = ":", **kwargs: Any) -> None:
-            self.millisecond_separator = millisecond_separator
-
-        def format_timestamp(self, val: float, include_millis: bool = True) -> str:
-            """Formats seconds into hh:mm:ss or hh:mm:ss:xxx with millisecond precision."""
-            if val is None or not np.isfinite(val):
-                return ""
-            is_neg = val < 0
-            v = abs(float(val))
-            hours = int(v // 3600)
-            minutes = int((v % 3600) // 60)
-            int_secs = int(v % 60)
-            millis = int(round((v - int(v)) * 1000))
-            if millis >= 1000:
-                millis = 0
-                int_secs += 1
-                if int_secs >= 60:
-                    int_secs = 0
-                    minutes += 1
-                    if minutes >= 60:
-                        minutes = 0
-                        hours += 1
-            prefix = "-" if is_neg else ""
-            if include_millis:
-                sep = self.millisecond_separator
-                return f"{prefix}{hours:02d}:{minutes:02d}:{int_secs:02d}{sep}{millis:03d}"
-            else:
-                return f"{prefix}{hours:02d}:{minutes:02d}:{int_secs:02d}"
-
-        def tickStrings(self, values: list, scale: float, spacing: float) -> list[str]:
-            strings = []
-            include_millis = spacing < 1.0
-            for val in values:
-                strings.append(self.format_timestamp(val, include_millis=include_millis))
-            return strings
+    def tickStrings(self, values: list[float], scale: float, spacing: float) -> list[str]:
+        include_millis = spacing < 1.0
+        return [self.format_timestamp(val, include_millis=include_millis) for val in values]
 
 class ECGPlotWidget:
     """PyQtGraph-based high-performance interactive ECG waveform viewer with draggable calipers,
     independent canvas color schemes, hh:mm:ss clinical time axis, and scale overlays."""
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
-        if not HAS_GUI:
-            raise ImportError("PyQt6 and pyqtgraph are required for GUI components.")
-
+    def __init__(self, parent: QWidget | None = None) -> None:
         # Initialize time axis with hh:mm:ss formatter
         self.time_axis = TimeAxisItem(orientation="bottom")
         self.plot_widget = pg.PlotWidget(parent=parent, axisItems={"bottom": self.time_axis})
@@ -556,7 +605,10 @@ class ECGPlotWidget:
         self.current_speed = 25.0
         self.current_gain = 10.0
         self.calipers_visible = True
-        self.extra_vertical_lines: List[Any] = []
+        self.extra_vertical_lines: list[Any] = []
+        self.ectopic_text_items: list[Any] = []
+        self.last_r_peak_classes: list[str] = []
+        self.last_r_peak_colors: list[str] = []
 
         # Plot curves: Soft medical cyan-blue waveform
         self.signal_curve = self.plot_widget.plot(pen=pg.mkPen(color="#38bdf8", width=1.8))
@@ -597,19 +649,57 @@ class ECGPlotWidget:
             }
         """)
 
-        self.on_caliper_moved: Optional[Callable[[float, float], None]] = None
+        self.on_caliper_moved: Callable[[float, float], None] | None = None
         self.q_line.sigPositionChanged.connect(self._notify_caliper_change)
         self.t_line.sigPositionChanged.connect(self._notify_caliper_change)
 
         # Apply initial canvas scheme and grid
         self.apply_canvas_theme(self.current_canvas_theme)
 
-    def display_signal(self, time_data: np.ndarray, signal_data: np.ndarray, r_peaks: np.ndarray) -> None:
-        """Updates the plot waveform curve and R-peak markers."""
+    def clear_ectopic_markers(self) -> None:
+        """Removes on-canvas ectopic beat class text tags."""
+        for item in self.ectopic_text_items:
+            with contextlib.suppress(Exception):
+                self.plot_widget.removeItem(item)
+        self.ectopic_text_items.clear()
+
+    def display_signal(
+        self,
+        time_data: np.ndarray,
+        signal_data: np.ndarray,
+        r_peaks: np.ndarray,
+        beat_classes: list[str] | None = None,
+    ) -> None:
+        """Updates the plot waveform curve, color-coded AAMI R-peak markers, and ectopic text overlays."""
+        self.clear_ectopic_markers()
         self.signal_curve.setData(time_data, signal_data)
         if len(r_peaks) > 0:
-            self.r_peak_scatter.setData(x=time_data[r_peaks], y=signal_data[r_peaks])
+            r_times = time_data[r_peaks]
+            r_amps = signal_data[r_peaks]
+            default_col = self.current_canvas_theme.get("r_peak_brush", "#34d399")
+            classes = [
+                str(beat_classes[i]) if (beat_classes and i < len(beat_classes)) else "N"
+                for i in range(len(r_peaks))
+            ]
+            colors = [
+                _BEAT_CLASS_COLORS.get(c, default_col) if c in _BEAT_CLASS_COLORS else default_col
+                for c in classes
+            ]
+            self.last_r_peak_classes = classes
+            self.last_r_peak_colors = colors
+            brushes = [pg.mkBrush(c) for c in colors]
+            self.r_peak_scatter.setData(x=r_times, y=r_amps, brush=brushes)
+
+            for r_t, r_a, c_code, col_hex in zip(r_times, r_amps, classes, colors, strict=False):
+                if c_code != "N":
+                    txt_item = pg.TextItem(text=c_code, color=col_hex, anchor=(0.5, 1.2))
+                    if hasattr(txt_item, "setPos"):
+                        txt_item.setPos(float(r_t), float(r_a))
+                    self.plot_widget.addItem(txt_item)
+                    self.ectopic_text_items.append(txt_item)
         else:
+            self.last_r_peak_classes = []
+            self.last_r_peak_colors = []
             self.r_peak_scatter.clear()
         self.plot_widget.enableAutoRange()
         self.update_corner_badge()
@@ -647,7 +737,7 @@ class ECGPlotWidget:
             self.scale_corner_label.move(max(10, self.plot_widget.width() - w - 16), 10)
             self.scale_corner_label.raise_()
 
-    def apply_canvas_theme(self, theme: Dict[str, Any]) -> None:
+    def apply_canvas_theme(self, theme: dict[str, Any]) -> None:
         """Applies independent canvas color scheme to plot, curves, calipers, and scale badge."""
         self.current_canvas_theme = theme
         self.plot_widget.setBackground(theme["plot_bg"])
@@ -720,7 +810,7 @@ class ECGPlotWidget:
             self.scale_corner_label.setVisible(True)
             self.update_corner_badge()
 
-    def set_scale(self, speed: float, gain: float, center_time: Optional[float] = None) -> None:
+    def set_scale(self, speed: float, gain: float, center_time: float | None = None) -> None:
         """Applies standardized clinical ECG sweep speed (mm/s) and voltage gain (mm/mV).
         Adjusts visible time window and amplitude span around the current viewport center."""
         self.current_speed = float(speed)
@@ -789,18 +879,14 @@ class ECGPlotWidget:
 
     def center_calipers(self) -> None:
         """Brings draggable vertical lines to the center of the current screen view."""
-        try:
+        with contextlib.suppress(Exception):
             view_box = self.plot_widget.getViewBox()
             x_range = view_box.viewRange()[0]
             center = (x_range[0] + x_range[1]) / 2.0
             width = x_range[1] - x_range[0]
-            q_pos = center - (width * 0.10)
-            t_pos = center + (width * 0.10)
-            self.set_calipers(q_pos, t_pos)
-        except Exception:
-            pass
+            self.set_calipers(center - width * 0.10, center + width * 0.10)
 
-    def add_draggable_vertical_line(self, pos: Optional[float] = None, label: Optional[str] = None) -> Any:
+    def add_draggable_vertical_line(self, pos: float | None = None, label: str | None = None) -> Any:
         """Adds an additional interactive draggable vertical measurement line."""
         if pos is None:
             try:
@@ -831,9 +917,6 @@ class ECGPlotWidget:
                 self.plot_widget.removeItem(line)
         self.extra_vertical_lines.clear()
 
-    def apply_theme(self, theme: Dict[str, Any]) -> None:
-        """Backward-compatibility helper; delegates to apply_canvas_theme."""
-        self.apply_canvas_theme(theme)
 
 
 
@@ -1089,15 +1172,16 @@ class MainWindow(QMainWindow):
         self.resize(1420, 880)
 
         self.fs = 500.0
-        self.time_data: Optional[np.ndarray] = None
-        self.signal_data: Optional[np.ndarray] = None
-        self.multi_lead_signals: Dict[str, np.ndarray] = {}
+        self.time_data: np.ndarray | None = None
+        self.signal_data: np.ndarray | None = None
+        self.multi_lead_signals: dict[str, np.ndarray] = {}
         self.current_lead_name: str = "Lead II"
         self.current_filename: str = tr("demo_filename")
-        self.analysis_results: Optional[Dict[str, Any]] = None
-        self.annotation_manager: Optional[AnnotationManager] = None
+        self.analysis_results: dict[str, Any] | None = None
+        self.annotation_manager: AnnotationManager | None = None
+        self.current_beat_index: int = 0
         self.current_beat_rr = 0.85
-        self.current_metadata: Dict[str, Any] = {}
+        self.current_metadata: dict[str, Any] = {}
         self.current_theme_id: str = "dark"
         self.current_canvas_theme_id: str = "dark"
         self.current_grid_mode: str = "lines"
@@ -1106,7 +1190,7 @@ class MainWindow(QMainWindow):
         self.current_qtrr_model: str = "linear"
         self.current_hysteresis_mode: str = "exponential"
         self.current_t_end_method: str = "hybrid"
-        self._active_worker: Optional[Any] = None
+        self._active_worker: Any | None = None
 
         self._setup_ui()
         self._load_synthetic_demo()
@@ -1198,7 +1282,7 @@ class MainWindow(QMainWindow):
         self.menu_languages = self.menu_preferences.addMenu(tr("menu_languages"))
         self.lang_group = QActionGroup(self)
         self.lang_group.setExclusive(True)
-        self.lang_actions: Dict[str, QAction] = {}
+        self.lang_actions: dict[str, QAction] = {}
         curr_lang = get_current_locale()
         for code, name in SUPPORTED_LANGUAGES.items():
             act = QAction(name, self)
@@ -1213,7 +1297,7 @@ class MainWindow(QMainWindow):
         self.menu_interface_theme = self.menu_preferences.addMenu(tr("menu_interface_theme"))
         self.theme_group = QActionGroup(self)
         self.theme_group.setExclusive(True)
-        self.theme_actions: Dict[str, QAction] = {}
+        self.theme_actions: dict[str, QAction] = {}
         for tid, tspec in THEMES.items():
             act = QAction(tr(tspec["name_key"]), self)
             act.setCheckable(True)
@@ -1227,7 +1311,7 @@ class MainWindow(QMainWindow):
         self.menu_canvas_theme = self.menu_preferences.addMenu(tr("menu_canvas_theme"))
         self.canvas_theme_group = QActionGroup(self)
         self.canvas_theme_group.setExclusive(True)
-        self.canvas_theme_actions: Dict[str, QAction] = {}
+        self.canvas_theme_actions: dict[str, QAction] = {}
         for cid, cspec in CANVAS_THEMES.items():
             act = QAction(tr(cspec["name_key"]), self)
             act.setCheckable(True)
@@ -1319,9 +1403,12 @@ class MainWindow(QMainWindow):
             QHeaderView::section { background-color: #1a1e2e; color: #94a3b8; border: none; border-bottom: 1px solid #2e3650; padding: 6px; font-weight: 600; font-size: 9pt; }
         """)
 
-        # ---------------------------------------------------------------------
-        # TOP WORKSPACE HEADER BAR (Actions & Active Record)
-        # ---------------------------------------------------------------------
+        self._setup_top_bar(root_layout)
+        self._setup_main_splitter(root_layout)
+        self._setup_status_bar()
+
+    def _setup_top_bar(self, root_layout: Any) -> None:
+        """Builds the top workspace header bar."""
         top_bar = QFrame()
         top_bar.setObjectName("topBar")
         top_layout = QHBoxLayout(top_bar)
@@ -1340,7 +1427,7 @@ class MainWindow(QMainWindow):
         # Settings & Preferences Button
         self.btn_settings = QPushButton(tr("btn_settings"))
         self.btn_settings.setObjectName("btnSettings")
-        self.btn_settings.setToolTip("Configure language and visual theme")
+        self.btn_settings.setToolTip(tr("btn_settings_tooltip"))
         self.btn_settings.clicked.connect(self._open_settings_dialog)
         top_layout.addWidget(self.btn_settings)
 
@@ -1381,9 +1468,8 @@ class MainWindow(QMainWindow):
 
         root_layout.addWidget(top_bar)
 
-        # ---------------------------------------------------------------------
-        # MAIN WORKSPACE SPLITTER (Waveform Canvas + Inspector Sidebar)
-        # ---------------------------------------------------------------------
+    def _setup_main_splitter(self, root_layout: Any) -> None:
+        """Builds the horizontal splitter with waveform canvas and clinical inspector tabs."""
         splitter = QSplitter(Qt.Orientation.Horizontal)
         root_layout.addWidget(splitter, stretch=1)
 
@@ -1454,7 +1540,7 @@ class MainWindow(QMainWindow):
         c_layout.addWidget(self.lbl_canvas_scheme)
 
         self.combo_canvas_theme = QComboBox()
-        self.combo_canvas_theme.setToolTip("Select independent color scheme for the ECG waveform canvas")
+        self.combo_canvas_theme.setToolTip(tr("canvas_theme_tooltip"))
         self.combo_canvas_theme.setStyleSheet("font-size: 8.5pt; min-width: 120px;")
         for cid, ctheme in CANVAS_THEMES.items():
             self.combo_canvas_theme.addItem(tr(ctheme["name_key"]), cid)
@@ -1475,7 +1561,7 @@ class MainWindow(QMainWindow):
         self.btn_grid_lines.setProperty("class", "toggleBtn")
         self.btn_grid_lines.setCheckable(True)
         self.btn_grid_lines.setChecked(True)
-        self.btn_grid_lines.setToolTip("Enable standard clinical ECG grid lines")
+        self.btn_grid_lines.setToolTip(tr("grid_lines_tooltip"))
         self.btn_grid_lines.clicked.connect(lambda: self.set_grid_mode("lines"))
         self.grid_group.addButton(self.btn_grid_lines)
         c_layout.addWidget(self.btn_grid_lines)
@@ -1483,7 +1569,7 @@ class MainWindow(QMainWindow):
         self.btn_grid_dots = QPushButton(tr("grid_btn_dots"))
         self.btn_grid_dots.setProperty("class", "toggleBtn")
         self.btn_grid_dots.setCheckable(True)
-        self.btn_grid_dots.setToolTip("Enable dotted clinical ECG grid coordinates")
+        self.btn_grid_dots.setToolTip(tr("grid_dots_tooltip"))
         self.btn_grid_dots.clicked.connect(lambda: self.set_grid_mode("dots"))
         self.grid_group.addButton(self.btn_grid_dots)
         c_layout.addWidget(self.btn_grid_dots)
@@ -1491,7 +1577,7 @@ class MainWindow(QMainWindow):
         self.btn_grid_off = QPushButton(tr("grid_btn_off"))
         self.btn_grid_off.setProperty("class", "toggleBtn")
         self.btn_grid_off.setCheckable(True)
-        self.btn_grid_off.setToolTip("Disable grid lines and hide scale badge")
+        self.btn_grid_off.setToolTip(tr("grid_off_tooltip"))
         self.btn_grid_off.clicked.connect(lambda: self.set_grid_mode("none"))
         self.grid_group.addButton(self.btn_grid_off)
         c_layout.addWidget(self.btn_grid_off)
@@ -1503,21 +1589,35 @@ class MainWindow(QMainWindow):
         self.btn_calipers_toggle.setProperty("class", "toggleBtn")
         self.btn_calipers_toggle.setCheckable(True)
         self.btn_calipers_toggle.setChecked(True)
-        self.btn_calipers_toggle.setToolTip("Toggle visibility of draggable vertical measurement lines")
+        self.btn_calipers_toggle.setToolTip(tr("calipers_toggle_tooltip"))
         self.btn_calipers_toggle.toggled.connect(self._on_calipers_toggled)
         c_layout.addWidget(self.btn_calipers_toggle)
 
         self.btn_calipers_center = QPushButton(tr("calipers_btn_center"))
         self.btn_calipers_center.setProperty("class", "actionBtn")
-        self.btn_calipers_center.setToolTip("Center draggable caliper lines in the visible window")
+        self.btn_calipers_center.setToolTip(tr("calipers_center_tooltip"))
         self.btn_calipers_center.clicked.connect(self._on_calipers_center_clicked)
         c_layout.addWidget(self.btn_calipers_center)
 
         self.btn_add_line = QPushButton(tr("calipers_btn_add"))
         self.btn_add_line.setProperty("class", "actionBtn")
-        self.btn_add_line.setToolTip("Add an additional draggable vertical measurement cursor")
+        self.btn_add_line.setToolTip(tr("calipers_add_tooltip"))
         self.btn_add_line.clicked.connect(self._on_add_line_clicked)
         c_layout.addWidget(self.btn_add_line)
+
+        self.btn_prev_beat = QPushButton("◀")
+        self.btn_prev_beat.setProperty("class", "actionBtn")
+        self.btn_prev_beat.setToolTip(tr("prev_beat_tooltip"))
+        self.btn_prev_beat.clicked.connect(self.prev_beat)
+        c_layout.addWidget(self.btn_prev_beat)
+
+        self.btn_next_beat = QPushButton("▶")
+        self.btn_next_beat.setProperty("class", "actionBtn")
+        self.btn_next_beat.setToolTip(tr("next_beat_tooltip"))
+        self.btn_next_beat.clicked.connect(self.next_beat)
+        c_layout.addWidget(self.btn_next_beat)
+
+        self._setup_keyboard_shortcuts()
 
         c_layout.addSpacing(4)
 
@@ -1527,7 +1627,7 @@ class MainWindow(QMainWindow):
         c_layout.addWidget(self.lbl_zoom)
 
         self.combo_speed = QComboBox()
-        self.combo_speed.setToolTip("Select clinical ECG paper sweep speed")
+        self.combo_speed.setToolTip(tr("speed_tooltip"))
         self.combo_speed.setStyleSheet("font-size: 8.5pt; min-width: 85px;")
         for spd in CLINICAL_SPEEDS:
             spd_label = f"{int(spd) if spd.is_integer() else spd} mm/s"
@@ -1539,7 +1639,7 @@ class MainWindow(QMainWindow):
         c_layout.addWidget(self.combo_speed)
 
         self.combo_gain = QComboBox()
-        self.combo_gain.setToolTip("Select clinical ECG voltage sensitivity gain")
+        self.combo_gain.setToolTip(tr("gain_tooltip"))
         self.combo_gain.setStyleSheet("font-size: 8.5pt; min-width: 85px;")
         for gn in CLINICAL_GAINS:
             gn_label = f"{int(gn) if gn.is_integer() else gn} mm/mV"
@@ -1618,6 +1718,13 @@ class MainWindow(QMainWindow):
         cal_layout.addWidget(self.lbl_tag_raw)
         cal_layout.addWidget(self.lbl_cal_qt)
 
+        self.lbl_tag_rr = QLabel(tr("cal_rr"))
+        self.lbl_cal_rr = QLabel("-- ms")
+        self.lbl_cal_rr.setObjectName("caliperVal")
+        self.lbl_cal_rr.setStyleSheet("color: #34d399;")
+        cal_layout.addWidget(self.lbl_tag_rr)
+        cal_layout.addWidget(self.lbl_cal_rr)
+
         self.lbl_tag_bazett = QLabel(tr("cal_bazett"))
         self.lbl_cal_bazett = QLabel("-- ms")
         self.lbl_cal_bazett.setObjectName("caliperVal")
@@ -1669,7 +1776,7 @@ class MainWindow(QMainWindow):
         self.card_sqi = self._create_kpi_card(tr("kpi_sqi_title"), "Good", tr("sqi_sub_clean", snr=20.0))
         ov_layout.addWidget(self.card_sqi)
 
-        self.card_qtd = self._create_kpi_card("Spatial QT Dispersion (QTd)", "N/A", "Single-Lead Wearable Mode")
+        self.card_qtd = self._create_kpi_card(tr("kpi_qtd_title"), "N/A", tr("qtd_sub_single"))
         ov_layout.addWidget(self.card_qtd)
 
         # Advanced Section
@@ -1678,8 +1785,20 @@ class MainWindow(QMainWindow):
         adv_layout.setSpacing(4)
         self.lbl_adv_qtvi = QLabel(tr("adv_qtvi", val="--"))
         self.lbl_adv_qtrr = QLabel(tr("adv_qtrr", val="--"))
+        self.lbl_adv_hyst = QLabel(tr("adv_hyst_na", val="--"))
+        self.lbl_adv_hrv = QLabel(tr("adv_hrv_na", val="--"))
+        self.lbl_adv_hrt = QLabel(tr("adv_hrt_na", val="--"))
+        self.lbl_adv_twa = QLabel(tr("adv_twa_na", val="--"))
         self.lbl_adv_total = QLabel(tr("adv_total_cycles", count="--"))
-        for lbl in (self.lbl_adv_qtvi, self.lbl_adv_qtrr, self.lbl_adv_total):
+        for lbl in (
+            self.lbl_adv_qtvi,
+            self.lbl_adv_qtrr,
+            self.lbl_adv_hyst,
+            self.lbl_adv_hrv,
+            self.lbl_adv_hrt,
+            self.lbl_adv_twa,
+            self.lbl_adv_total,
+        ):
             lbl.setStyleSheet("font-size: 9pt; color: #94a3b8;")
             adv_layout.addWidget(lbl)
         ov_layout.addWidget(self.adv_group)
@@ -1708,9 +1827,16 @@ class MainWindow(QMainWindow):
         beats_tab = QWidget()
         b_layout = QVBoxLayout(beats_tab)
         b_layout.setContentsMargins(8, 8, 8, 8)
-        self.beat_table = QTableWidget(0, 5)
+        self.beat_table = QTableWidget(0, 8)
         self.beat_table.setHorizontalHeaderLabels([
-            tr("hdr_beat_num"), tr("hdr_time"), tr("hdr_class"), tr("hdr_qt"), tr("hdr_qtc")
+            tr("hdr_beat_num"),
+            tr("hdr_time"),
+            tr("hdr_class"),
+            tr("hdr_pattern"),
+            tr("hdr_rr"),
+            tr("hdr_hr"),
+            tr("hdr_qt"),
+            tr("hdr_qtc"),
         ])
         self.beat_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.beat_table.cellClicked.connect(self._on_beat_selected)
@@ -1794,7 +1920,7 @@ class MainWindow(QMainWindow):
         qtrr_layout.addWidget(self.qtrr_plot_widget, stretch=1)
 
         # Live Equation, Hysteresis Lag (lambda*, t90) & Individualized QTc Banner
-        self.lbl_qtrr_summary_banner = QLabel("QT-RR Restitution: Ready")
+        self.lbl_qtrr_summary_banner = QLabel(tr("qtrr_banner_ready"))
         self.lbl_qtrr_summary_banner.setWordWrap(True)
         self.lbl_qtrr_summary_banner.setStyleSheet(
             "background-color: #1a1e2e; border: 1px solid #2e3650; border-radius: 6px; "
@@ -1803,12 +1929,15 @@ class MainWindow(QMainWindow):
         qtrr_layout.addWidget(self.lbl_qtrr_summary_banner)
 
         # 10-Model Comparative Ranking Table (Click row to switch active model)
-        self.qtrr_models_table = QTableWidget(0, 5)
+        self.qtrr_models_table = QTableWidget(0, 8)
         self.qtrr_models_table.setHorizontalHeaderLabels([
             tr("qtrr_hdr_model"),
             tr("qtrr_hdr_eq"),
+            tr("qtrr_hdr_slope"),
+            tr("qtrr_hdr_r"),
             tr("qtrr_hdr_r2"),
             tr("qtrr_hdr_rmse"),
+            tr("qtrr_hdr_aic"),
             tr("qtrr_hdr_qtc_ind"),
         ])
         self.qtrr_models_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
@@ -1851,13 +1980,16 @@ class MainWindow(QMainWindow):
         self.holter_trends_table.cellClicked.connect(self._on_holter_hour_clicked)
         holter_layout.addWidget(self.holter_trends_table, stretch=2)
 
-        self.holter_af_table = QTableWidget(0, 5)
+        self.holter_af_table = QTableWidget(0, 8)
         self.holter_af_table.setHorizontalHeaderLabels([
             tr("af_hdr_ep"),
             tr("af_hdr_start"),
             tr("af_hdr_end"),
             tr("af_hdr_dur"),
             tr("af_hdr_hr"),
+            tr("af_hdr_max_hr"),
+            tr("af_hdr_entropy"),
+            tr("af_hdr_irreg"),
         ])
         self.holter_af_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.holter_af_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
@@ -1927,9 +2059,8 @@ class MainWindow(QMainWindow):
         splitter.setStretchFactor(0, 7)
         splitter.setStretchFactor(1, 3)
 
-        # ---------------------------------------------------------------------
-        # APPLICATION STATUS BAR (Status message and progress bar)
-        # ---------------------------------------------------------------------
+    def _setup_status_bar(self) -> None:
+        """Builds the bottom application status bar and background progress bar."""
         self.status_bar = self.statusBar()
         self.status_bar.setStyleSheet("""
             QStatusBar {
@@ -2007,6 +2138,7 @@ class MainWindow(QMainWindow):
         # Clear waveform plot & scatter
         self.ecg_plot.signal_curve.clear()
         self.ecg_plot.r_peak_scatter.clear()
+        self.ecg_plot.clear_ectopic_markers()
         self.ecg_plot.clear_extra_vertical_lines()
 
         # Reset KPI cards
@@ -2021,6 +2153,8 @@ class MainWindow(QMainWindow):
 
         # Reset caliper strip values
         self.lbl_cal_qt.setText("-- ms")
+        if hasattr(self, "lbl_cal_rr"):
+            self.lbl_cal_rr.setText("-- ms")
         self.lbl_cal_bazett.setText("-- ms")
         self.lbl_cal_fridericia.setText("-- ms")
 
@@ -2042,17 +2176,17 @@ class MainWindow(QMainWindow):
         # Reset advanced group
         self.lbl_adv_qtvi.setText(tr("adv_qtvi", val="--"))
         self.lbl_adv_qtrr.setText(tr("adv_qtrr", val="--"))
+        self.lbl_adv_hyst.setText(tr("adv_hyst_na", val="--"))
+        self.lbl_adv_hrv.setText(tr("adv_hrv_na", val="--"))
+        self.lbl_adv_hrt.setText(tr("adv_hrt_na", val="--"))
+        self.lbl_adv_twa.setText(tr("adv_twa_na", val="--"))
         self.lbl_adv_total.setText(tr("adv_total_cycles", count="--"))
 
     def _open_wiki(self) -> None:
         """Opens workstation documentation wiki via desktop browser or accessible modal guide."""
         wiki_url = "https://github.com/numbecho/repolaris/wiki"
-        try:
-            from PyQt6.QtGui import QDesktopServices
-            from PyQt6.QtCore import QUrl
+        with contextlib.suppress(Exception):
             QDesktopServices.openUrl(QUrl(wiki_url))
-        except Exception:
-            pass
         self._show_help_dialog()
 
     def _show_license_dialog(self) -> None:
@@ -2060,11 +2194,8 @@ class MainWindow(QMainWindow):
         license_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "..", "LICENSE")
         license_text = ""
         if os.path.exists(license_path):
-            try:
-                with open(license_path, "r", encoding="utf-8") as f:
-                    license_text = f.read()
-            except Exception:
-                pass
+            with contextlib.suppress(OSError), open(license_path, encoding="utf-8") as f:
+                license_text = f.read()
         if not license_text:
             license_text = tr("license_dialog_text")
         QMessageBox.information(self, tr("license_dialog_title"), license_text)
@@ -2259,14 +2390,6 @@ class MainWindow(QMainWindow):
             self.lang_actions[lang_code].blockSignals(False)
         self._retranslate_ui()
 
-    def _on_language_changed(self, index: int) -> None:
-        """Dynamically retranslates the UI when a new language is chosen."""
-        if index < 0 or index >= len(self.lang_codes):
-            return
-        lang_code = self.lang_codes[index]
-        set_locale(lang_code)
-        self._retranslate_ui()
-
     def _retranslate_ui(self) -> None:
         """Updates all UI text elements to reflect current language."""
         # Menu Bar
@@ -2315,6 +2438,8 @@ class MainWindow(QMainWindow):
         # Calipers Strip
         self.lbl_cal_cue.setText(tr("calipers_title"))
         self.lbl_tag_raw.setText(tr("cal_raw_qt"))
+        if hasattr(self, "lbl_tag_rr"):
+            self.lbl_tag_rr.setText(tr("cal_rr"))
         self.lbl_tag_bazett.setText(tr("cal_bazett"))
         self.lbl_tag_fridericia.setText(tr("cal_fridericia"))
         self.help_cue.setText(tr("cal_tip"))
@@ -2335,6 +2460,16 @@ class MainWindow(QMainWindow):
             self.btn_zoom_in.setToolTip(tr("zoom_in_tooltip"))
             self.btn_zoom_reset.setToolTip(tr("zoom_reset_tooltip"))
             self.btn_zoom_fit.setToolTip(tr("zoom_fit_tooltip"))
+            self.btn_settings.setToolTip(tr("btn_settings_tooltip"))
+            self.combo_canvas_theme.setToolTip(tr("canvas_theme_tooltip"))
+            self.btn_grid_lines.setToolTip(tr("grid_lines_tooltip"))
+            self.btn_grid_dots.setToolTip(tr("grid_dots_tooltip"))
+            self.btn_grid_off.setToolTip(tr("grid_off_tooltip"))
+            self.btn_calipers_toggle.setToolTip(tr("calipers_toggle_tooltip"))
+            self.btn_calipers_center.setToolTip(tr("calipers_center_tooltip"))
+            self.btn_add_line.setToolTip(tr("calipers_add_tooltip"))
+            self.combo_speed.setToolTip(tr("speed_tooltip"))
+            self.combo_gain.setToolTip(tr("gain_tooltip"))
         self._update_scale_badge_display()
         self.ecg_plot.plot_widget.setLabel("bottom", tr("axis_time"))
         self.ecg_plot.plot_widget.setLabel("left", tr("axis_voltage"))
@@ -2390,6 +2525,9 @@ class MainWindow(QMainWindow):
                 tr("af_hdr_end"),
                 tr("af_hdr_dur"),
                 tr("af_hdr_hr"),
+                tr("af_hdr_max_hr"),
+                tr("af_hdr_entropy"),
+                tr("af_hdr_irreg"),
             ])
         if hasattr(self, "lbl_tab_qtrr_model"):
             self.lbl_tab_qtrr_model.setText(tr("qtrr_lbl_model"))
@@ -2399,8 +2537,11 @@ class MainWindow(QMainWindow):
             self.qtrr_models_table.setHorizontalHeaderLabels([
                 tr("qtrr_hdr_model"),
                 tr("qtrr_hdr_eq"),
+                tr("qtrr_hdr_slope"),
+                tr("qtrr_hdr_r"),
                 tr("qtrr_hdr_r2"),
                 tr("qtrr_hdr_rmse"),
+                tr("qtrr_hdr_aic"),
                 tr("qtrr_hdr_qtc_ind"),
             ])
 
@@ -2414,6 +2555,8 @@ class MainWindow(QMainWindow):
         self.card_qtc.title_lbl.setText(tr("kpi_qtc_title"))
         self.card_ectopic.title_lbl.setText(tr("kpi_ectopic_title"))
         self.card_sqi.title_lbl.setText(tr("kpi_sqi_title"))
+        if hasattr(self, "card_qtd"):
+            self.card_qtd.title_lbl.setText(tr("kpi_qtd_title"))
         self.adv_group.setTitle(tr("adv_group_title"))
 
         # Table Headers
@@ -2421,12 +2564,33 @@ class MainWindow(QMainWindow):
             tr("hdr_time"), tr("hdr_event"), tr("hdr_value"), tr("hdr_severity")
         ])
         self.beat_table.setHorizontalHeaderLabels([
-            tr("hdr_beat_num"), tr("hdr_time"), tr("hdr_class"), tr("hdr_qt"), tr("hdr_qtc")
+            tr("hdr_beat_num"),
+            tr("hdr_time"),
+            tr("hdr_class"),
+            tr("hdr_pattern"),
+            tr("hdr_rr"),
+            tr("hdr_hr"),
+            tr("hdr_qt"),
+            tr("hdr_qtc"),
         ])
 
-        # Re-render current metric evaluations
+        # Re-render current metric evaluations or fallback placeholders
         if self.analysis_results:
             self._update_cards_and_tables()
+        else:
+            if hasattr(self, "card_qtd"):
+                self.card_qtd.sub_lbl.setText(tr("qtd_sub_single"))
+            self.lbl_adv_qtvi.setText(tr("adv_qtvi", val="--"))
+            self.lbl_adv_qtrr.setText(tr("adv_qtrr", val="--"))
+            self.lbl_adv_hyst.setText(tr("adv_hyst_na", val="--"))
+            self.lbl_adv_hrv.setText(tr("adv_hrv_na", val="--"))
+            self.lbl_adv_hrt.setText(tr("adv_hrt_na", val="--"))
+            self.lbl_adv_twa.setText(tr("adv_twa_na", val="--"))
+            self.lbl_adv_total.setText(tr("adv_total_cycles", count="--"))
+            if hasattr(self, "lbl_qtrr_summary_banner"):
+                self.lbl_qtrr_summary_banner.setText(tr("qtrr_banner_ready"))
+            if hasattr(self, "lbl_holter_summary_banner"):
+                self.lbl_holter_summary_banner.setText(tr("holter_summary_ready"))
 
 
     def set_task_progress(self, fraction: float, message: str) -> None:
@@ -2451,7 +2615,7 @@ class MainWindow(QMainWindow):
         self,
         task_func: Callable[..., Any],
         on_success: Callable[[Any], None],
-        on_error: Optional[Callable[[str], None]] = None,
+        on_error: Callable[[str], None] | None = None,
         initial_msg: str = "Processing...",
         *args: Any,
         **kwargs: Any
@@ -2652,7 +2816,7 @@ class MainWindow(QMainWindow):
             self.time_data = np.arange(len(self.signal_data)) / self.fs
             self._run_pipeline_and_display()
 
-    def _evaluate_channel_capabilities(self) -> Dict[str, Any]:
+    def _evaluate_channel_capabilities(self) -> dict[str, Any]:
         """Dynamic channel-sensing state machine adapting UI between single-lead and multi-lead modes."""
         n_channels = len(self.multi_lead_signals)
         is_multilead = n_channels >= 3
@@ -2660,7 +2824,7 @@ class MainWindow(QMainWindow):
             self.card_qtd.setEnabled(is_multilead)
             if not is_multilead:
                 self.card_qtd.val_lbl.setText("N/A")
-                self.card_qtd.sub_lbl.setText("Single-Lead Mode (<3 channels)")
+                self.card_qtd.sub_lbl.setText(tr("qtd_sub_single"))
         return {
             "channel_count": n_channels,
             "is_multilead_quorum": is_multilead,
@@ -2717,7 +2881,8 @@ class MainWindow(QMainWindow):
             self.annotation_manager = self.analysis_results.get("annotations")
 
             if self.time_data is not None and hasattr(self, "ecg_plot"):
-                self.ecg_plot.display_signal(self.time_data, clean, r_peaks)
+                beat_classes = [str(b.get("beat_class", "N")) for b in beats]
+                self.ecg_plot.display_signal(self.time_data, clean, r_peaks, beat_classes=beat_classes)
                 if hasattr(self.ecg_plot, "plot_widget"):
                     self.ecg_plot.plot_widget.setTitle(
                         f"ECG Waveform — {self.current_lead_name}",
@@ -2830,7 +2995,7 @@ class MainWindow(QMainWindow):
                 valid_cnt = disp["summary"].get("valid_lead_count", 0)
                 self.card_qtd.setEnabled(True)
                 self.card_qtd.val_lbl.setText(f"{mean_qtd:.1f} ms")
-                self.card_qtd.sub_lbl.setText(f"Tpe,d: {mean_tped:.1f} ms ({valid_cnt} valid leads)")
+                self.card_qtd.sub_lbl.setText(tr("qtd_sub_multi", tped=mean_tped, cnt=valid_cnt))
             else:
                 self._evaluate_channel_capabilities()
 
@@ -2848,11 +3013,72 @@ class MainWindow(QMainWindow):
         else:
             self.lbl_adv_qtrr.setText(tr("adv_qtrr_na"))
 
+        hyst_res = self.analysis_results.get("hysteresis") or {}
+        if hyst_res and "optimal_lambda" in hyst_res:
+            self.lbl_adv_hyst.setText(
+                tr(
+                    "adv_hyst",
+                    lam=hyst_res["optimal_lambda"],
+                    t90=hyst_res.get("t90_sec", 0.0),
+                    red=hyst_res.get("loop_reduction_percent", 0.0),
+                )
+            )
+        else:
+            self.lbl_adv_hyst.setText(tr("adv_hyst_na", val="N/A"))
+
+        hrv_res = self.analysis_results.get("hrv") or {}
+        if hrv_res and "time_domain" in hrv_res:
+            td = hrv_res.get("time_domain") or {}
+            fd = hrv_res.get("frequency_domain") or {}
+            nl = hrv_res.get("nonlinear") or {}
+            self.lbl_adv_hrv.setText(
+                tr(
+                    "adv_hrv",
+                    sdnn=td.get("sdnn", 0.0),
+                    rmssd=td.get("rmssd", 0.0),
+                    lfhf=fd.get("lf_hf_ratio", 0.0),
+                    sd12=nl.get("sd1_sd2_ratio", 0.0),
+                )
+            )
+        else:
+            self.lbl_adv_hrv.setText(tr("adv_hrv_na", val="N/A"))
+
+        hrt_res = self.analysis_results.get("hrt") or {}
+        if hrt_res and hrt_res.get("category") is not None:
+            self.lbl_adv_hrt.setText(
+                tr(
+                    "adv_hrt",
+                    to=hrt_res.get("turbulence_onset", 0.0),
+                    ts=hrt_res.get("turbulence_slope", 0.0),
+                    cat=hrt_res.get("category"),
+                    pvcs=hrt_res.get("valid_pvc_count", 0),
+                )
+            )
+        else:
+            self.lbl_adv_hrt.setText(tr("adv_hrt_na", val="N/A"))
+
+        twa_res = self.analysis_results.get("twa") or {}
+        if twa_res and ("spectral" in twa_res or "mma" in twa_res):
+            spec_twa = twa_res.get("spectral") or {}
+            mma_twa = twa_res.get("mma") or {}
+            verdict_str = "POSITIVE" if spec_twa.get("is_positive") else "NEGATIVE"
+            self.lbl_adv_twa.setText(
+                tr(
+                    "adv_twa",
+                    valt=spec_twa.get("v_alt_uv", 0.0),
+                    k=spec_twa.get("k_score", 0.0),
+                    verdict=verdict_str,
+                    mma=mma_twa.get("max_v_mma_uv", 0.0),
+                )
+            )
+        else:
+            self.lbl_adv_twa.setText(tr("adv_twa_na", val="N/A"))
+
         self._update_qtrr_visualization()
 
         self.lbl_adv_total.setText(tr("adv_total_cycles", count=summary['total_beats']))
 
-        # Populate Beat Table
+        # Populate Beat Table (8 documented columns: Beat #, Time, Class, Pattern, RR, HR, QT, QTc)
         self.beat_table.setRowCount(len(beats))
         for row, b in enumerate(beats):
             self.beat_table.setItem(row, 0, QTableWidgetItem(str(b["beat_index"] + 1)))
@@ -2860,20 +3086,21 @@ class MainWindow(QMainWindow):
 
             b_class = b.get("beat_class", "N")
             class_item = QTableWidgetItem(b_class)
-            if b_class == "V":
-                class_item.setForeground(QColor("#f87171"))
-            elif b_class == "S":
-                class_item.setForeground(QColor("#fbbf24"))
-            elif b_class == "F":
-                class_item.setForeground(QColor("#c084fc"))
-            elif b_class == "N":
-                class_item.setForeground(QColor("#34d399"))
-            else:
-                class_item.setForeground(QColor("#94a3b8"))
-
+            class_item.setForeground(QColor(_BEAT_CLASS_COLORS.get(b_class, "#94a3b8")))
             self.beat_table.setItem(row, 2, class_item)
-            self.beat_table.setItem(row, 3, QTableWidgetItem(f"{b['qt_ms']:.0f}"))
-            self.beat_table.setItem(row, 4, QTableWidgetItem(f"{b['qtc']['bazett_ms']:.0f}"))
+
+            pattern_str = str(b.get("rhythm_pattern", "NSR"))
+            self.beat_table.setItem(row, 3, QTableWidgetItem(pattern_str))
+
+            rr_ms_val = float(b.get("rr_sec", 0.0)) * 1000.0
+            self.beat_table.setItem(row, 4, QTableWidgetItem(f"{rr_ms_val:.0f}" if rr_ms_val > 0 else "--"))
+
+            hr_val = float(b.get("hr_bpm", 0.0))
+            self.beat_table.setItem(row, 5, QTableWidgetItem(f"{hr_val:.1f}" if np.isfinite(hr_val) and hr_val > 0 else "--"))
+
+            self.beat_table.setItem(row, 6, QTableWidgetItem(f"{b['qt_ms']:.0f}"))
+            qtc_b_val = (b.get("qtc") or {}).get("bazett_ms")
+            self.beat_table.setItem(row, 7, QTableWidgetItem(f"{qtc_b_val:.0f}" if qtc_b_val is not None else "--"))
 
         # Populate Events Diary
         self.events_table.setRowCount(len(events))
@@ -2883,12 +3110,7 @@ class MainWindow(QMainWindow):
             item_val = QTableWidgetItem(f"{ev['metric_value']:.0f} {ev['unit']}")
             item_sev = QTableWidgetItem(ev["severity"])
 
-            if ev["severity"] == "CRITICAL":
-                color = QColor("#f87171")
-            elif ev["severity"] == "WARNING":
-                color = QColor("#fbbf24")
-            else:
-                color = QColor("#60a5fa")
+            color = QColor(_SEVERITY_COLORS.get(ev["severity"], "#60a5fa"))
 
             item_type.setForeground(color)
             item_sev.setForeground(color)
@@ -2900,6 +3122,9 @@ class MainWindow(QMainWindow):
 
         # Populate Holter Triage Tab (Hourly Trends & AF Episodes)
         self._update_holter_triage_tab()
+
+        # Populate Study & Patient Metadata Tab (meta_table_a & meta_table_b)
+        self._populate_metadata_tables()
 
     def set_qtrr_model(self, model_id: str) -> None:
         """Sets the active Pueyo (2004) QT-RR restitution regression model and refreshes visualization."""
@@ -3011,9 +3236,17 @@ class MainWindow(QMainWindow):
             )
         )
         self.lbl_qtrr_summary_banner.setText(
-            f"Active: {active_fit['label']} | α={active_fit['slope']:.4f}, β={active_fit['intercept']:.4f} | "
-            f"r={active_fit['pearson_r']:.3f}, R²={active_fit['r_squared']:.3f}, RMSE={active_fit['rmse_ms']:.2f} ms | "
-            f"Individualized QTc(1.0s) = {qtc_ind_ms:.1f} ms | {hyst_tag}"
+            tr(
+                "qtrr_banner_fmt",
+                label=active_fit["label"],
+                slope=active_fit["slope"],
+                intercept=active_fit["intercept"],
+                r=active_fit["pearson_r"],
+                r2=active_fit["r_squared"],
+                rmse=active_fit["rmse_ms"],
+                qtc_ind=qtc_ind_ms,
+                hyst_tag=hyst_tag,
+            )
         )
 
         self.lbl_adv_qtrr.setText(
@@ -3023,34 +3256,101 @@ class MainWindow(QMainWindow):
             )
         )
 
-        # Populate 10-model comparison table
+        # Populate 10-model comparison table (8 columns: Model, Equation, Slope, Pearson r, R², RMSE, AIC, QTc,ind)
         self.qtrr_models_table.setRowCount(len(ranking))
         for r_idx, m_info in enumerate(ranking):
             is_active = (m_info["model"] == active_fit["model"])
             row_color = QColor("#38bdf8") if is_active else QColor("#cbd5e1")
 
-            it_m = QTableWidgetItem(m_info["model"])
-            it_eq = QTableWidgetItem(m_info["equation"])
-            it_r2 = QTableWidgetItem(f"{m_info['r_squared']:.3f}")
-            it_rmse = QTableWidgetItem(f"{m_info['rmse_ms']:.2f}")
-            it_qtc = QTableWidgetItem(f"{m_info['qtc_individual_ms']:.1f}")
-
-            for it in (it_m, it_eq, it_r2, it_rmse, it_qtc):
+            cells = [
+                QTableWidgetItem(str(m_info["model"])),
+                QTableWidgetItem(str(m_info["equation"])),
+                QTableWidgetItem(f"{m_info.get('slope', 0.0):.4f}"),
+                QTableWidgetItem(f"{m_info.get('pearson_r', 0.0):.3f}"),
+                QTableWidgetItem(f"{m_info['r_squared']:.3f}"),
+                QTableWidgetItem(f"{m_info['rmse_ms']:.2f}"),
+                QTableWidgetItem(f"{m_info.get('aic', 0.0):.1f}"),
+                QTableWidgetItem(f"{m_info['qtc_individual_ms']:.1f}"),
+            ]
+            for c_idx, it in enumerate(cells):
                 it.setForeground(row_color)
+                self.qtrr_models_table.setItem(r_idx, c_idx, it)
 
-            self.qtrr_models_table.setItem(r_idx, 0, it_m)
-            self.qtrr_models_table.setItem(r_idx, 1, it_eq)
-            self.qtrr_models_table.setItem(r_idx, 2, it_r2)
-            self.qtrr_models_table.setItem(r_idx, 3, it_rmse)
-            self.qtrr_models_table.setItem(r_idx, 4, it_qtc)
+    def _setup_keyboard_shortcuts(self) -> None:
+        """Registers keyboard shortcuts for beat-by-beat navigation (Left/Right) and AAMI hotkeys (N, V, S, F, Q)."""
+        self.action_prev_beat = QAction("Previous Beat", self)
+        self.action_prev_beat.setShortcut(QKeySequence("Left"))
+        self.action_prev_beat.triggered.connect(self.prev_beat)
+        self.addAction(self.action_prev_beat)
+
+        self.action_next_beat = QAction("Next Beat", self)
+        self.action_next_beat.setShortcut(QKeySequence("Right"))
+        self.action_next_beat.triggered.connect(self.next_beat)
+        self.addAction(self.action_next_beat)
+
+        self.aami_hotkey_actions: dict[str, Any] = {}
+        for code in ("N", "V", "S", "F", "Q"):
+            act = QAction(f"Classify {code}", self)
+            act.setShortcut(QKeySequence(code))
+            act.triggered.connect(lambda checked=False, c=code: self.reclassify_active_beat(c))
+            self.addAction(act)
+            self.aami_hotkey_actions[code] = act
+
+    def prev_beat(self) -> None:
+        """Steps to the previous cardiac cycle and centers calipers on it."""
+        if not self.analysis_results or not self.analysis_results.get("beats"):
+            return
+        target = max(0, self.current_beat_index - 1)
+        self._select_beat(target)
+        if hasattr(self.beat_table, "selectRow"):
+            self.beat_table.selectRow(target)
+
+    def next_beat(self) -> None:
+        """Steps to the next cardiac cycle and centers calipers on it."""
+        if not self.analysis_results or not self.analysis_results.get("beats"):
+            return
+        beats = self.analysis_results["beats"]
+        target = min(len(beats) - 1, self.current_beat_index + 1)
+        self._select_beat(target)
+        if hasattr(self.beat_table, "selectRow"):
+            self.beat_table.selectRow(target)
+
+    def reclassify_active_beat(self, new_label: str) -> None:
+        """Reclassifies the currently selected beat using a single-key AAMI hotkey (N, V, S, F, Q)."""
+        clean_lbl = new_label.strip().upper()
+        if clean_lbl not in ("N", "V", "S", "F", "Q"):
+            return
+        self.reclassify_beat(self.current_beat_index, clean_lbl)
+
+    def keyPressEvent(self, event: Any) -> None:
+        """Handles Left/Right beat navigation and N/V/S/F/Q AAMI reclassification hotkeys."""
+        key_code = event.key() if hasattr(event, "key") and callable(event.key) else None
+        key_text = event.text().upper() if hasattr(event, "text") and callable(event.text) and event.text() else ""
+
+        if key_code == getattr(Qt.Key, "Key_Left", 0x01000012) or key_text == "LEFT":
+            self.prev_beat()
+            return
+        if key_code == getattr(Qt.Key, "Key_Right", 0x01000014) or key_text == "RIGHT":
+            self.next_beat()
+            return
+        if key_text in ("N", "V", "S", "F", "Q"):
+            self.reclassify_active_beat(key_text)
+            return
+        for code in ("N", "V", "S", "F", "Q"):
+            if key_code == getattr(Qt.Key, f"Key_{code}", None):
+                self.reclassify_active_beat(code)
+                return
 
     def _select_beat(self, index: int) -> None:
-        if not self.analysis_results or index >= len(self.analysis_results["beats"]):
+        if not self.analysis_results or index < 0 or index >= len(self.analysis_results["beats"]):
             return
+        self.current_beat_index = index
         beat = self.analysis_results["beats"][index]
         q_sec = beat["q_onset_sample"] / self.fs
         t_sec = beat["t_end_sample"] / self.fs
-        self.current_beat_rr = beat["rr_sec"]
+        self.current_beat_rr = float(beat.get("rr_sec", 0.85) or 0.85)
+        if hasattr(self, "lbl_cal_rr"):
+            self.lbl_cal_rr.setText(f"{self.current_beat_rr * 1000.0:.0f} ms")
 
         self.ecg_plot.set_calipers(q_sec, t_sec)
         r_sec = beat["r_peak_sample"] / self.fs
@@ -3066,32 +3366,13 @@ class MainWindow(QMainWindow):
     def _on_beat_selected(self, row: int, col: int) -> None:
         self._select_beat(row)
 
-    def _on_beat_double_clicked(self, row: int, col: int) -> None:
-        """Physician manual override: double clicking a beat allows diagnosis reclassification."""
-        if not self.analysis_results or row >= len(self.analysis_results["beats"]):
+    def reclassify_beat(self, row: int, new_label: str) -> None:
+        """Reclassifies a beat and propagates the override across rhythm patterns, ectopic burden, HRV, HRT, and UI tables."""
+        if not self.analysis_results or row < 0 or row >= len(self.analysis_results["beats"]):
             return
-        beat = self.analysis_results["beats"][row]
+        beats = self.analysis_results["beats"]
+        beat = beats[row]
         current_class = beat.get("beat_class", "N")
-
-        options = [
-            tr("opt_n"),
-            tr("opt_v"),
-            tr("opt_s"),
-            tr("opt_f"),
-            tr("opt_q"),
-        ]
-        choice, ok = QInputDialog.getItem(
-            self,
-            tr("override_title", num=row + 1),
-            tr("override_prompt", curr=current_class),
-            options,
-            0,
-            False,
-        )
-        if not ok:
-            return
-
-        new_label = choice[0]
         beat["beat_class"] = new_label
 
         if self.annotation_manager:
@@ -3102,29 +3383,104 @@ class MainWindow(QMainWindow):
                 notes=f"Manual override from {current_class} to {new_label}",
             )
 
-        class_item = QTableWidgetItem(new_label)
-        if new_label == "V":
-            class_item.setForeground(QColor("#f87171"))
-        elif new_label == "S":
-            class_item.setForeground(QColor("#fbbf24"))
-        elif new_label == "F":
-            class_item.setForeground(QColor("#c084fc"))
-        elif new_label == "N":
-            class_item.setForeground(QColor("#34d399"))
-        else:
-            class_item.setForeground(QColor("#94a3b8"))
-        self.beat_table.setItem(row, 2, class_item)
+        classified_beats = self.analysis_results.get("classified_beats", [])
+        if row < len(classified_beats):
+            with contextlib.suppress(ValueError):
+                classified_beats[row].beat_class = BeatClass(new_label)
+            detect_rhythm_patterns(classified_beats)
+            for idx, cb in enumerate(classified_beats):
+                if idx < len(beats):
+                    beats[idx]["rhythm_pattern"] = cb.rhythm_pattern.value
+
+        counts: dict[str, int] = {}
+        for b in beats:
+            cls_code = str(b.get("beat_class", "N"))
+            counts[cls_code] = counts.get(cls_code, 0) + 1
+        tot_b = len(beats)
+        pvc_cnt = counts.get("V", 0)
+        pac_cnt = counts.get("S", 0)
+        ect_summary = self.analysis_results.get("ectopic_summary") or {}
+        ect_summary.update({
+            "total_beats": tot_b,
+            "counts": counts,
+            "pvc_count": pvc_cnt,
+            "pac_count": pac_cnt,
+            "pvc_percentage": round(pvc_cnt / tot_b * 100.0, 2) if tot_b > 0 else 0.0,
+            "ectopic_burden_pct": round((pvc_cnt + pac_cnt) / tot_b * 100.0, 2) if tot_b > 0 else 0.0,
+        })
+        self.analysis_results["ectopic_summary"] = ect_summary
+        if "summary" in self.analysis_results:
+            self.analysis_results["summary"]["ectopic_summary"] = ect_summary
+
+        nn_ms = [b["rr_sec"] * 1000.0 for b in beats if b.get("beat_class") == "N" and b.get("rr_sec", 0.0) > 0.2]
+        hrv_in = nn_ms if len(nn_ms) >= 4 else [b["rr_sec"] * 1000.0 for b in beats if b.get("rr_sec", 0.0) > 0.2]
+        if len(hrv_in) >= 2:
+            self.analysis_results["hrv"] = AnalysisAPI.analyze_hrv(hrv_in)
+        r_peaks = self.analysis_results.get("r_peaks")
+        if classified_beats and r_peaks is not None:
+            self.analysis_results["hrt"] = AnalysisAPI.analyze_hrt(classified_beats, r_peaks, fs=self.fs)
+
+        clean_sig = self.analysis_results.get("clean_signal")
+        if self.time_data is not None and clean_sig is not None and r_peaks is not None:
+            beat_classes = [str(b.get("beat_class", "N")) for b in beats]
+            self.ecg_plot.display_signal(self.time_data, clean_sig, r_peaks, beat_classes=beat_classes)
+
+        self._update_cards_and_tables()
+
+    def _on_beat_double_clicked(self, row: int, col: int) -> None:
+        """Physician manual override: double clicking a beat allows diagnosis reclassification."""
+        if not self.analysis_results or row >= len(self.analysis_results["beats"]):
+            return
+        current_class = self.analysis_results["beats"][row].get("beat_class", "N")
+        options = [tr("opt_n"), tr("opt_v"), tr("opt_s"), tr("opt_f"), tr("opt_q")]
+        choice, ok = QInputDialog.getItem(
+            self,
+            tr("override_title", num=row + 1),
+            tr("override_prompt", curr=current_class),
+            options,
+            0,
+            False,
+        )
+        if not ok or not choice:
+            return
+        self.reclassify_beat(row, choice[0])
 
     def _on_event_selected(self, row: int, col: int) -> None:
         self._select_event(row)
 
     def _on_caliper_dragged(self, q_sec: float, t_sec: float) -> None:
+        """Updates live caliper HUD and persists calibrated Q-onset/T-end into the active beat and study summary."""
         qt_sec = abs(t_sec - q_sec)
         qt_ms = qt_sec * 1000.0
-        qtc = AnalysisAPI.calculate_qtc(qt_sec, self.current_beat_rr)
+        rr_val = self.current_beat_rr if self.current_beat_rr > 0 else 0.85
+        qtc = AnalysisAPI.calculate_qtc(qt_sec, rr_val)
         self.lbl_cal_qt.setText(f"{qt_ms:.0f} ms")
+        if hasattr(self, "lbl_cal_rr"):
+            self.lbl_cal_rr.setText(f"{rr_val * 1000.0:.0f} ms")
         self.lbl_cal_bazett.setText(f"{qtc['bazett_ms']:.0f} ms")
         self.lbl_cal_fridericia.setText(f"{qtc['fridericia_ms']:.0f} ms")
+
+        if self.analysis_results and "beats" in self.analysis_results:
+            beats = self.analysis_results["beats"]
+            if 0 <= self.current_beat_index < len(beats):
+                beat = beats[self.current_beat_index]
+                q_samp = max(0, int(round(min(q_sec, t_sec) * self.fs)))
+                t_samp = max(q_samp + 1, int(round(max(q_sec, t_sec) * self.fs)))
+                beat["q_onset_sample"] = q_samp
+                beat["t_end_sample"] = t_samp
+                beat["qt_sec"] = float(qt_sec)
+                beat["qt_ms"] = float(qt_ms)
+                beat["qtc"] = qtc
+
+                ect_keep = self.analysis_results.get("ectopic_summary", {})
+                new_sum = summarize_beats(beats)
+                new_sum["ectopic_summary"] = ect_keep
+                self.analysis_results["summary"] = new_sum
+
+                self.beat_table.setItem(self.current_beat_index, 6, QTableWidgetItem(f"{qt_ms:.0f}"))
+                self.beat_table.setItem(self.current_beat_index, 7, QTableWidgetItem(f"{qtc['bazett_ms']:.0f}"))
+                mean_qtc_b = new_sum.get("mean_qtc_bazett_ms", qtc["bazett_ms"])
+                self.card_qtc.val_lbl.setText(f"{mean_qtc_b:.0f} ms")
 
     def _export_pecg_dialog(self) -> None:
         if self.signal_data is None:
@@ -3187,6 +3543,74 @@ class MainWindow(QMainWindow):
         )
 
 
+    def _populate_metadata_tables(self) -> None:
+        """Populates Group A (Demographics & Timing) and Group B (Clinical Context & Study Specs) tables."""
+        meta = self.current_metadata or {}
+        patient_sub = meta.get("patient", {}) if isinstance(meta.get("patient"), dict) else {}
+        rec_sub = meta.get("recording", {}) if isinstance(meta.get("recording"), dict) else {}
+
+        pid = str(meta.get("patient_id") or patient_sub.get("patient_id") or meta.get("record_name") or "ANONYMOUS")
+        sex = str(meta.get("gender") or meta.get("sex") or patient_sub.get("sex") or tr("meta_unspecified"))
+        age_val = meta.get("age") if meta.get("age") is not None else patient_sub.get("age")
+        bdate = str(meta.get("birth_date") or "")
+        if age_val is not None and bdate:
+            age_str = f"{age_val} yrs ({bdate})"
+        elif age_val is not None:
+            age_str = f"{age_val} yrs"
+        elif bdate:
+            age_str = bdate
+        else:
+            age_str = tr("meta_unspecified")
+
+        rdate = str(meta.get("record_date") or meta.get("study_date") or meta.get("start_date") or meta.get("effective_time") or "")
+        stime = str(meta.get("start_time") or meta.get("study_time") or "")
+        timing_str = f"{rdate} {stime}".strip() or tr("meta_unspecified")
+
+        rows_a = [
+            (tr("meta_patient_id"), pid),
+            (tr("meta_sex"), sex),
+            (tr("meta_age"), age_str),
+            (tr("meta_timing"), timing_str),
+        ]
+        self.meta_table_a.setRowCount(len(rows_a))
+        for r_idx, (field_lbl, val_str) in enumerate(rows_a):
+            self.meta_table_a.setItem(r_idx, 0, QTableWidgetItem(str(field_lbl)))
+            self.meta_table_a.setItem(r_idx, 1, QTableWidgetItem(str(val_str)))
+
+        pm_str = str(meta.get("pacemaker") or patient_sub.get("pacemaker") or "NO")
+        ind_str = str(meta.get("indication") or patient_sub.get("indication") or tr("meta_unspecified"))
+        race_str = str(meta.get("race") or patient_sub.get("race") or tr("meta_unspecified"))
+        fmt_str = str(meta.get("format") or "Standard ECG")
+        if "PECG" in fmt_str.upper():
+            name_str = tr("meta_deidentified")
+        else:
+            name_str = str(meta.get("patient_name") or f"{meta.get('first_name', '')} {meta.get('last_name', '')}".strip() or tr("meta_deidentified"))
+
+        n_ch = len(self.multi_lead_signals) if self.multi_lead_signals else 1
+        ch_str = f"{n_ch} leads @ {self.fs:.0f} Hz"
+        dur_sec = float(
+            meta.get("duration_sec")
+            or rec_sub.get("duration_sec")
+            or (len(self.signal_data) / self.fs if (self.signal_data is not None and self.fs > 0) else 0.0)
+        )
+        dur_str = f"{dur_sec:.1f} s ({dur_sec / 60.0:.1f} min)"
+        notes_str = str(meta.get("clinical_notes") or tr("meta_unspecified"))
+
+        rows_b = [
+            (tr("meta_pacemaker"), pm_str),
+            (tr("meta_indication"), ind_str),
+            (tr("meta_race"), race_str),
+            (tr("meta_name"), name_str),
+            (tr("meta_format"), fmt_str),
+            (tr("meta_channels"), ch_str),
+            (tr("meta_duration"), dur_str),
+            (tr("meta_notes"), notes_str),
+        ]
+        self.meta_table_b.setRowCount(len(rows_b))
+        for r_idx, (field_lbl, val_str) in enumerate(rows_b):
+            self.meta_table_b.setItem(r_idx, 0, QTableWidgetItem(str(field_lbl)))
+            self.meta_table_b.setItem(r_idx, 1, QTableWidgetItem(str(val_str)))
+
     def _update_holter_triage_tab(self) -> None:
         """Populates the Holter Triage tab with hourly trend bins and AF episodes."""
         if not self.analysis_results or not hasattr(self, "holter_trends_table"):
@@ -3202,8 +3626,16 @@ class MainWindow(QMainWindow):
         tot_pauses = trends.get("total_pauses", 0)
         max_pause = trends.get("max_pause_sec", 0.0)
         self.lbl_holter_summary_banner.setText(
-            f"Holter Summary: {len(bins)}h analyzed | PVCs: {tot_pvc} | PACs: {tot_pac} | "
-            f"Pauses: {tot_pauses} (max {max_pause:.2f}s) | AF Burden: {af_burden:.2f}% ({len(episodes)} episodes)"
+            tr(
+                "holter_banner_fmt",
+                hours=len(bins),
+                pvc=tot_pvc,
+                pac=tot_pac,
+                pauses=tot_pauses,
+                max_pause=max_pause,
+                af=af_burden,
+                episodes=len(episodes),
+            )
         )
 
         self.holter_trends_table.setRowCount(len(bins))
@@ -3226,6 +3658,9 @@ class MainWindow(QMainWindow):
             self.holter_af_table.setItem(r_idx, 2, QTableWidgetItem(f"{ep.get('end_time_sec', 0.0):.1f}"))
             self.holter_af_table.setItem(r_idx, 3, QTableWidgetItem(f"{ep.get('duration_sec', 0.0):.1f}"))
             self.holter_af_table.setItem(r_idx, 4, QTableWidgetItem(f"{ep.get('mean_hr_bpm', 0.0):.1f}"))
+            self.holter_af_table.setItem(r_idx, 5, QTableWidgetItem(f"{ep.get('max_hr_bpm', 0.0):.1f}"))
+            self.holter_af_table.setItem(r_idx, 6, QTableWidgetItem(f"{ep.get('shannon_entropy', 0.0):.2f}"))
+            self.holter_af_table.setItem(r_idx, 7, QTableWidgetItem(f"{ep.get('irregularity_score', 0.0):.3f}"))
 
     def _on_holter_hour_clicked(self, row: int, col: int) -> None:
         """Seeks the waveform plot to the start of the selected hourly bin."""

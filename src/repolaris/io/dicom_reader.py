@@ -26,11 +26,13 @@ Binary Structure:
 
 from __future__ import annotations
 
+import contextlib
+
 import os
 import struct
 from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Optional, List, Dict, Any, Tuple, Union
+from typing import Any
 import numpy as np
 
 # Standard 12-Lead Code Value Mapping (DICOM CID 3001 / SCPECG Lead Codes)
@@ -60,13 +62,13 @@ class DICOMWaveformRecord:
     sampling_rate: float
     num_channels: int
     num_samples: int
-    lead_names: List[str]
+    lead_names: list[str]
     signals: np.ndarray  # Shape: (num_channels, num_samples) in physical millivolts (mV)
-    units: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    units: list[str] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
-def is_dicom_file(filepath: Union[str, Path, os.PathLike[str]]) -> bool:
+def is_dicom_file(filepath: str | Path | os.PathLike[str]) -> bool:
     """Verifies whether a file contains the standard DICOM 'DICM' magic byte header at offset 128."""
     path = Path(filepath)
     if not path.is_file() or path.stat().st_size < 132:
@@ -81,7 +83,7 @@ def is_dicom_file(filepath: Union[str, Path, os.PathLike[str]]) -> bool:
 
 
 def read_dicom_waveform(
-    filepath: Union[str, Path, os.PathLike[str]],
+    filepath: str | Path | os.PathLike[str],
 ) -> DICOMWaveformRecord:
     """Parses a DICOM Waveform (12-Lead or Ambulatory) object and returns physical mV signals.
 
@@ -107,11 +109,8 @@ def read_dicom_waveform(
         raise ValueError(f"Security Alert: DICOM file ({file_size} B) exceeds the 500 MB safety ceiling.")
 
     # 1. Preferred route: pydicom if available
-    try:
-        import pydicom
+    with contextlib.suppress(ImportError):
         return _read_with_pydicom(path)
-    except ImportError:
-        pass
 
     # 2. Native binary parser fallback
     return _read_native_dicom(path)
@@ -140,10 +139,10 @@ def _read_with_pydicom(path: Path) -> DICOMWaveformRecord:
     if num_channels <= 0 or num_samples <= 0:
         raise ValueError(f"Corrupt DICOM Waveform: Invalid dimensions (channels={num_channels}, samples={num_samples}).")
 
-    lead_names: List[str] = []
-    sensitivities: List[float] = []
-    baselines: List[float] = []
-    units: List[str] = []
+    lead_names: list[str] = []
+    sensitivities: list[float] = []
+    baselines: list[float] = []
+    units: list[str] = []
 
     channel_seq = getattr(multiplex, "ChannelDefinitionSequence", [])
     for idx, ch in enumerate(channel_seq):

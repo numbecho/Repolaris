@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "repolaris"
-version = "0.8.0"
+version = "0.8.1"
 description = "Modern Python framework for continuous ECG waveform analysis, ventricular repolarization, and arrhythmia triage"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -13,7 +13,18 @@ license-files = ["LICENSE"]
 authors = [
     {name = "Repolaris Contributors", email = "ssdnam7t@pm.me"}
 ]
-keywords = ["ecg", "cardiology", "qt-interval", "repolarization", "qtvi", "holter", "signal-processing", "pyqtgraph", "zstd", "biomedical"]
+keywords = [
+    "ecg",
+    "cardiology",
+    "qt-interval",
+    "repolarization",
+    "qtvi",
+    "holter",
+    "signal-processing",
+    "pyqtgraph",
+    "zstd",
+    "biomedical",
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Healthcare Industry",
@@ -23,7 +34,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: 3 :: Only",
-    "Topic :: Scientific/Engineering :: Medical Science Apps."
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
 ]
 dependencies = [
     "numpy>=1.24",
@@ -31,26 +42,33 @@ dependencies = [
     "matplotlib>=3.7",
     "pandas>=2.0",
     "zstandard>=0.22",
-    "cbor2>=5.6"
+    "cbor2>=5.6",
 ]
 
 [project.optional-dependencies]
 gui = [
     "PyQt6>=6.5",
-    "pyqtgraph>=0.13"
+    "pyqtgraph>=0.13",
 ]
 wfdb = [
     "wfdb>=4.1",
-    "pydicom>=2.4"
+    "pydicom>=2.4",
 ]
 dev = [
     "pytest>=8.0",
-    "ruff>=0.4",
-    "mypy>=1.9"
+    "ruff>=0.8",
+    "mypy>=1.9",
 ]
 packaging = [
     "briefcase>=0.3.20",
-    "zstandard>=0.22"
+    "zstandard>=0.22",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.8",
+    "mypy>=1.9",
 ]
 
 [project.scripts]
@@ -63,15 +81,20 @@ where = ["src"]
 [tool.setuptools.package-data]
 "repolaris.resources" = ["*.ui", "*.qss", "*.png", "*.svg", "*.py"]
 
-
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+pythonpath = ["src"]
 
 # --- Modern Astral Tooling Configuration (https://astral.sh/) ---
+[tool.uv]
+managed = true
+default-groups = ["dev"]
+
 [tool.ruff]
 line-length = 100
-target-version = "py312"
+target-version = "py314"
+src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = [
@@ -79,22 +102,33 @@ select = [
     "W",    # pycodestyle warnings
     "F",    # pyflakes
     "I",    # isort
-    "UP",   # pyupgrade
+    "UP",   # pyupgrade (Python 3.14 syntax)
     "B",    # flake8-bugbear
     "SIM",  # flake8-simplify
+    "C4",   # flake8-comprehensions
+    "PIE",  # flake8-pie
+    "RET",  # flake8-return
 ]
-ignore = ["E501"]  # line length handled by formatter
+ignore = ["E501", "RET504", "SIM108"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["repolaris"]
 
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
 
+[tool.mypy]
+python_version = "3.14"
+ignore_missing_imports = true
+check_untyped_defs = true
+
 # --- Briefcase Distribution Packaging Configuration (BeeWare) ---
 [tool.briefcase]
 project_name = "Repolaris"
 bundle = "org.repolaris"
-version = "0.8.0"
+version = "0.8.1"
 url = "https://github.com/numbecho/repolaris"
 author = "Repolaris Contributors"
 author_email = "ssdnam7t@pm.me"
@@ -104,7 +138,7 @@ formal_name = "Repolaris"
 description = "Clinical and Research ECG Ventricular Repolarization Workstation"
 long_description = """Repolaris is an open-source clinical and research software framework for continuous electrocardiogram (ECG) waveform segmentation, automated arrhythmia triage, and high-precision ventricular repolarization (QT interval) analysis."""
 sources = [
-    "src/repolaris"
+    "src/repolaris",
 ]
 requires = [
     "numpy>=1.24",
@@ -114,14 +148,14 @@ requires = [
     "zstandard>=0.22",
     "cbor2>=5.6",
     "PyQt6>=6.5",
-    "pyqtgraph>=0.13"
+    "pyqtgraph>=0.13",
 ]
 
 [tool.briefcase.app.repolaris.macOS]
 universal_build = false
 min_os_version = "13.0"
 requires = [
-    "std-nslog~=1.0.0"
+    "std-nslog~=1.0.0",
 ]
 
 [tool.briefcase.app.repolaris.linux]
@@ -130,7 +164,7 @@ requires = []
 [tool.briefcase.app.repolaris.linux.system.debian]
 system_requires = [
     "libgl1",
-    "libxkbcommon-x11-0"
+    "libxkbcommon-x11-0",
 ]
 
 [tool.briefcase.app.repolaris.windows]

@@ -20,12 +20,15 @@ Architecture:
     - If zstd/deflate: Compressed byte stream for compact export and sharing.
 """
 
+from __future__ import annotations
+
 import struct
 import json
 import zlib
 from pathlib import Path
 import os
-from typing import Optional, Dict, Any, Tuple, Callable
+from collections.abc import Callable
+from typing import Any
 import numpy as np
 
 try:
@@ -65,14 +68,14 @@ def save_pecg(
     signals: np.ndarray,
     sampling_rate: float,
     lead_names: list[str],
-    patient_info: Optional[Dict[str, Any]] = None,
-    annotations: Optional[Dict[str, Any]] = None,
-    events: Optional[list] = None,
-    adc_gains: Optional[list[float]] = None,
-    adc_baselines: Optional[list[int]] = None,
+    patient_info: dict[str, Any] | None = None,
+    annotations: dict[str, Any] | None = None,
+    events: list | None = None,
+    adc_gains: list[float] | None = None,
+    adc_baselines: list[int] | None = None,
     use_cbor: bool = False,
     compression: str = "zstd",  # "zstd", "deflate", "zlib", or "none"
-    progress_callback: Optional[Callable[[float, str], None]] = None
+    progress_callback: Callable[[float, str], None] | None = None
 ) -> str:
     """
     Saves a multi-channel ECG study to a single portable .pecg file.
@@ -203,7 +206,7 @@ def save_pecg(
     return str(filepath)
 
 
-def load_pecg(filepath: str | Path, mmap: bool = False, progress_callback: Optional[Callable[[float, str], None]] = None) -> Tuple[Dict[str, Any], np.ndarray]:
+def load_pecg(filepath: str | Path, mmap: bool = False, progress_callback: Callable[[float, str], None] | None = None) -> tuple[dict[str, Any], np.ndarray]:
     """
     Loads a .pecg study package with comprehensive security and sanity checks.
     

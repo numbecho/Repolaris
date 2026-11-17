@@ -59,7 +59,7 @@ def calculate_qt_dispersion(
     """Quantifies spatial repolarization heterogeneity across synchronous multi-lead recordings.
 
     Args:
-        lead_signals: 2D array of shape (n_leads, n_samples) or Dict[lead_name, 1D_array].
+        lead_signals: 2D array of shape (n_leads, n_samples) or dict[lead_name, 1D_array].
         fs: Sampling frequency in Hz (default: 500.0).
         lead_names: Optional list of clinical lead identifiers.
         config: Optional DetectionConfig thresholds.

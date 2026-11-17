@@ -12,8 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple, Union
-import numpy as np
+from typing import Any
 
 
 @dataclass
@@ -28,12 +27,12 @@ class ECGAnnotation:
     notes: str = ""                       # Clinical rationale or caliper notes
     created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Serializes annotation to dictionary."""
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> ECGAnnotation:
+    def from_dict(cls, data: dict[str, Any]) -> ECGAnnotation:
         """Instantiates an ECGAnnotation from a serialized dictionary."""
         return cls(
             sample=int(data["sample"]),
@@ -50,8 +49,8 @@ class ECGAnnotation:
 class AnnotationManager:
     """Manages collection, query, mutation, and serialization of study annotations."""
 
-    def __init__(self, annotations: Optional[List[ECGAnnotation]] = None) -> None:
-        self._annotations: List[ECGAnnotation] = list(annotations) if annotations else []
+    def __init__(self, annotations: list[ECGAnnotation] | None = None) -> None:
+        self._annotations: list[ECGAnnotation] = list(annotations) if annotations else []
 
     def __len__(self) -> int:
         return len(self._annotations)
@@ -60,7 +59,7 @@ class AnnotationManager:
         return iter(self._annotations)
 
     @property
-    def annotations(self) -> List[ECGAnnotation]:
+    def annotations(self) -> list[ECGAnnotation]:
         """Returns sorted list of annotations."""
         return sorted(self._annotations, key=lambda a: a.sample)
 
@@ -94,13 +93,13 @@ class AnnotationManager:
         reviewer: str = "Physician",
         notes: str = "",
         tolerance_samples: int = 25,
-    ) -> Optional[ECGAnnotation]:
+    ) -> ECGAnnotation | None:
         """Overrides an existing beat annotation with a manual physician diagnosis.
 
         Locates the nearest existing annotation within tolerance_samples and updates it,
         or creates a new override annotation if none exists nearby.
         """
-        target: Optional[ECGAnnotation] = None
+        target: ECGAnnotation | None = None
         min_dist = float("inf")
 
         for ann in self._annotations:
@@ -127,22 +126,22 @@ class AnnotationManager:
                 notes=notes,
             )
 
-    def get_by_label(self, label: str) -> List[ECGAnnotation]:
+    def get_by_label(self, label: str) -> list[ECGAnnotation]:
         """Filters annotations matching a specific AAMI label (e.g. 'V')."""
         l_upper = label.upper()
         return [a for a in self._annotations if a.label == l_upper]
 
-    def get_in_time_range(self, start_sec: float, end_sec: float) -> List[ECGAnnotation]:
+    def get_in_time_range(self, start_sec: float, end_sec: float) -> list[ECGAnnotation]:
         """Returns annotations falling inside a specific temporal window [start_sec, end_sec]."""
         return [a for a in self._annotations if start_sec <= a.timestamp_sec <= end_sec]
 
-    def get_manual_overrides(self) -> List[ECGAnnotation]:
+    def get_manual_overrides(self) -> list[ECGAnnotation]:
         """Returns all annotations that were manually created or overridden by a clinician."""
         return [a for a in self._annotations if a.is_manual_override]
 
-    def summary(self) -> Dict[str, Any]:
+    def summary(self) -> dict[str, Any]:
         """Generates statistical count summary of annotations."""
-        counts: Dict[str, int] = {}
+        counts: dict[str, int] = {}
         override_count = 0
 
         for a in self._annotations:
@@ -157,12 +156,12 @@ class AnnotationManager:
             "ai_detected": len(self._annotations) - override_count,
         }
 
-    def to_dict_list(self) -> List[Dict[str, Any]]:
+    def to_dict_list(self) -> list[dict[str, Any]]:
         """Serializes all annotations into a list of dictionaries for .pecg or JSON storage."""
         return [a.to_dict() for a in self.annotations]
 
     @classmethod
-    def from_dict_list(cls, dict_list: List[Dict[str, Any]]) -> AnnotationManager:
+    def from_dict_list(cls, dict_list: list[dict[str, Any]]) -> AnnotationManager:
         """Instantiates an AnnotationManager from a list of serialized dictionaries."""
         mgr = cls()
         for d in dict_list:

@@ -1,5 +1,5 @@
 import unittest
-from repolaris.detection.events import detect_clinical_events, ECGEvent
+from repolaris.detection.events import detect_clinical_events
 
 class TestEventsDetection(unittest.TestCase):
     def test_detect_pause_and_qtc(self):

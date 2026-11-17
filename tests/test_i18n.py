@@ -1,22 +1,10 @@
 """Unit tests for Repolaris Internationalization (i18n) Engine."""
 
-import importlib.util
-from pathlib import Path
 import unittest
 from repolaris.i18n import (
     tr, set_locale, get_current_locale, get_supported_locales,
-    SUPPORTED_LANGUAGES, TRANSLATIONS
+    TRANSLATIONS
 )
-
-_async_test_path = Path(__file__).parent / "test_async_tasks.py"
-if _async_test_path.exists():
-    _spec = importlib.util.spec_from_file_location("test_async_tasks", _async_test_path)
-    if _spec and _spec.loader:
-        _mod = importlib.util.module_from_spec(_spec)
-        _spec.loader.exec_module(_mod)
-        for _attr in dir(_mod):
-            if _attr.startswith("Test") and isinstance(getattr(_mod, _attr), type) and issubclass(getattr(_mod, _attr), unittest.TestCase):
-                globals()[_attr] = getattr(_mod, _attr)
 
 
 class TestI18n(unittest.TestCase):
@@ -177,7 +165,7 @@ class TestI18n(unittest.TestCase):
         """Verify in-process API layer (StudyAPI, AnalysisAPI, ExportAPI) and resources."""
         import os
         import xml.etree.ElementTree as ET
-        from repolaris.api import StudyAPI, AnalysisAPI, ExportAPI
+        from repolaris.api import StudyAPI, AnalysisAPI
 
         # 1. StudyAPI demo generation
         t, sig, r_peaks = StudyAPI.generate_demo_study(duration_sec=3.0, fs=500.0, heart_rate_bpm=72.0)
@@ -201,7 +189,9 @@ class TestI18n(unittest.TestCase):
         tree = ET.parse(ui_path)
         root = tree.getroot()
         self.assertEqual(root.tag, "ui")
-        self.assertEqual(root.find("class").text, "MainWindow")
+        cls_elem = root.find("class")
+        self.assertIsNotNone(cls_elem)
+        self.assertEqual(cls_elem.text if cls_elem is not None else "", "MainWindow")
         widgets = {w.get("name") for w in root.iter("widget")}
         self.assertIn("mainSplitter", widgets)
         self.assertIn("plot_widget", widgets)
@@ -228,4 +218,3 @@ class TestI18n(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

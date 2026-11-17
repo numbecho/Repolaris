@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import numpy as np
 
 def detect_q_onset(signal: np.ndarray, r_peak: int, fs: float, search_window_ms: float = 100.0) -> int:

@@ -1,6 +1,6 @@
-# File Formats and Universal Ingestion
+# File Formats, Out-of-Core Streaming & Clinical PDF Reporting
 
-A cornerstone of Repolaris is its **universal, zero-dependency ingestion engine** (`repolaris.io.ecg_loader`), capable of reading all major international clinical, hospital, and academic ECG formats.
+A cornerstone of Repolaris is its **universal, zero-dependency ingestion and reporting engine** (`repolaris.io`), capable of reading all major international clinical, hospital, and academic ECG formats, streaming 24h–48h Holter recordings out-of-core via `np.memmap`, and generating printable 2-page clinical PDF reports.
 
 ---
 
@@ -16,7 +16,7 @@ A cornerstone of Repolaris is its **universal, zero-dependency ingestion engine*
 | **Excorde 3C** | `.e3c` | Fukuda Denshi Holter Monitors | In-memory ZIP extractor, 2-channel int16 binary stream, 25-byte QRS records (`<6IB`). |
 | **European Data Format** | `.edf`, `.edf+` | Wearable Patches & Polysomnography | Official EDF/EDF+ specification, 256-byte header, per-channel physical dimension scaling. |
 | **PhysioNet WFDB** | `.hea`, `.dat` | Clinical Research Benchmarks | Dual-file ASCII header parser, Format 16 bit-packed, Format 212 12-bit nibble packed. |
-| **Delimited Text / NumPy** | `.csv`, `.txt`, `.npy` | Community Sensors & Raw Dumps | Direct matrix ingestion with arbitrary delimiters. |
+| **Delimited Text / NumPy** | `.csv`, `.txt`, `.npy` | Community Sensors & Raw Dumps | Direct matrix ingestion and memory-mapped streaming with arbitrary delimiters. |
 
 ---
 
@@ -28,7 +28,7 @@ Rather than relying solely on file extensions, Repolaris inspects file headers a
 * **SCP-ECG**: Reads bytes 0–14 verifying CRC, file length, and Section 0 ID (`sec_id == 0`).
 * **HL7 aECG**: Checks XML root elements for `<AnnotatedECG>` and the `urn:hl7-org:v3` namespace.
 * **PECG**: Verifies the `b"PECG"` 4-byte magic signature at offset 0.
-* **ISHNE**: Validates the 522-byte binary header with magic variable block length offsets.
+* **ISHNE**: Validates the `ISHNE1.0` magic signature and variable header block offsets.
 
 ```python
 from repolaris.io import sniff_ecg_format, load_ecg_dataset
@@ -44,71 +44,56 @@ print(f"Sampling frequency: {fs} Hz | Channels: {list(signals.keys())}")
 
 ---
 
-## 3. DICOM Waveform (`.dcm`, `.dicom`)
+## 3. Out-of-Core Holter Streaming (`SignalBuffer` & `stream_ecg_chunks`)
 
-Conforming to DICOM Part 3 Annex A.34 and C.10.9:
-* Supports **12-Lead ECG Waveform Storage** (SOP Class `1.2.840.10008.5.1.4.1.1.9.1.1`) and **General ECG** (`1.2.840.10008.5.1.4.1.1.9.1.2`).
-* Pure-Python native parser extracting multiplexed samples from Tag `(5400, 1010)` with automatic fallback to `pydicom` if installed.
-* Calibrates raw ADC integers to physical millivolts using channel sensitivity and baseline tags:
-  $$\text{Signal (mV)} = (\text{ADC} - \text{Baseline}) \times \text{Sensitivity}$$
+For continuous 24h–48h multi-lead Holter recordings ($> 1.8 \times 10^6$ samples per channel), `open_ecg_buffer()` and `stream_ecg_chunks()` back the signal array with an on-disk `np.memmap` cache so full-day recordings can be analyzed with bounded RAM usage:
 
 ```python
-from repolaris.io.dicom_reader import read_dicom_waveform
+from repolaris.io import open_ecg_buffer, stream_ecg_chunks
+from repolaris.detection.pipeline import analyze_ecg_stream
 
-rec = read_dicom_waveform("clinical_12lead.dcm")
-print(f"Patient: {rec.patient_name} (ID: {rec.patient_id})")
-print(f"Channels: {rec.num_channels} | Duration: {rec.num_samples / rec.sampling_rate:.1f}s")
-lead_I = rec.signals[0]
+# 1. Zero-copy random-access lead slicing
+buf = open_ecg_buffer("24h_holter.ecg", mmap_threshold_samples=1_800_000)
+first_10s = buf.get_slice("Lead II", start_sample=0, end_sample=int(10 * buf.fs))
+
+# 2. Full-study overlapping window streaming analysis (5-minute chunks, 5-second overlap)
+results = analyze_ecg_stream("24h_holter.ecg", lead="Lead II", chunk_duration_sec=300.0, overlap_sec=5.0)
+print(f"Total Beats: {results['summary']['total_beats']} | AF Burden: {results['af_report']['af_burden_pct']:.2f}%")
 ```
 
 ---
 
-## 4. HL7 Annotated ECG XML (`.xml`, `.aecg`)
+## 4. Printable 2-Page Clinical PDF Reports (`pdf_report.py`)
 
-Conforming to the ANSI/HL7 aECG standard utilized in FDA ICH E14 Thorough QT clinical trials:
-* Maps IEEE 11073-10102 `MDC_ECG_LEAD_*` codes directly to standard clinical names (Lead I–III, aVR, aVL, aVF, V1–V6).
-* Extracts sampling frequency from `<increment>` duration tags and voltage scale multipliers from `<scale>`.
-* **Locale Normalization**: Automatically normalizes comma decimal formats (`0,005 mV`) common in European clinical trials to IEEE floating point.
-
-```python
-from repolaris.io.hl7_reader import read_hl7_aecg
-
-rec = read_hl7_aecg("tqt_trial_subject.xml")
-print(f"Leads: {rec.lead_names} | Sampling Rate: {rec.sampling_rate} Hz")
-```
-
----
-
-## 5. SCP-ECG Standard (`.scp`)
-
-Conforming to European Standard CEN EN 1064:2005+A1:2007 and ISO 13713:
-* Decodes Section 0 pointer tables, Section 3 lead configurations, and Section 6 difference-encoded rhythm waveforms.
-* **Safety Guards**: Detects files requiring Section 2 Huffman decompression or Section 5 reference beat residual subtraction and raises a clean `NotImplementedError` to prevent bitstream corruption.
+Repolaris generates vector clinical PDF reports (`generate_clinical_pdf_report`) with zero external browser or LaTeX dependencies:
+* **Page 1:** Patient & Study Demographics, Executive Repolarization & Arrhythmia KPI Summary Table, a 10-second calibrated ECG disclosure strip ($25\text{ mm/s}$, $10\text{ mm/mV}$) with R-peak, Q-onset, and T-end markers, and the Clinical Events Diary.
+* **Page 2:** Hourly Holter Distribution Table, Poincaré Lorentz plot ($RR_n$ vs $RR_{n+1}$), and QT-RR Restitution & Hysteresis curve.
 
 ```python
-from repolaris.io.scp_reader import read_scp_ecg
+from repolaris.io import generate_clinical_pdf_report
 
-rec = read_scp_ecg("standard_ecg.scp")
-print(f"Decoded {rec.num_leads} leads sampled at {rec.sampling_rate} Hz")
-```
-
----
-
-## 6. Portable Clinical ECG (`.pecg`)
-
-Designed for de-identified peer consultation:
-* **Demographic Preservation**: Anonymizes direct identifiers while preserving Age, Sex, Race, Pacemaker Status, and Clinical Indication.
-* **Storage Modes**: Supports Zstandard (`zstd`), Deflate, or raw zero-copy `np.memmap`.
-
-```python
-from repolaris.io.pecg_format import save_pecg, load_pecg
-
-save_pecg(
-    filepath="patient_case.pecg",
-    signals=lead_matrix,
-    sampling_rate=500.0,
-    lead_names=["Lead I", "Lead II", "V5"],
-    patient_info={"age": 58, "sex": "Female", "indication": "Drug safety evaluation"},
-    compression="zstd"
+generate_clinical_pdf_report(
+    filepath="patient_holter_report.pdf",
+    analysis_results=results,
+    patient_metadata={"patient_id": "PT-104", "age": 64, "sex": "Female", "indication": "Syncope"},
+    fs=buf.fs,
+    lead_name="Lead II",
 )
 ```
+
+---
+
+## 5. DICOM Waveform, HL7 aECG, SCP-ECG & Portable `.pecg`
+
+### DICOM Waveform (`.dcm`, `.dicom`)
+Conforming to DICOM Part 3 Annex A.34 and C.10.9, `read_dicom_waveform()` supports **12-Lead ECG** (`1.2.840.10008.5.1.4.1.1.9.1.1`) and **General ECG** (`1.2.840.10008.5.1.4.1.1.9.1.2`), calibrating raw ADC integers from Tag `(5400, 1010)` to physical millivolts:
+$$\text{Signal (mV)} = (\text{ADC} - \text{Baseline}) \times \text{Sensitivity}$$
+
+### HL7 Annotated ECG XML (`.xml`, `.aecg`)
+Conforming to the ANSI/HL7 aECG standard utilized in FDA ICH E14 Thorough QT clinical trials, `read_hl7_aecg()` maps IEEE 11073-10102 `MDC_ECG_LEAD_*` codes to standard clinical names and normalizes European comma decimals (`0,005 mV`) to IEEE floats.
+
+### SCP-ECG Standard (`.scp`)
+Conforming to CEN EN 1064:2005+A1:2007 and ISO 13713, `read_scp_ecg()` decodes Section 0 pointer tables, Section 3 lead configurations, and Section 6 difference-encoded rhythm waveforms, while guarding against unsupported Section 2 Huffman or Section 5 residual files with a clean `NotImplementedError`.
+
+### Portable Clinical ECG (`.pecg`)
+Designed for de-identified peer consultation (`save_pecg`, `load_pecg`), preserving Age, Sex, Race, Pacemaker Status, and Clinical Indication with Zstandard (`zstd`), Deflate, or raw zero-copy `np.memmap` storage.

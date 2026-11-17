@@ -6,9 +6,12 @@ Supports:
 - Native fallback with zero required dependencies, plus optional 'wfdb' package support.
 """
 
+from __future__ import annotations
+
+import contextlib
+
 from pathlib import Path
 from dataclasses import dataclass
-from typing import Optional, List, Tuple
 import numpy as np
 
 try:
@@ -24,8 +27,8 @@ class WFDBRecord:
     sampling_rate: float
     num_signals: int
     num_samples: int
-    lead_names: List[str]
-    units: List[str]
+    lead_names: list[str]
+    units: list[str]
     signals: np.ndarray  # Shape: (num_signals, num_samples) in physical mV
 
 
@@ -77,9 +80,9 @@ def read_wfdb(record_path_or_header: str | Path) -> WFDBRecord:
 
     # Use wfdb library if available
     if HAS_WFDB:
-        try:
+        with contextlib.suppress(Exception):
             record = wfdb.rdrecord(str(header_path.with_suffix("")))
-            signals = record.p_signal.T.astype(np.float32)  # (channels, samples)
+            signals = record.p_signal.T.astype(np.float32)
             return WFDBRecord(
                 record_name=record.record_name,
                 sampling_rate=float(record.fs),
@@ -87,10 +90,8 @@ def read_wfdb(record_path_or_header: str | Path) -> WFDBRecord:
                 num_samples=record.sig_len,
                 lead_names=record.sig_name,
                 units=record.units,
-                signals=signals
+                signals=signals,
             )
-        except Exception:
-            pass  # Fall back to native reader below
 
     # Pure-Python Native WFDB Parser
     with open(header_path, "r", encoding="utf-8", errors="ignore") as f:

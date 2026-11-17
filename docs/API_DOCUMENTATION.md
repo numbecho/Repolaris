@@ -1,4 +1,4 @@
-# Repolaris: Architecture & Complete API Reference (v0.8.0)
+# Repolaris: Architecture & Complete API Reference (v0.8.1)
 
 This document provides technical documentation for every module, class, and function call across the modernized Repolaris framework.
 
@@ -10,16 +10,16 @@ Repolaris is organized into decoupled layers so that signal conditioning, electr
 
 ```
 src/repolaris/
-├── __init__.py               # Package metadata (__version__ = "0.8.0") and public exports
+├── __init__.py               # Package metadata (__version__ = "0.8.1") and public exports
 ├── config.py                 # Clinical thresholds and signal processing parameters
 ├── i18n.py                   # Multi-language localization (EN, ES, FR, DE, PT)
 ├── api/
 │   ├── __init__.py           # Unified in-process MVC service controllers
-│   ├── study.py              # StudyAPI: dataset loading and synthetic rhythm generation
-│   ├── analysis.py           # AnalysisAPI: pipeline, QTc, QTd, TWA, HRT, HRV, Hysteresis, AF, Trends
-│   └── export.py             # ExportAPI: de-identified .pecg study packaging
+│   ├── study.py              # StudyAPI: dataset loading, SignalBuffer, and chunk streaming
+│   ├── analysis.py           # AnalysisAPI: pipeline, streaming, QTc, QTd, TWA, HRT, HRV, Hysteresis, AF, Trends
+│   └── export.py             # ExportAPI: de-identified .pecg study packaging and clinical PDF reports
 ├── utils/
-│   └── signal.py             # Realistic multi-component synthetic ECG generation
+│   └── signal.py             # Realistic localized-Gaussian synthetic ECG generation
 ├── preprocessing/
 │   ├── filter.py             # Butterworth bandpass (0.05-45 Hz) and IIR notch filtering (Q=30)
 │   └── baseline.py           # Two-stage median baseline wander suppression (200ms / 600ms)
@@ -42,9 +42,10 @@ src/repolaris/
 │   ├── trends.py             # Hourly arrhythmia trend histograms (Min/Mean/Max HR, ectopics, pauses, AF)
 │   ├── annotations.py        # AnnotationManager with immutable ISO 8601 audit logging
 │   ├── events.py             # Clinical triage: severe QTc, pauses, tachycardia, PVCs
-│   └── pipeline.py           # End-to-end master analysis pipeline
+│   └── pipeline.py           # End-to-end in-memory (analyze_ecg) & streaming (analyze_ecg_stream) pipelines
 ├── io/
-│   ├── ecg_loader.py         # Universal multi-format ingestion router & sniff_ecg_format
+│   ├── ecg_loader.py         # Universal router, sniff_ecg_format, SignalBuffer, stream_ecg_chunks
+│   ├── pdf_report.py         # Automated 2-page printable vector clinical PDF report generator
 │   ├── dicom_reader.py       # DICOM Waveform (SOP Class 1.2.840.10008.5.1.4.1.1.9.1.1/9.1.2)
 │   ├── hl7_reader.py         # HL7 Annotated ECG XML (ANSI/HL7 aECG) with European decimal normalization
 │   ├── scp_reader.py         # SCP-ECG (CEN EN 1064 / ISO 13713) with Section 2/5 safety guards
@@ -57,7 +58,7 @@ src/repolaris/
 │   ├── app.ui                # Declarative Qt 6 Designer XML workstation layout
 │   ├── compile_ui.py         # Automated UI precompiler engine
 │   └── ui_app.py             # Precompiled Ui_MainWindow class
-├── cli.py                    # Command-line interface with formatted clinical tables
+├── cli.py                    # Command-line interface (--stream, --pdf, demo, analyze, export)
 └── app.py                    # 60fps PyQtGraph desktop workstation GUI
 ```
 
@@ -123,16 +124,16 @@ Delineates ventricular repolarization offset (T-wave terminus).
 - **Returns:** `tuple[int, int]`: `(t_peak_sample, t_end_sample)`.
 
 ### `repolaris.detection.pulse_metrics.compute_qtc(qt_sec, rr_sec)`
-Calculates rate-corrected QT intervals:
-- `"bazett_ms"`: $QT_c = \frac{QT}{\sqrt{RR}}$
-- `"fridericia_ms"`: $QT_c = \frac{QT}{\sqrt[3]{RR}}$
-- `"framingham_ms"`: $QT_c = QT + 154 \times (1 - RR)$
-- `"hodges_ms"`: $QT_c = QT + 1.75 \times (\text{HR} - 60)$
+Calculates rate-corrected QT intervals (in milliseconds):
+- `"bazett_ms"`: $QT_c = \frac{QT_{\text{ms}}}{\sqrt{RR}}$
+- `"fridericia_ms"`: $QT_c = \frac{QT_{\text{ms}}}{\sqrt[3]{RR}}$
+- `"framingham_ms"`: $QT_c = QT_{\text{ms}} + 154 \times (1 - RR)$
+- `"hodges_ms"`: $QT_c = QT_{\text{ms}} + 1.75 \times (\text{HR} - 60)$
 
 ### `repolaris.detection.hamilton_classifier.HamiltonBeatClassifier`
 Patrick Hamilton (2002) Open Source ECG Analysis dynamic template-matching beat classifier.
 - **Methods:**
-  - `classify_recording(signal, r_peaks, q_onsets=None, t_ends=None)`: Groups beats into morphology clusters with 12.5% exponential adaptation, running median RR prematurity checks (<0.82), compensatory pause detection, and dynamic Shannon entropy gating to suppress false-positive PVCs under chaotic AF rhythms.
+  - `classify_recording(signal, r_peaks, q_onsets=None, t_ends=None)`: Groups beats into morphology clusters with 12.5% exponential adaptation, running median RR prematurity checks (<0.82), compensatory pause detection, dynamic Shannon entropy gating under AF rhythms, and coupled sequence labeling (`detect_rhythm_patterns`).
 - **Returns:** `tuple[List[ClassifiedBeat], Dict[str, Any]]`.
 
 ### `repolaris.detection.af_detector.detect_atrial_fibrillation(r_peaks, fs=500.0, window_beats=32, min_episode_duration_sec=30.0, entropy_threshold=0.68, irregularity_threshold=0.12)`
@@ -145,30 +146,29 @@ Aggregates beat classifications, clinical events, and AF episodes into 1-hour Ho
 - **Returns:** `HolterTrendReport` containing `total_duration_hours`, `overall_mean_hr`, `overall_min_hr`, `overall_max_hr`, `total_pvcs`, `total_pacs`, `total_couplets`, `total_vt_runs`, `total_pauses`, `max_pause_sec`, `total_af_sec`, `overall_af_burden_pct`, and `hourly_bins` (`List[HourlyTrendBin]`).
 
 ### `repolaris.detection.pipeline.analyze_ecg(raw_signal, fs=500.0, config=None, progress_callback=None, multi_lead_signals=None, lead_names=None)`
-Master diagnostic pipeline orchestrating preprocessing, two-stage SQI, fiducials, AAMI classification, events diary, restitution, autonomic suite, AF burden, and hourly Holter trends.
+Master diagnostic pipeline orchestrating preprocessing, two-stage SQI, fiducials, AAMI + Hamilton OSEA classification, events diary, restitution, autonomic suite, AF burden, and hourly Holter trends.
+
+### `repolaris.detection.pipeline.analyze_ecg_stream(signal_or_path, fs=500.0, lead=0, chunk_duration_sec=300.0, overlap_sec=5.0, config=None, progress_callback=None)`
+Out-of-core chunked streaming pipeline for continuous 24h–48h Holter recordings. Processes overlapping windows, deduplicates boundary R-peaks, and aggregates study-wide `summary`, `qtvi`, `qtrr`, `hysteresis`, `hrv`, `hrt`, `af_report`, and `trends`.
 
 ---
 
-## 5. Universal Ingestion Layer (`repolaris.io`)
+## 5. Universal Ingestion & Reporting Layer (`repolaris.io`)
 
-### Format Sniffing & Loader Dispatcher (`ecg_loader.py`)
+### Format Sniffing, Loader & Out-of-Core Streaming (`ecg_loader.py`)
 - `sniff_ecg_format(filepath)`: Inspects binary magic bytes (`DICM`, SCP Section 0, XML namespace, ISHNE tags) and extensions, returning one of `'dicom'`, `'hl7'`, `'scp'`, `'pecg'`, `'ishne'`, `'edf'`, `'wfdb'`, `'e3c'`, `'npy'`, or `'csv'`.
 - `load_ecg_file(filepath, lead_name_or_index=0, progress_callback=None)`: Loads single calibrated mV lead.
 - `load_ecg_dataset(filepath, progress_callback=None)`: Loads all synchronous channels, sampling frequency, and metadata dictionary.
+- `SignalBuffer` & `open_ecg_buffer(filepath, mmap_threshold_samples=1_800_000)`: Wraps multi-lead recordings in an out-of-core `np.memmap`-backed buffer (`get_slice`, `close`, context manager `with open_ecg_buffer(...) as buf:`).
+- `stream_ecg_chunks(filepath, lead_name_or_index=0, chunk_duration_sec=300.0, overlap_sec=5.0)`: Generator yielding overlapping window dictionaries for bounded-RAM Holter streaming and automatically cleaning up temporary memmap buffers on exit.
 
-### DICOM Waveform (`dicom_reader.py`)
-- `read_dicom_waveform(filepath)`: Ingests 12-Lead (SOP `1.2.840.10008.5.1.4.1.1.9.1.1`) and Ambulatory (SOP `1.2.840.10008.5.1.4.1.1.9.1.2`) objects, converting Tag `(5400, 1010)` multiplexed 16-bit/8-bit integers to calibrated mV via sensitivity and baseline tags.
-- `is_dicom_file(filepath)`: Verifies `b"DICM"` magic at offset 128.
+### Printable Clinical PDF Report Generator (`pdf_report.py`)
+- `generate_clinical_pdf_report(filepath, analysis_results, patient_metadata=None, fs=500.0, lead_name="Lead II", progress_callback=None)`: Generates a 2-page vector PDF report containing Patient Demographics, Executive KPI Summary, a 10-second calibrated ECG disclosure strip ($25\text{ mm/s}$, $10\text{ mm/mV}$), the Clinical Events Diary, Hourly Holter Trends, Poincaré plot, and QT-RR restitution curve.
 
-### HL7 Annotated ECG XML (`hl7_reader.py`)
-- `read_hl7_aecg(filepath)`: Parses FDA cardiotoxicity TQT XML trial files, mapping MDC_ECG codes, extracting increment sampling rates, and sanitizing European comma decimals (`0,005 mV`).
-- `is_hl7_xml(filepath)`: Checks root XML tags and urn:hl7-org:v3 namespace.
-
-### SCP-ECG Standard (`scp_reader.py`)
-- `read_scp_ecg(filepath)`: Decodes CEN EN 1064 / ISO 13713 Section 0 pointer tables, Section 3 lead definitions, and Section 6 rhythm data. Raises `NotImplementedError` if Section 2 (Huffman) or Section 5 (Reference beat residual subtraction) is required.
-- `is_scp_file(filepath)`: Inspects binary Section 0 header signatures.
-
-### Legacy & Existing Readers
+### Format Readers
+- `dicom_reader.py`: `read_dicom_waveform(filepath)` & `is_dicom_file(filepath)` for 12-Lead and General ECG DICOM Waveform SOP Classes.
+- `hl7_reader.py`: `read_hl7_aecg(filepath)` & `is_hl7_xml(filepath)` for FDA ICH E14 HL7 aECG XML files.
+- `scp_reader.py`: `read_scp_ecg(filepath)` & `is_scp_file(filepath)` for CEN EN 1064 / ISO 13713 SCP-ECG files.
 - `pecg_format.py`: `save_pecg` and `load_pecg` supporting Zstandard, Deflate, and raw `np.memmap`.
 - `ishne_reader.py`: `read_ishne` and `write_ishne` for 1998 ISHNE 1.0 standard files.
 - `wfdb_reader.py`: `read_wfdb` for PhysioNet Format 16 and Format 212 bit-packed records.
@@ -185,3 +185,11 @@ Master diagnostic pipeline orchestrating preprocessing, two-stage SQI, fiducials
 - **Heart Rate Variability (`repolaris.detection.hrv`)**: `compute_comprehensive_hrv()`, `compute_time_domain_hrv()`, `compute_frequency_domain_hrv()`, and `compute_nonlinear_hrv()`.
 - **QT-RR Hysteresis (`repolaris.detection.hysteresis`)**: `compute_effective_rr_exponential()`, `compute_effective_rr_linear()`, and `optimize_hysteresis_parameter()`.
 - **10 Restitution Models (`repolaris.detection.qtrr`)**: `fit_all_qtrr_models()` evaluating linear, hyperbolic, parabolic-log, logarithmic, shifted-log, exponential, arctan, tanh, arcsinh, and arccosh curves with domain-positivity guards.
+
+---
+
+## 7. In-Process MVC Service Controllers (`repolaris.api`)
+
+- **`StudyAPI` (`repolaris.api.study`)**: `load_study_file()`, `load_study_dataset()`, `generate_demo_study()`, `open_study_buffer()`, and `stream_study_chunks()`.
+- **`AnalysisAPI` (`repolaris.api.analysis`)**: `analyze_signal()`, `analyze_stream()`, `calculate_qtc()`, `evaluate_qtrr_models()`, `rank_leads()`, `analyze_dispersion()`, `analyze_twa()`, `analyze_hrt()`, `analyze_hrv()`, `analyze_hysteresis()`, `detect_af()`, and `compute_hourly_trends()`.
+- **`ExportAPI` (`repolaris.api.export`)**: `export_study_pecg()` and `export_clinical_pdf()`.

@@ -8,20 +8,19 @@ a compressed ZIP container.
 
 from __future__ import annotations
 
-import io
 import os
 import struct
 import zipfile
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 import numpy as np
 
 
 def read_e3c(
-    filepath: Union[str, os.PathLike[str]],
+    filepath: str | os.PathLike[str],
     default_fs: float = 250.0,
     gain_scale: float = 2.65e-3,
     channels: int = 2,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Reads multi-lead ECG waveforms and QRS annotations from an Excorde 3C (.e3c) archive.
 
     Decompresses `current.ECG` and `current.QRS` directly in-memory from the container:
@@ -37,7 +36,7 @@ def read_e3c(
 
     Returns:
         A dictionary containing:
-            - 'signals': Dict[str, np.ndarray] mapping channel names ('Channel 1', 'Channel 2')
+            - 'signals': dict[str, np.ndarray] mapping channel names ('Channel 1', 'Channel 2')
               to 1D float64 physical waveform arrays.
             - 'fs': Sampling frequency in Hz.
             - 'lead_names': List of channel labels.
@@ -97,7 +96,7 @@ def read_e3c(
     signals = {lead_names[i]: reshaped[i, :] for i in range(channels)}
 
     # Parse QRS annotations if available
-    annotations: Dict[str, np.ndarray] = {
+    annotations: dict[str, np.ndarray] = {
         "qrson": np.array([], dtype=np.int64),
         "qrsend": np.array([], dtype=np.int64),
         "pattern": np.array([], dtype=np.int64),

@@ -20,13 +20,14 @@ in strict domain and Jacobian conditioning guards to prevent numerical instabili
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple, Union
+from collections.abc import Callable
+from typing import Any
 import warnings
+
 import numpy as np
 from scipy.stats import pearsonr
 
-
-SUPPORTED_QTRR_MODELS: List[str] = [
+SUPPORTED_QTRR_MODELS: list[str] = [
     "linear",
     "hyperbolic",
     "parabolic_log",
@@ -39,7 +40,7 @@ SUPPORTED_QTRR_MODELS: List[str] = [
     "arccosh",
 ]
 
-QTRR_MODEL_METADATA: Dict[str, Dict[str, str]] = {
+QTRR_MODEL_METADATA: dict[str, dict[str, str]] = {
     "linear": {
         "label": "Linear (QT = α·RR + β)",
         "equation": "QT = α·RR + β",
@@ -97,11 +98,41 @@ QTRR_MODEL_METADATA: Dict[str, Dict[str, str]] = {
     },
 }
 
+_POSITIVE_DOMAIN_MODELS = {
+    "hyperbolic",
+    "parabolic_log",
+    "logarithmic",
+    "shifted_log",
+    "inverse_exponential",
+    "arccosh",
+}
 
-def _safe_linear_fit(x: np.ndarray, y: np.ndarray) -> Tuple[float, float, bool]:
-    """Performs a 1st-degree least-squares fit with Vandermonde conditioning checks."""
+_BASIS_TRANSFORMS: dict[str, Callable[[np.ndarray], np.ndarray]] = {
+    "linear": lambda r: r,
+    "hyperbolic": lambda r: 1.0 / np.maximum(r, 1e-6),
+    "logarithmic": lambda r: np.log(np.maximum(r, 1e-6)),
+    "exponential": lambda r: np.exp(-r),
+    "inverse_exponential": lambda r: np.exp(-1.0 / np.maximum(r, 1e-6)),
+    "arctan": np.arctan,
+    "tanh": np.tanh,
+    "arcsinh": np.arcsinh,
+    "arccosh": lambda r: np.arccosh(np.maximum(r + 1.0, 1.0)),
+}
+
+
+def _safe_linear_fit(x: np.ndarray, y: np.ndarray) -> tuple[float, float, bool]:
+    """Performs a 1st-degree least-squares fit with Vandermonde and low-variance conditioning guards."""
     if len(x) < 2 or float(np.std(x)) <= 1e-9:
         return 0.0, float(np.mean(y)) if len(y) > 0 else 0.0, False
+    x_std = float(np.std(x))
+    if x_std < 2e-3:
+        xm = float(np.mean(x))
+        ym = float(np.mean(y))
+        dx = x - xm
+        dy = y - ym
+        slope = float(np.dot(dx, dy) / (np.dot(dx, dx) + 1e-2))
+        intercept = float(ym - slope * xm)
+        return slope, intercept, True
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         poly = np.polyfit(x, y, 1)
@@ -114,16 +145,14 @@ def fit_qtrr_model(
     rr_intervals: np.ndarray,
     qt_intervals: np.ndarray,
     model: str = "linear",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Fits an empirical QT-RR restitution model to paired beat observations with domain guards."""
     model_lower = model.lower().strip()
     if model_lower == "parabolic":
         model_lower = "parabolic_log"
 
-    if model_lower not in SUPPORTED_QTRR_MODELS:
-        raise ValueError(
-            f"Unsupported QT-RR model '{model}'. Choose from: {SUPPORTED_QTRR_MODELS}"
-        )
+    if model_lower not in SUPPORTED_QTRR_MODELS and model_lower != "inverse_exponential":
+        raise ValueError(f"Unsupported QT-RR model '{model}'. Choose from: {SUPPORTED_QTRR_MODELS}")
 
     rr = np.asarray(rr_intervals, dtype=np.float64)
     qt = np.asarray(qt_intervals, dtype=np.float64)
@@ -140,14 +169,7 @@ def fit_qtrr_model(
     if len(rr) < 3:
         raise ValueError("At least 3 valid QT-RR pairs are required for model fitting.")
 
-    if model_lower in (
-        "hyperbolic",
-        "parabolic_log",
-        "logarithmic",
-        "shifted_log",
-        "inverse_exponential",
-        "arccosh",
-    ):
+    if model_lower in _POSITIVE_DOMAIN_MODELS:
         valid = (rr > 1e-6) & (qt > 1e-6)
         rr = rr[valid]
         qt = qt[valid]
@@ -156,114 +178,37 @@ def fit_qtrr_model(
 
     well_conditioned = True
 
-    if model_lower == "linear":
-        x = rr
-        y = qt
-        slope, intercept, ok = _safe_linear_fit(x, y)
-        well_conditioned = well_conditioned and ok
+    match model_lower:
+        case "parabolic_log":
+            x = np.log(rr)
+            y = np.log(qt)
+            slope, intercept_log, ok = _safe_linear_fit(x, y)
+            well_conditioned = ok
+            intercept = float(np.exp(np.clip(intercept_log, -50.0, 50.0)))
 
-        def predict_fn(r_in):
-            return slope * np.asarray(r_in, dtype=np.float64) + intercept
+            def predict_fn(r_in: Any) -> np.ndarray:
+                r_arr = np.maximum(np.asarray(r_in, dtype=np.float64), 1e-6)
+                return intercept * (r_arr ** np.clip(slope, -10.0, 10.0))
 
-    elif model_lower == "hyperbolic":
-        x = 1.0 / rr
-        y = qt
-        slope, intercept, ok = _safe_linear_fit(x, y)
-        well_conditioned = well_conditioned and ok
+        case "shifted_log":
+            x = rr
+            y = np.exp(np.clip(qt, -20.0, 20.0))
+            slope, intercept, ok = _safe_linear_fit(x, y)
+            well_conditioned = ok and not bool(np.any(slope * rr + intercept <= 1e-9))
 
-        def predict_fn(r_in):
-            r_arr = np.maximum(np.asarray(r_in, dtype=np.float64), 1e-6)
-            return slope / r_arr + intercept
+            def predict_fn(r_in: Any) -> np.ndarray:
+                arg = np.maximum(slope * np.asarray(r_in, dtype=np.float64) + intercept, 1e-9)
+                return np.log(arg)
 
-    elif model_lower == "parabolic_log":
-        x = np.log(rr)
-        y = np.log(qt)
-        slope, intercept_log, ok = _safe_linear_fit(x, y)
-        well_conditioned = well_conditioned and ok
-        intercept = float(np.exp(np.clip(intercept_log, -50.0, 50.0)))
+        case _:
+            basis_fn = _BASIS_TRANSFORMS[model_lower]
+            x = basis_fn(rr)
+            y = qt
+            slope, intercept, ok = _safe_linear_fit(x, y)
+            well_conditioned = ok
 
-        def predict_fn(r_in):
-            r_arr = np.maximum(np.asarray(r_in, dtype=np.float64), 1e-6)
-            return intercept * (r_arr ** slope)
-
-    elif model_lower == "logarithmic":
-        x = np.log(rr)
-        y = qt
-        slope, intercept, ok = _safe_linear_fit(x, y)
-        well_conditioned = well_conditioned and ok
-
-        def predict_fn(r_in):
-            r_arr = np.maximum(np.asarray(r_in, dtype=np.float64), 1e-6)
-            return slope * np.log(r_arr) + intercept
-
-    elif model_lower == "shifted_log":
-        x = rr
-        y = np.exp(np.clip(qt, -20.0, 20.0))
-        slope, intercept, ok = _safe_linear_fit(x, y)
-        well_conditioned = well_conditioned and ok
-        inside = slope * rr + intercept
-        if np.any(inside <= 1e-9):
-            well_conditioned = False
-
-        def predict_fn(r_in):
-            arg = np.maximum(slope * np.asarray(r_in, dtype=np.float64) + intercept, 1e-9)
-            return np.log(arg)
-
-    elif model_lower == "exponential":
-        x = np.exp(-rr)
-        y = qt
-        slope, intercept, ok = _safe_linear_fit(x, y)
-        well_conditioned = well_conditioned and ok
-
-        def predict_fn(r_in):
-            return slope * np.exp(-np.asarray(r_in, dtype=np.float64)) + intercept
-
-    elif model_lower == "inverse_exponential":
-        x = np.exp(-1.0 / rr)
-        y = qt
-        slope, intercept, ok = _safe_linear_fit(x, y)
-        well_conditioned = well_conditioned and ok
-
-        def predict_fn(r_in):
-            r_arr = np.maximum(np.asarray(r_in, dtype=np.float64), 1e-6)
-            return slope * np.exp(-1.0 / r_arr) + intercept
-
-    elif model_lower == "arctan":
-        x = np.arctan(rr)
-        y = qt
-        slope, intercept, ok = _safe_linear_fit(x, y)
-        well_conditioned = well_conditioned and ok
-
-        def predict_fn(r_in):
-            return slope * np.arctan(np.asarray(r_in, dtype=np.float64)) + intercept
-
-    elif model_lower == "tanh":
-        x = np.tanh(rr)
-        y = qt
-        slope, intercept, ok = _safe_linear_fit(x, y)
-        well_conditioned = well_conditioned and ok
-
-        def predict_fn(r_in):
-            return slope * np.tanh(np.asarray(r_in, dtype=np.float64)) + intercept
-
-    elif model_lower == "arcsinh":
-        x = np.arcsinh(rr)
-        y = qt
-        slope, intercept, ok = _safe_linear_fit(x, y)
-        well_conditioned = well_conditioned and ok
-
-        def predict_fn(r_in):
-            return slope * np.arcsinh(np.asarray(r_in, dtype=np.float64)) + intercept
-
-    elif model_lower == "arccosh":
-        x = np.arccosh(np.maximum(rr + 1.0, 1.0))
-        y = qt
-        slope, intercept, ok = _safe_linear_fit(x, y)
-        well_conditioned = well_conditioned and ok
-
-        def predict_fn(r_in):
-            arg = np.maximum(np.asarray(r_in, dtype=np.float64) + 1.0, 1.0)
-            return slope * np.arccosh(arg) + intercept
+            def predict_fn(r_in: Any) -> np.ndarray:
+                return slope * basis_fn(np.asarray(r_in, dtype=np.float64)) + intercept
 
     if np.std(x) <= 1e-9 or np.std(y) <= 1e-9:
         r_val, p_val = 0.0, 1.0
@@ -275,16 +220,16 @@ def fit_qtrr_model(
 
     qt_pred = np.asarray(predict_fn(rr), dtype=np.float64)
     residuals = qt - qt_pred
-    sse = float(np.sum(residuals ** 2))
+    sse = float(np.sum(residuals**2))
     sst = float(np.sum((qt - np.mean(qt)) ** 2))
-    r_squared = float(np.clip(1.0 - sse / sst, 0.0, 1.0)) if sst > 1e-12 else float(r_val ** 2)
+    r_squared = float(np.clip(1.0 - sse / sst, 0.0, 1.0)) if sst > 1e-12 else float(r_val**2)
 
     scale_to_ms = 1000.0 if float(np.median(qt)) < 5.0 else 1.0
-    rmse_ms = float(np.sqrt(np.mean(residuals ** 2)) * scale_to_ms)
+    rmse_ms = float(np.sqrt(np.mean(residuals**2)) * scale_to_ms)
 
     n_obs = len(qt)
     mse = max(sse / float(n_obs), 1e-18)
-    aic = float(n_obs * np.log(mse) + 2.0 * 2.0)
+    aic = float(n_obs * np.log(mse) + 4.0)
 
     ref_rr = 1.0 if float(np.median(rr)) < 10.0 else 1000.0
     qt_at_ref = float(np.asarray(predict_fn([ref_rr]))[0]) * scale_to_ms
@@ -319,13 +264,12 @@ def fit_all_qtrr_models(
     rr_intervals: np.ndarray,
     qt_intervals: np.ndarray,
     preferred_model: str = "linear",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Fits all 10 Pueyo et al. (2004) biparametric QT-RR models with domain guards."""
-    models_dict: Dict[str, Dict[str, Any]] = {}
+    models_dict: dict[str, dict[str, Any]] = {}
     for m_name in SUPPORTED_QTRR_MODELS:
         try:
-            res = fit_qtrr_model(rr_intervals, qt_intervals, model=m_name)
-            models_dict[m_name] = res
+            models_dict[m_name] = fit_qtrr_model(rr_intervals, qt_intervals, model=m_name)
         except ValueError:
             continue
 

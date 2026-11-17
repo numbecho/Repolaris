@@ -12,11 +12,10 @@ Generates clinical hourly distribution tables and trend breakdowns for 24h/48h H
 from __future__ import annotations
 
 from dataclasses import dataclass, asdict
-from typing import List, Dict, Any, Optional, Union
+from typing import Any
 import numpy as np
 
 from repolaris.detection.classifier import ClassifiedBeat, BeatClass, RhythmPattern
-from repolaris.detection.events import ECGEvent
 
 
 @dataclass
@@ -38,7 +37,7 @@ class HourlyTrendBin:
     af_burden_sec: float
     af_burden_pct: float
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -58,20 +57,20 @@ class HolterTrendReport:
     max_pause_sec: float
     total_af_sec: float
     overall_af_burden_pct: float
-    hourly_bins: List[HourlyTrendBin]
+    hourly_bins: list[HourlyTrendBin]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
         d["hourly_bins"] = [b.to_dict() for b in self.hourly_bins]
         return d
 
 
 def generate_hourly_trends(
-    classified_beats: List[ClassifiedBeat],
-    events: Optional[List[Dict[str, Any]]] = None,
-    total_duration_sec: Optional[float] = None,
+    classified_beats: list[ClassifiedBeat],
+    events: list[dict[str, Any]] | None = None,
+    total_duration_sec: float | None = None,
     bin_size_sec: float = 3600.0,
-    af_episodes: Optional[List[Any]] = None,
+    af_episodes: list[Any] | None = None,
 ) -> HolterTrendReport:
     """Aggregates beat-by-beat classifications and events into hourly trend bins.
 
@@ -109,7 +108,7 @@ def generate_hourly_trends(
     dur_total = t_end - t_start
 
     num_bins = max(1, int(np.ceil(dur_total / bin_size_sec)))
-    bins: List[HourlyTrendBin] = []
+    bins: list[HourlyTrendBin] = []
 
     # Map events into lookup by timestamp
     pause_events = []

@@ -6,9 +6,10 @@ Provides zero-dependency pure-Python parsing for multi-day wearable patches,
 Holter monitors, and continuous cardiac telemetry.
 """
 
+from __future__ import annotations
+
 from pathlib import Path
 from dataclasses import dataclass
-from typing import Optional, List, Dict, Any, Tuple
 import numpy as np
 
 
@@ -20,9 +21,9 @@ class EDFRecord:
     start_time: str
     num_signals: int
     duration_sec: float
-    lead_names: List[str]
-    units: List[str]
-    sampling_rates: List[float]
+    lead_names: list[str]
+    units: list[str]
+    sampling_rates: list[float]
     signals: np.ndarray  # Shape: (num_signals, total_samples) scaled to mV
 
 

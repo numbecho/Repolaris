@@ -6,7 +6,15 @@ This document tracks architectural milestones, clinical electrophysiology module
 
 ## Completed Milestones
 
-### v0.8.0 — Long-Term Holter Streaming, Printable Clinical PDF Reports & Holter Triage Workstation (Current Release)
+### v0.8.1 — Clinical UX Hotkeys, Ectopic Canvas Overlays, Python 3.14 Modernization & Hostile Audit Hardening (Current Release)
+- **Workstation UX & Documentation Parity (`app.py`, `i18n.py`, `app.ui`, `ui_app.py`)**:
+  - Keyboard beat-by-beat navigation (`Left`/`Right` arrows & `◀`/`▶`), single-key AAMI reclassification hotkeys (`N`, `V`, `S`, `F`, `Q`), color-coded ectopic R-peak markers with on-canvas text tags, persistent manual caliper drag calibration, live `RR` HUD readout, 8-column clinical tables, and 100% 5-language (`en`, `es`, `fr`, `de`, `pt`) translation parity.
+- **Python 3.14 Refactoring & Additive `uv` / `ruff` Suite (`pyproject.toml`, `tests/test_tooling_uv_ruff.py`)**:
+  - Modernized all modules to native `X | Y` unions, built-in generics, `StrEnum`, `match`/`case`, and `contextlib.suppress`, and added `uv` + `ruff` (`target-version = "py314"`) tests alongside the standard `unittest` suite (97 passing unit tests).
+- **Signal Engine & I/O Hardening (`ecg_loader.py`, `pipeline.py`, `sqi.py`, `hysteresis.py`, `qtrr.py`)**:
+  - `SignalBuffer` context-manager cleanup, raw-signal `basSQI`/`snr_db` evaluation with Stage 1 `kSQI`/`snr_db` gating, `HamiltonBeatClassifier` pipeline integration, and Tikhonov ridge stabilization for constant-rate QT-RR regression.
+
+### v0.8.0 — Long-Term Holter Streaming, Printable Clinical PDF Reports & Holter Triage Workstation
 - **Out-of-Core Streaming & `np.memmap` Buffering (`ecg_loader.py`, `pipeline.py`)**:
   - Added `SignalBuffer`, `open_ecg_buffer()`, `stream_ecg_chunks()`, and `analyze_ecg_stream()` to process continuous 24h–48h Holters in overlapping windows with boundary R-peak deduplication and bounded RAM usage.
 - **Automated Printable Clinical PDF Report Generator (`pdf_report.py`, `ExportAPI.export_clinical_pdf`)**:
@@ -56,8 +64,8 @@ This document tracks architectural milestones, clinical electrophysiology module
 - Anti-DoS and decompression bomb mitigations across `.pecg`, ISHNE `.ecg`, EDF/EDF+, WFDB, and Excorde 3C `.e3c`.
 - 5 canvas color palettes, clinical paper sweep speeds ($12.5\text{–}100\text{ mm/s}$), voltage gains ($2.5\text{–}20\text{ mm/mV}$), and Portuguese (`pt`) localization.
 
-### v0.3.0 — Python 3.14 Core & Cross-Platform Packaging
-- Upgraded runtime to Python $\ge 3.14$ with strict PEP 484/585/604 static type annotations.
+### v0.3.0 — Python 3.12+ Core & Cross-Platform Packaging
+- Upgraded runtime to Python $\ge 3.12$ with strict PEP 484/585/604 static type annotations.
 - BeeWare Briefcase installers (`.msi`, `.dmg`, `.deb`, `.AppImage`) and removal of legacy MATLAB/Nuitka dependencies.
 
 ### v0.2.0 — Repolaris Rebranding & Universal Format Ingestion

@@ -1,5 +1,4 @@
 import unittest
-import numpy as np
 from repolaris.utils.signal import generate_synthetic_ecg
 from repolaris.detection.qrs import detect_r_peaks
 from repolaris.detection.q_onset import detect_q_onset

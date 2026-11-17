@@ -4,6 +4,7 @@ import os
 from datetime import date, time
 import numpy as np
 from repolaris.io.ishne_reader import write_ishne, read_ishne
+from repolaris.io.ecg_loader import load_ecg_dataset, stream_ecg_chunks
 
 class TestISHNEReader(unittest.TestCase):
     def setUp(self):
@@ -53,6 +54,15 @@ class TestISHNEReader(unittest.TestCase):
 
         # Check signal values with quantization tolerance (5 uV = 0.005 mV resolution)
         np.testing.assert_allclose(record.signals, self.signals, atol=0.01)
+
+        # Verify load_ecg_dataset and stream_ecg_chunks integration
+        sigs_dict, fs_loaded, meta_loaded = load_ecg_dataset(out)
+        self.assertEqual(fs_loaded, 200.0)
+        self.assertEqual(meta_loaded["first_name"], "John")
+        self.assertEqual(meta_loaded["patient_first_name"], "John")
+        self.assertEqual(len(sigs_dict), 3)
+        chunks = list(stream_ecg_chunks(out, chunk_duration_sec=2.0))
+        self.assertEqual(len(chunks), 3)
 
 if __name__ == "__main__":
     unittest.main()

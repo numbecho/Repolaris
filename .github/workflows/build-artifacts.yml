@@ -56,9 +56,10 @@ jobs:
       - name: Sync Environment with uv
         run: uv sync --all-extras --dev
 
-      - name: Lint with Ruff (py314)
+      - name: Lint & Format Check with Ruff (py314)
         run: |
           uv run ruff check src tests
+          uv run ruff format --check src tests
 
       - name: Run Test Suite via uv
         run: |

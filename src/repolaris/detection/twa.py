@@ -153,7 +153,7 @@ def compute_spectral_twa(
 
     # Compute FFT along beat axis (axis=0); normalized power spectrum
     fft_vals = np.fft.rfft(ensemble, axis=0)
-    psd = (np.abs(fft_vals) ** 2) / float(m_win ** 2)
+    psd = (np.abs(fft_vals) ** 2) / float(m_win**2)
     # Average spectrum across all ST-T time points
     avg_spectrum = np.mean(psd, axis=1)
     freqs = np.fft.rfftfreq(m_win, d=1.0)  # cycles per beat (0.0 to 0.5 cpb)

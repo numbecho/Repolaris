@@ -52,7 +52,6 @@ from repolaris.preprocessing.baseline import remove_baseline_wander
 from repolaris.preprocessing.filter import bandpass_filter, notch_filter
 
 
-
 def _compute_repolarization_dynamics(
     rr_arr: np.ndarray,
     qt_arr: np.ndarray,
@@ -76,7 +75,9 @@ def _compute_repolarization_dynamics(
             qtvi_score = compute_qtvi(rr_valid, qt_valid)
 
         with contextlib.suppress(ValueError, ZeroDivisionError):
-            hysteresis_metrics = optimize_hysteresis_parameter(qt_valid, rr_valid, model_type="linear")
+            hysteresis_metrics = optimize_hysteresis_parameter(
+                qt_valid, rr_valid, model_type="linear"
+            )
 
         with contextlib.suppress(ValueError, ZeroDivisionError):
             if enable_hysteresis and hysteresis_metrics is not None:
@@ -146,8 +147,16 @@ def _build_annotation_manager(
 
 def _compute_hrv_from_beats(beats: list[dict[str, Any]]) -> dict[str, Any] | None:
     """Extracts normal NN intervals (or falls back to physiological RR intervals) and computes HRV."""
-    nn_ms = [b["rr_sec"] * 1000.0 for b in beats if b.get("beat_class") == "N" and b.get("rr_sec", 0.0) > 0.2]
-    hrv_input = nn_ms if len(nn_ms) >= 4 else [b["rr_sec"] * 1000.0 for b in beats if b.get("rr_sec", 0.0) > 0.2]
+    nn_ms = [
+        b["rr_sec"] * 1000.0
+        for b in beats
+        if b.get("beat_class") == "N" and b.get("rr_sec", 0.0) > 0.2
+    ]
+    hrv_input = (
+        nn_ms
+        if len(nn_ms) >= 4
+        else [b["rr_sec"] * 1000.0 for b in beats if b.get("rr_sec", 0.0) > 0.2]
+    )
     return compute_comprehensive_hrv(hrv_input) if len(hrv_input) >= 2 else None
 
 
@@ -210,26 +219,32 @@ def analyze_ecg(
         q_onsets_list.append(int(q_idx))
         t_ends_list.append(int(t_end_idx))
 
-        rr = (r_idx - r_peaks[i - 1]) / fs if i > 0 else ((r_peaks[1] - r_peaks[0]) / fs if n_peaks > 1 else 0.0)
+        rr = (
+            (r_idx - r_peaks[i - 1]) / fs
+            if i > 0
+            else ((r_peaks[1] - r_peaks[0]) / fs if n_peaks > 1 else 0.0)
+        )
         qt = (t_end_idx - q_idx) / fs
         hr = 60.0 / rr if rr > 0 else np.nan
 
         rr_list.append(rr)
         qt_list.append(qt)
 
-        beats.append({
-            "beat_index": i,
-            "r_peak_sample": int(r_idx),
-            "time_sec": float(r_idx / fs),
-            "q_onset_sample": int(q_idx),
-            "t_peak_sample": int(t_peak_idx),
-            "t_end_sample": int(t_end_idx),
-            "rr_sec": float(rr),
-            "hr_bpm": float(hr),
-            "qt_sec": float(qt),
-            "qt_ms": float(qt * 1000.0),
-            "qtc": compute_qtc(qt, rr) if rr > 0 else {},
-        })
+        beats.append(
+            {
+                "beat_index": i,
+                "r_peak_sample": int(r_idx),
+                "time_sec": float(r_idx / fs),
+                "q_onset_sample": int(q_idx),
+                "t_peak_sample": int(t_peak_idx),
+                "t_end_sample": int(t_end_idx),
+                "rr_sec": float(rr),
+                "hr_bpm": float(hr),
+                "qt_sec": float(qt),
+                "qt_ms": float(qt * 1000.0),
+                "qtc": compute_qtc(qt, rr) if rr > 0 else {},
+            }
+        )
 
     if progress_callback:
         progress_callback(0.75, "Classifying beats and ectopic rhythm patterns...")
@@ -261,14 +276,16 @@ def analyze_ecg(
         code = cb.beat_class.value
         beat_class_codes.append(code)
         if i < len(beats):
-            beats[i].update({
-                "beat_class": code,
-                "rhythm_pattern": cb.rhythm_pattern.value,
-                "classification_confidence": cb.confidence,
-                "diagnostic_rationale": cb.diagnostic_rationale,
-                "qrs_duration_ms": cb.features.qrs_duration_ms,
-                "template_correlation": cb.features.template_correlation,
-            })
+            beats[i].update(
+                {
+                    "beat_class": code,
+                    "rhythm_pattern": cb.rhythm_pattern.value,
+                    "classification_confidence": cb.confidence,
+                    "diagnostic_rationale": cb.diagnostic_rationale,
+                    "qrs_duration_ms": cb.features.qrs_duration_ms,
+                    "template_correlation": cb.features.template_correlation,
+                }
+            )
 
     annotation_mgr = _build_annotation_manager(classified_beats, author="AI_DETECTOR")
     summary = summarize_beats(beats)
@@ -290,7 +307,9 @@ def analyze_ecg(
         progress_callback(0.92, "Assessing repolarization lability & autonomic metrics...")
     rr_arr = np.array(rr_list, dtype=np.float64)
     qt_arr = np.array(qt_list, dtype=np.float64)
-    qtvi_score, qtrr_metrics, hysteresis_metrics = _compute_repolarization_dynamics(rr_arr, qt_arr, config)
+    qtvi_score, qtrr_metrics, hysteresis_metrics = _compute_repolarization_dynamics(
+        rr_arr, qt_arr, config
+    )
 
     hrv_metrics = _compute_hrv_from_beats(beats)
     hrt_metrics = compute_heart_rate_turbulence(classified_beats, r_peaks, fs=fs)
@@ -418,7 +437,9 @@ def analyze_ecg_stream(
 
         res_win = analyze_ecg(sig_win, fs=actual_fs, config=config)
         if preview_signal is None:
-            preview_signal = res_win["clean_signal"][: min(len(res_win["clean_signal"]), int(actual_fs * 30))]
+            preview_signal = res_win["clean_signal"][
+                : min(len(res_win["clean_signal"]), int(actual_fs * 30))
+            ]
         sqi_list.append(res_win["sqi"])
 
         for b, cb in zip(res_win["beats"], res_win["classified_beats"], strict=False):
@@ -427,22 +448,28 @@ def analyze_ecg_stream(
                 if all_r_peaks and (global_r - all_r_peaks[-1]) < int(0.20 * actual_fs):
                     continue
                 beat_idx = len(all_beats)
-                rr_sec = (global_r - all_r_peaks[-1]) / actual_fs if all_r_peaks else float(b.get("rr_sec", 0.0))
+                rr_sec = (
+                    (global_r - all_r_peaks[-1]) / actual_fs
+                    if all_r_peaks
+                    else float(b.get("rr_sec", 0.0))
+                )
                 hr_bpm = 60.0 / rr_sec if rr_sec > 0 else np.nan
                 qt_sec = float(b["qt_sec"])
 
                 b_copy = dict(b)
-                b_copy.update({
-                    "beat_index": beat_idx,
-                    "r_peak_sample": global_r,
-                    "time_sec": float(global_r / actual_fs),
-                    "q_onset_sample": int(b["q_onset_sample"]) + w_start,
-                    "t_peak_sample": int(b["t_peak_sample"]) + w_start,
-                    "t_end_sample": int(b["t_end_sample"]) + w_start,
-                    "rr_sec": float(rr_sec),
-                    "hr_bpm": float(hr_bpm),
-                    "qtc": compute_qtc(qt_sec, rr_sec) if rr_sec > 0 else {},
-                })
+                b_copy.update(
+                    {
+                        "beat_index": beat_idx,
+                        "r_peak_sample": global_r,
+                        "time_sec": float(global_r / actual_fs),
+                        "q_onset_sample": int(b["q_onset_sample"]) + w_start,
+                        "t_peak_sample": int(b["t_peak_sample"]) + w_start,
+                        "t_end_sample": int(b["t_end_sample"]) + w_start,
+                        "rr_sec": float(rr_sec),
+                        "hr_bpm": float(hr_bpm),
+                        "qtc": compute_qtc(qt_sec, rr_sec) if rr_sec > 0 else {},
+                    }
+                )
                 cb_copy = ClassifiedBeat(
                     beat_index=beat_idx,
                     r_peak_sample=global_r,
@@ -497,10 +524,14 @@ def analyze_ecg_stream(
     annotation_mgr = _build_annotation_manager(all_classified, author="AI_STREAM_DETECTOR")
 
     if progress_callback:
-        progress_callback(1.00, f"Streamed analysis complete ({tot_b} beats across {rec_dur:.1f}s).")
+        progress_callback(
+            1.00, f"Streamed analysis complete ({tot_b} beats across {rec_dur:.1f}s)."
+        )
 
     return {
-        "clean_signal": preview_signal if preview_signal is not None else np.zeros(0, dtype=np.float32),
+        "clean_signal": preview_signal
+        if preview_signal is not None
+        else np.zeros(0, dtype=np.float32),
         "r_peaks": r_peaks_arr,
         "beats": all_beats,
         "classified_beats": all_classified,

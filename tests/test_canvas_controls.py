@@ -3,6 +3,7 @@ import unittest
 from repolaris.app import CLINICAL_GAINS, CLINICAL_SPEEDS
 from repolaris.i18n import set_locale, tr
 
+
 class TestCanvasControls(unittest.TestCase):
     def test_constants(self):
         self.assertEqual(CLINICAL_SPEEDS, [12.5, 25.0, 50.0, 100.0])

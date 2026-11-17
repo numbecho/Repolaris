@@ -68,27 +68,11 @@ LEAD_CODE_MAP = {
     19: "AI",
 }
 
-RACE_CODE_MAP = {
-    0: "Unknown",
-    1: "Caucasian",
-    2: "Black / African",
-    3: "Asian / Oriental"
-}
+RACE_CODE_MAP = {0: "Unknown", 1: "Caucasian", 2: "Black / African", 3: "Asian / Oriental"}
 
-PACEMAKER_CODE_MAP = {
-    0: "NO",
-    1: "YES (Unknown type)",
-    2: "VVI",
-    3: "AAI",
-    4: "DDD",
-    5: "OTHER"
-}
+PACEMAKER_CODE_MAP = {0: "NO", 1: "YES (Unknown type)", 2: "VVI", 3: "AAI", 4: "DDD", 5: "OTHER"}
 
-SEX_CODE_MAP = {
-    0: "Unknown",
-    1: "Male",
-    2: "Female"
-}
+SEX_CODE_MAP = {0: "Unknown", 1: "Male", 2: "Female"}
 
 
 @dataclass
@@ -118,8 +102,13 @@ class ISHNERecord:
     @property
     def age_years(self) -> int | None:
         if self.birth_date and self.record_date:
-            return self.record_date.year - self.birth_date.year - (
-                (self.record_date.month, self.record_date.day) < (self.birth_date.month, self.birth_date.day)
+            return (
+                self.record_date.year
+                - self.birth_date.year
+                - (
+                    (self.record_date.month, self.record_date.day)
+                    < (self.birth_date.month, self.birth_date.day)
+                )
             )
         return None
 
@@ -132,7 +121,9 @@ def read_ishne(filepath: str | Path) -> ISHNERecord:
 
     file_size = filepath.stat().st_size
     if file_size < 522:
-        raise ValueError(f"Corrupt ISHNE file: File size ({file_size} B) is smaller than the 522-byte header.")
+        raise ValueError(
+            f"Corrupt ISHNE file: File size ({file_size} B) is smaller than the 522-byte header."
+        )
 
     with open(filepath, "rb") as f:
         magic = f.read(8)
@@ -167,15 +158,27 @@ def read_ishne(filepath: str | Path) -> ISHNERecord:
 
         # Defensive bounds validation
         if not (1 <= n_leads <= 12):
-            raise ValueError(f"Security Alert: Invalid ISHNE lead count ({n_leads}). Standard ISHNE specifies 1 to 12 leads.")
+            raise ValueError(
+                f"Security Alert: Invalid ISHNE lead count ({n_leads}). Standard ISHNE specifies 1 to 12 leads."
+            )
         if var_block_size < 0 or var_block_size > 10 * 1024 * 1024:
-            raise ValueError(f"Security Alert: ISHNE variable text block ({var_block_size} B) exceeds the 10 MB safety ceiling.")
-        if var_block_size > 0 and (offset_var_block < 522 or offset_var_block + var_block_size > file_size):
-            raise ValueError("Corrupt ISHNE file: Variable text block extends beyond file boundary.")
+            raise ValueError(
+                f"Security Alert: ISHNE variable text block ({var_block_size} B) exceeds the 10 MB safety ceiling."
+            )
+        if var_block_size > 0 and (
+            offset_var_block < 522 or offset_var_block + var_block_size > file_size
+        ):
+            raise ValueError(
+                "Corrupt ISHNE file: Variable text block extends beyond file boundary."
+            )
         if not (1 <= sample_size_ecg <= 100_000_000):
-            raise ValueError(f"Security Alert: Invalid ISHNE sample count ({sample_size_ecg}). Must be between 1 and 100,000,000.")
+            raise ValueError(
+                f"Security Alert: Invalid ISHNE sample count ({sample_size_ecg}). Must be between 1 and 100,000,000."
+            )
         if offset_ecg_block < 522 or offset_ecg_block >= file_size:
-            raise ValueError(f"Corrupt ISHNE file: ECG waveform offset ({offset_ecg_block}) is invalid.")
+            raise ValueError(
+                f"Corrupt ISHNE file: ECG waveform offset ({offset_ecg_block}) is invalid."
+            )
 
         # Remaining fixed block: 12 lead_spec, 12 lead_qual, 12 res, 1 pacemaker, 40s recorder, 1 sampling_rate, 80s, 80s, 88s
         fmt_suffix = "<12h 12h 12h h 40s h 80s 80s 88s"
@@ -214,14 +217,16 @@ def read_ishne(filepath: str | Path) -> ISHNERecord:
     resolutions_nv = []
 
     for i in range(n_leads):
-        res_nv = resolutions[i] if (i < len(resolutions) and resolutions[i] > 0) else 5000  # Default 5 uV
+        res_nv = (
+            resolutions[i] if (i < len(resolutions) and resolutions[i] > 0) else 5000
+        )  # Default 5 uV
         resolutions_nv.append(res_nv)
 
         # Scale: raw * nV / 1,000,000 = mV
         signals_mv[i] = (multiplexed_matrix[i].astype(np.float32) * res_nv) / 1_000_000.0
 
         spec_code = lead_specs[i] if i < len(lead_specs) else 0
-        name = LEAD_CODE_MAP.get(spec_code, f"Channel_{i+1}")
+        name = LEAD_CODE_MAP.get(spec_code, f"Channel_{i + 1}")
         lead_names.append(name)
 
     # Safe date constructions
@@ -254,7 +259,7 @@ def read_ishne(filepath: str | Path) -> ISHNERecord:
         duration_sec=float(sample_size_ecg / (sampling_rate or 200.0)),
         clinical_notes=clinical_notes,
         signals=signals_mv,
-        pacemaker=int(pacemaker)
+        pacemaker=int(pacemaker),
     )
 
 
@@ -271,7 +276,7 @@ def write_ishne(
     race_code: int = 0,
     record_date: date | None = None,
     start_time: time | None = None,
-    clinical_notes: str = ""
+    clinical_notes: str = "",
 ) -> str:
     """Creates a standards-compliant ISHNE 1.0 Holter (.ecg) binary file."""
     filepath = Path(filepath)
@@ -328,11 +333,19 @@ def write_ishne(
         patient_id.encode("latin1")[:20].ljust(20, b"\x00"),
         sex_code,
         race_code,
-        0, 0, 0,  # Birth date
-        r_d, r_m, r_y,
-        r_d, r_m, r_y,  # File date
-        s_h, s_mi, s_s,
-        n_leads
+        0,
+        0,
+        0,  # Birth date
+        r_d,
+        r_m,
+        r_y,
+        r_d,
+        r_m,
+        r_y,  # File date
+        s_h,
+        s_mi,
+        s_s,
+        n_leads,
     )
 
     fmt_suffix = "<12h 12h 12h h 40s h 80s 80s 88s"
@@ -346,7 +359,7 @@ def write_ishne(
         sampling_rate,
         b"".ljust(80, b"\x00"),
         b"".ljust(80, b"\x00"),
-        b"".ljust(88, b"\x00")
+        b"".ljust(88, b"\x00"),
     )
 
     fixed_header = prefix + suffix

@@ -78,11 +78,17 @@ def detect_t_end(
         return r_peak + start_offset, r_peak + start_offset + 5
 
     segment = signal[start_idx:end_idx]
-    baseline_level = float(np.median(segment[-int(len(segment) * 0.2) :])) if len(segment) > 10 else 0.0
+    baseline_level = (
+        float(np.median(segment[-int(len(segment) * 0.2) :])) if len(segment) > 10 else 0.0
+    )
 
     # Support both positive and inverted T-waves by locating dominant deflection from baseline
     dev = segment - baseline_level
-    t_peak_rel = int(np.argmax(segment)) if np.max(dev) >= abs(np.min(dev)) * 0.5 else int(np.argmin(segment))
+    t_peak_rel = (
+        int(np.argmax(segment))
+        if np.max(dev) >= abs(np.min(dev)) * 0.5
+        else int(np.argmin(segment))
+    )
     t_peak_idx = start_idx + t_peak_rel
 
     descending = segment[t_peak_rel:]

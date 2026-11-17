@@ -145,7 +145,9 @@ class AnalysisAPI:
         model_type: str = "linear",
     ) -> dict[str, Any]:
         """Optimizes multi-beat QT-RR memory hysteresis (EW/LW profiles, lambda*, t90)."""
-        return optimize_hysteresis_parameter(qt_intervals_sec, rr_intervals_sec, model_type=model_type)
+        return optimize_hysteresis_parameter(
+            qt_intervals_sec, rr_intervals_sec, model_type=model_type
+        )
 
     @staticmethod
     def detect_af(

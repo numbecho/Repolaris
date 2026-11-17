@@ -11,21 +11,22 @@ and episode-level annotations across automated AI detectors and clinical reviewe
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 
 @dataclass
 class ECGAnnotation:
     """Represents a single fiducial or diagnostic event annotation."""
+
     sample: int
     timestamp_sec: float
-    label: str                            # AAMI code: 'N', 'V', 'S', 'F', 'Q', or custom tag
-    sublabel: str = ""                    # e.g., 'PVC', 'PAC', 'Pause', 'Artifact'
-    author: str = "AI_DETECTOR"           # 'AI_DETECTOR' or physician username (e.g., 'Dr. Reviewer')
-    is_manual_override: bool = False      # True if reviewed/modified by clinician
-    notes: str = ""                       # Clinical rationale or caliper notes
-    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    label: str  # AAMI code: 'N', 'V', 'S', 'F', 'Q', or custom tag
+    sublabel: str = ""  # e.g., 'PVC', 'PAC', 'Pause', 'Artifact'
+    author: str = "AI_DETECTOR"  # 'AI_DETECTOR' or physician username (e.g., 'Dr. Reviewer')
+    is_manual_override: bool = False  # True if reviewed/modified by clinician
+    notes: str = ""  # Clinical rationale or caliper notes
+    created_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
     def to_dict(self) -> dict[str, Any]:
         """Serializes annotation to dictionary."""
@@ -42,7 +43,7 @@ class ECGAnnotation:
             author=str(data.get("author", "AI_DETECTOR")),
             is_manual_override=bool(data.get("is_manual_override", False)),
             notes=str(data.get("notes", "")),
-            created_at=str(data.get("created_at", datetime.now(timezone.utc).isoformat())),
+            created_at=str(data.get("created_at", datetime.now(UTC).isoformat())),
         )
 
 
@@ -172,5 +173,7 @@ class AnnotationManager:
         lines = ["# Time (s)\tSample\tType\tSub\tReviewer\tNotes"]
         for a in self.annotations:
             over = "[OVERRIDE]" if a.is_manual_override else ""
-            lines.append(f"{a.timestamp_sec:10.3f}\t{a.sample:10d}\t{a.label:4s}\t{a.sublabel:6s}\t{a.author:15s}\t{a.notes} {over}".strip())
+            lines.append(
+                f"{a.timestamp_sec:10.3f}\t{a.sample:10d}\t{a.label:4s}\t{a.sublabel:6s}\t{a.author:15s}\t{a.notes} {over}".strip()
+            )
         return "\n".join(lines)

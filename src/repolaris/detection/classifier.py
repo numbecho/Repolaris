@@ -26,15 +26,17 @@ import numpy as np
 
 class BeatClass(StrEnum):
     """Standard ANSI/AAMI EC57 heartbeat classification codes."""
-    NORMAL = "N"          # Normal, LBBB, RBBB, nodal escape
-    PVC = "V"             # Premature Ventricular Contraction / Ventricular Ectopic
-    PAC = "S"             # Premature Atrial Contraction / Supraventricular Ectopic
-    FUSION = "F"          # Fusion of normal and ventricular beat
-    UNKNOWN = "Q"         # Unclassifiable / Paced / Artifact
+
+    NORMAL = "N"  # Normal, LBBB, RBBB, nodal escape
+    PVC = "V"  # Premature Ventricular Contraction / Ventricular Ectopic
+    PAC = "S"  # Premature Atrial Contraction / Supraventricular Ectopic
+    FUSION = "F"  # Fusion of normal and ventricular beat
+    UNKNOWN = "Q"  # Unclassifiable / Paced / Artifact
 
 
 class RhythmPattern(StrEnum):
     """Repetitive cardiac rhythm and ectopic coupling sequences."""
+
     NORMAL_SINUS = "NSR"
     BIGEMINY = "BIGEMINY"
     TRIGEMINY = "TRIGEMINY"
@@ -49,16 +51,21 @@ class RhythmPattern(StrEnum):
 @dataclass
 class BeatFeatures:
     """Quantitative morphological and timing features for a single heartbeat."""
+
     pre_rr_sec: float
     post_rr_sec: float
-    pre_rr_ratio: float           # RR_i / median(RR) - measures prematurity (<0.8 = premature)
-    post_rr_ratio: float          # RR_{i+1} / median(RR) - measures compensatory pause (>1.1 = pause)
-    compensatory_ratio: float     # (RR_i + RR_{i+1}) / (2 * median(RR)) - ~1.0 for full compensatory pause
-    qrs_duration_ms: float        # Width of depolarization complex (>120 ms suggests ventricular origin)
-    qrs_peak_to_peak_mv: float    # Peak-to-peak voltage within QRS window
-    qrs_energy: float             # Sum of squared derivative/voltage samples
-    template_correlation: float   # Pearson correlation with patient's dominant median normal template
-    polarity: int                 # Dominant polarity (+1 positive R, -1 negative QS)
+    pre_rr_ratio: float  # RR_i / median(RR) - measures prematurity (<0.8 = premature)
+    post_rr_ratio: float  # RR_{i+1} / median(RR) - measures compensatory pause (>1.1 = pause)
+    compensatory_ratio: (
+        float  # (RR_i + RR_{i+1}) / (2 * median(RR)) - ~1.0 for full compensatory pause
+    )
+    qrs_duration_ms: float  # Width of depolarization complex (>120 ms suggests ventricular origin)
+    qrs_peak_to_peak_mv: float  # Peak-to-peak voltage within QRS window
+    qrs_energy: float  # Sum of squared derivative/voltage samples
+    template_correlation: (
+        float  # Pearson correlation with patient's dominant median normal template
+    )
+    polarity: int  # Dominant polarity (+1 positive R, -1 negative QS)
 
     def to_dict(self) -> dict[str, Any]:
         """Serializes features to a dictionary."""
@@ -68,6 +75,7 @@ class BeatFeatures:
 @dataclass
 class ClassifiedBeat:
     """Enriched diagnostic beat record containing classifications and metrics."""
+
     beat_index: int
     r_peak_sample: int
     time_sec: float
@@ -167,10 +175,10 @@ def extract_beat_features(
     qrs_off_est = min(len(signal) - 1, r_curr + int(0.06 * fs))
     qrs_dur_ms = max(20.0, float(qrs_off_est - q_on) / fs * 1000.0)
 
-    qrs_segment = signal[max(0, q_on): min(len(signal), qrs_off_est + 1)]
+    qrs_segment = signal[max(0, q_on) : min(len(signal), qrs_off_est + 1)]
     if len(qrs_segment) > 1:
         p2p = float(np.max(qrs_segment) - np.min(qrs_segment))
-        energy = float(np.sum(qrs_segment ** 2))
+        energy = float(np.sum(qrs_segment**2))
         polarity = 1 if signal[r_curr] >= np.mean(qrs_segment) else -1
     else:
         p2p = 1.0
@@ -268,7 +276,9 @@ def classify_heartbeat(
     # Rule 4: Severely corrupted / unclassifiable beat (Q)
     if features.template_correlation < 0.30 and not is_premature:
         conf = 0.60
-        rationale = f"Unclassifiable waveform or artifact (corr: {features.template_correlation:.2f})"
+        rationale = (
+            f"Unclassifiable waveform or artifact (corr: {features.template_correlation:.2f})"
+        )
         return BeatClass.UNKNOWN, conf, rationale
 
     # Rule 5: Normal Sinus Beat (N)
@@ -392,7 +402,11 @@ def classify_all_beats(
         )
 
         b_class, conf, rationale = classify_heartbeat(features)
-        r_pattern = RhythmPattern.NORMAL_SINUS if b_class == BeatClass.NORMAL else RhythmPattern.ISOLATED_ECTOPIC
+        r_pattern = (
+            RhythmPattern.NORMAL_SINUS
+            if b_class == BeatClass.NORMAL
+            else RhythmPattern.ISOLATED_ECTOPIC
+        )
 
         classified_beats.append(
             ClassifiedBeat(

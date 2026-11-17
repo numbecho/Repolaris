@@ -22,6 +22,7 @@ from repolaris.detection.classifier import BeatClass, ClassifiedBeat, RhythmPatt
 @dataclass
 class HourlyTrendBin:
     """Arrhythmia and rate statistics aggregated across a 1-hour recording epoch."""
+
     hour_index: int
     start_time_sec: float
     end_time_sec: float
@@ -45,6 +46,7 @@ class HourlyTrendBin:
 @dataclass
 class HolterTrendReport:
     """Holter 24h/48h multi-hour summary and hourly breakdown report."""
+
     total_duration_hours: float
     total_beats: int
     overall_mean_hr: float
@@ -104,7 +106,11 @@ def generate_hourly_trends(
         )
 
     t_start = 0.0
-    t_end = total_duration_sec if total_duration_sec is not None else max(b.time_sec for b in classified_beats)
+    t_end = (
+        total_duration_sec
+        if total_duration_sec is not None
+        else max(b.time_sec for b in classified_beats)
+    )
     t_end = max(t_end, t_start + 1.0)
     dur_total = t_end - t_start
 
@@ -115,18 +121,34 @@ def generate_hourly_trends(
     pause_events = []
     if events:
         for ev in events:
-            ev_type = ev.get("event_type") if isinstance(ev, dict) else getattr(ev, "event_type", "")
+            ev_type = (
+                ev.get("event_type") if isinstance(ev, dict) else getattr(ev, "event_type", "")
+            )
             if ev_type == "PAUSE":
-                t = ev.get("timestamp_sec") if isinstance(ev, dict) else getattr(ev, "timestamp_sec", 0.0)
-                dur = ev.get("metric_value") if isinstance(ev, dict) else getattr(ev, "metric_value", 0.0)
+                t = (
+                    ev.get("timestamp_sec")
+                    if isinstance(ev, dict)
+                    else getattr(ev, "timestamp_sec", 0.0)
+                )
+                dur = (
+                    ev.get("metric_value")
+                    if isinstance(ev, dict)
+                    else getattr(ev, "metric_value", 0.0)
+                )
                 pause_events.append((t, dur))
 
     # Parse AF episodes for interval overlap
     parsed_af = []
     if af_episodes:
         for ep in af_episodes:
-            s_t = ep.get("start_time_sec") if isinstance(ep, dict) else getattr(ep, "start_time_sec", 0.0)
-            e_t = ep.get("end_time_sec") if isinstance(ep, dict) else getattr(ep, "end_time_sec", 0.0)
+            s_t = (
+                ep.get("start_time_sec")
+                if isinstance(ep, dict)
+                else getattr(ep, "start_time_sec", 0.0)
+            )
+            e_t = (
+                ep.get("end_time_sec") if isinstance(ep, dict) else getattr(ep, "end_time_sec", 0.0)
+            )
             parsed_af.append((s_t, e_t))
 
     for b_idx in range(num_bins):
@@ -221,6 +243,8 @@ def generate_hourly_trends(
         total_pauses=sum(b.pause_count for b in bins),
         max_pause_sec=round(max((b.longest_pause_sec for b in bins), default=0.0), 2),
         total_af_sec=round(sum(b.af_burden_sec for b in bins), 1),
-        overall_af_burden_pct=round(sum(b.af_burden_sec for b in bins) / max(1.0, dur_total) * 100.0, 2),
+        overall_af_burden_pct=round(
+            sum(b.af_burden_sec for b in bins) / max(1.0, dur_total) * 100.0, 2
+        ),
         hourly_bins=bins,
     )

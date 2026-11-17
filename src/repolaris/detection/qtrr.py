@@ -234,7 +234,12 @@ def fit_qtrr_model(
     ref_rr = 1.0 if float(np.median(rr)) < 10.0 else 1000.0
     qt_at_ref = float(np.asarray(predict_fn([ref_rr]))[0]) * scale_to_ms
 
-    if not np.isfinite(rmse_ms) or not np.isfinite(qt_at_ref) or qt_at_ref <= 50.0 or qt_at_ref >= 1200.0:
+    if (
+        not np.isfinite(rmse_ms)
+        or not np.isfinite(qt_at_ref)
+        or qt_at_ref <= 50.0
+        or qt_at_ref >= 1200.0
+    ):
         well_conditioned = False
 
     meta = QTRR_MODEL_METADATA.get(

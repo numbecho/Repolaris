@@ -48,6 +48,7 @@ HL7_LEAD_NAMES = {
 @dataclass
 class HL7Record:
     """Decoded physiological signals and clinical trial metadata from an HL7 aECG XML document."""
+
     patient_id: str
     patient_name: str
     study_id: str
@@ -68,7 +69,9 @@ def is_hl7_xml(filepath: str | Path | os.PathLike[str]) -> bool:
     try:
         with open(path, encoding="utf-8", errors="ignore") as f:
             head = f.read(2048)
-            return ("<AnnotatedECG" in head or "urn:hl7-org:v3" in head) and ("<series" in head or "<sequence" in head)
+            return ("<AnnotatedECG" in head or "urn:hl7-org:v3" in head) and (
+                "<series" in head or "<sequence" in head
+            )
     except Exception:
         return False
 
@@ -92,7 +95,9 @@ def read_hl7_aecg(filepath: str | Path | os.PathLike[str]) -> HL7Record:
 
     file_size = path.stat().st_size
     if file_size > 250 * 1024 * 1024:
-        raise ValueError(f"Security Alert: HL7 aECG file ({file_size} B) exceeds the 250 MB safety ceiling.")
+        raise ValueError(
+            f"Security Alert: HL7 aECG file ({file_size} B) exceeds the 250 MB safety ceiling."
+        )
 
     tree = ET.parse(str(path))
     root = tree.getroot()

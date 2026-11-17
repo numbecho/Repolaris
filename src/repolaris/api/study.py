@@ -27,7 +27,7 @@ class StudyAPI:
     def load_study_file(
         file_path: str,
         lead: int | str = 0,
-        progress_callback: Callable[[float, str], None] | None = None
+        progress_callback: Callable[[float, str], None] | None = None,
     ) -> tuple[np.ndarray, float]:
         """Loads a single lead trace and sampling rate from any supported ECG file."""
         if not os.path.exists(file_path):
@@ -43,8 +43,7 @@ class StudyAPI:
 
     @staticmethod
     def load_study_dataset(
-        file_path: str,
-        progress_callback: Callable[[float, str], None] | None = None
+        file_path: str, progress_callback: Callable[[float, str], None] | None = None
     ) -> tuple[dict[str, np.ndarray], float, dict[str, Any]]:
         """Loads multi-lead signals and extracted metadata from any supported ECG container."""
         if not os.path.exists(file_path):
@@ -57,16 +56,16 @@ class StudyAPI:
         fs: float = 500.0,
         heart_rate_bpm: float = 72.0,
         noise_std: float = 0.02,
-        progress_callback: Callable[[float, str], None] | None = None
+        progress_callback: Callable[[float, str], None] | None = None,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Generates a standardized synthetic benchmark ECG study."""
         if progress_callback:
-            progress_callback(0.20, f"Synthesizing {duration_sec:.1f}s benchmark rhythm ({heart_rate_bpm:.0f} BPM)...")
+            progress_callback(
+                0.20,
+                f"Synthesizing {duration_sec:.1f}s benchmark rhythm ({heart_rate_bpm:.0f} BPM)...",
+            )
         time_vec, lead2, true_r = generate_synthetic_ecg(
-            duration_sec=duration_sec,
-            fs=fs,
-            heart_rate_bpm=heart_rate_bpm,
-            noise_std=noise_std
+            duration_sec=duration_sec, fs=fs, heart_rate_bpm=heart_rate_bpm, noise_std=noise_std
         )
         if progress_callback:
             progress_callback(1.00, f"Benchmark rhythm generated ({len(true_r)} QRS complexes).")
@@ -81,7 +80,11 @@ class StudyAPI:
         """Opens an ECG study into an out-of-core SignalBuffer (backed by np.memmap for long Holters)."""
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"ECG study file not found: {file_path}")
-        return open_ecg_buffer(file_path, mmap_threshold_samples=mmap_threshold_samples, progress_callback=progress_callback)
+        return open_ecg_buffer(
+            file_path,
+            mmap_threshold_samples=mmap_threshold_samples,
+            progress_callback=progress_callback,
+        )
 
     @staticmethod
     def stream_study_chunks(

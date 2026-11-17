@@ -69,22 +69,30 @@ def summarize_beats(beats: list[dict[str, Any]]) -> dict[str, Any]:
     qtc_b = [
         b["qtc"]["bazett_ms"]
         for b in beats
-        if b.get("qtc") and b["qtc"].get("bazett_ms") is not None and not np.isnan(b["qtc"]["bazett_ms"])
+        if b.get("qtc")
+        and b["qtc"].get("bazett_ms") is not None
+        and not np.isnan(b["qtc"]["bazett_ms"])
     ]
     qtc_f = [
         b["qtc"]["fridericia_ms"]
         for b in beats
-        if b.get("qtc") and b["qtc"].get("fridericia_ms") is not None and not np.isnan(b["qtc"]["fridericia_ms"])
+        if b.get("qtc")
+        and b["qtc"].get("fridericia_ms") is not None
+        and not np.isnan(b["qtc"]["fridericia_ms"])
     ]
     qtc_fram = [
         b["qtc"]["framingham_ms"]
         for b in beats
-        if b.get("qtc") and b["qtc"].get("framingham_ms") is not None and not np.isnan(b["qtc"]["framingham_ms"])
+        if b.get("qtc")
+        and b["qtc"].get("framingham_ms") is not None
+        and not np.isnan(b["qtc"]["framingham_ms"])
     ]
     qtc_hodg = [
         b["qtc"]["hodges_ms"]
         for b in beats
-        if b.get("qtc") and b["qtc"].get("hodges_ms") is not None and not np.isnan(b["qtc"]["hodges_ms"])
+        if b.get("qtc")
+        and b["qtc"].get("hodges_ms") is not None
+        and not np.isnan(b["qtc"]["hodges_ms"])
     ]
 
     return {

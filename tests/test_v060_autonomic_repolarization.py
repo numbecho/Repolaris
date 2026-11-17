@@ -125,7 +125,9 @@ class TestV060AutonomicAndRepolarization(unittest.TestCase):
         dual_res = calculate_qt_dispersion(np.vstack([self.base_sig, self.base_sig]), fs=self.fs)
         self.assertIsNone(dual_res)
 
-        _, lead_a, _ = generate_synthetic_ecg(duration_sec=10.0, fs=self.fs, heart_rate_bpm=72.0, noise_std=0.002)
+        _, lead_a, _ = generate_synthetic_ecg(
+            duration_sec=10.0, fs=self.fs, heart_rate_bpm=72.0, noise_std=0.002
+        )
         lead_b = np.roll(lead_a, 8) * 0.9
         lead_c = np.roll(lead_a, 16) * 1.1
         lead_dead = np.zeros_like(lead_a)
@@ -172,13 +174,31 @@ class TestV060AutonomicAndRepolarization(unittest.TestCase):
     def test_heart_rate_turbulence_categories(self) -> None:
         """Verify Heart Rate Turbulence (TO, TS, and ISHNE risk categories 0, 1, 2)."""
         nn_healthy_ms = [
-            800.0, 800.0, 800.0,
+            800.0,
+            800.0,
+            800.0,
             520.0,
             1080.0,
-            750.0, 760.0, 770.0, 780.0, 790.0, 800.0, 808.0, 815.0,
-            812.0, 808.0, 804.0, 802.0, 800.0, 800.0, 800.0, 800.0,
+            750.0,
+            760.0,
+            770.0,
+            780.0,
+            790.0,
+            800.0,
+            808.0,
+            815.0,
+            812.0,
+            808.0,
+            804.0,
+            802.0,
+            800.0,
+            800.0,
+            800.0,
+            800.0,
         ]
-        r_samples_healthy = np.cumsum([0.0] + [ms * self.fs / 1000.0 for ms in nn_healthy_ms]).astype(int)
+        r_samples_healthy = np.cumsum(
+            [0.0] + [ms * self.fs / 1000.0 for ms in nn_healthy_ms]
+        ).astype(int)
         labels = ["N"] * len(r_samples_healthy)
         labels[4] = "V"
 
@@ -189,13 +209,31 @@ class TestV060AutonomicAndRepolarization(unittest.TestCase):
         self.assertEqual(hrt_normal["category"], 0)
 
         nn_blunted_ms = [
-            800.0, 800.0, 800.0,
+            800.0,
+            800.0,
+            800.0,
             520.0,
             1080.0,
-            815.0, 815.0, 815.0, 815.0, 815.0, 815.0, 815.0, 815.0,
-            815.0, 815.0, 815.0, 815.0, 815.0, 815.0, 815.0, 815.0,
+            815.0,
+            815.0,
+            815.0,
+            815.0,
+            815.0,
+            815.0,
+            815.0,
+            815.0,
+            815.0,
+            815.0,
+            815.0,
+            815.0,
+            815.0,
+            815.0,
+            815.0,
+            815.0,
         ]
-        r_samples_blunted = np.cumsum([0.0] + [ms * self.fs / 1000.0 for ms in nn_blunted_ms]).astype(int)
+        r_samples_blunted = np.cumsum(
+            [0.0] + [ms * self.fs / 1000.0 for ms in nn_blunted_ms]
+        ).astype(int)
         hrt_blunted = compute_heart_rate_turbulence(labels, r_samples_blunted, fs=self.fs)
         self.assertGreaterEqual(hrt_blunted["turbulence_onset"], 0.0)
         self.assertLessEqual(hrt_blunted["turbulence_slope"], 2.5)
@@ -238,12 +276,14 @@ class TestV060AutonomicAndRepolarization(unittest.TestCase):
 
     def test_qtrr_hysteresis_loop_collapse(self) -> None:
         """Verify EW/LW effective RR kernels and hysteresis parameter optimization."""
-        rr_sec = np.concatenate([
-            np.full(30, 1.0),
-            np.linspace(1.0, 0.6, 30),
-            np.full(30, 0.6),
-            np.linspace(0.6, 1.0, 30),
-        ])
+        rr_sec = np.concatenate(
+            [
+                np.full(30, 1.0),
+                np.linspace(1.0, 0.6, 30),
+                np.full(30, 0.6),
+                np.linspace(0.6, 1.0, 30),
+            ]
+        )
         true_lambda = 0.08
         true_rr_eff = compute_effective_rr_exponential(rr_sec, lambda_param=true_lambda)
         qt_sec = 0.24 + 0.16 * true_rr_eff
@@ -253,7 +293,9 @@ class TestV060AutonomicAndRepolarization(unittest.TestCase):
 
         hyst_res = optimize_hysteresis_parameter(qt_sec, rr_sec, model_type="linear")
         self.assertAlmostEqual(hyst_res["optimal_lambda"], true_lambda, delta=0.04)
-        self.assertLess(hyst_res["hysteresis_residual_rmse_ms"], hyst_res["raw_residual_rmse_ms"] * 0.25)
+        self.assertLess(
+            hyst_res["hysteresis_residual_rmse_ms"], hyst_res["raw_residual_rmse_ms"] * 0.25
+        )
         self.assertGreater(hyst_res["loop_reduction_percent"], 75.0)
         self.assertGreater(hyst_res["t90_sec"], 0.0)
 
@@ -287,8 +329,10 @@ class TestV060AutonomicAndRepolarization(unittest.TestCase):
 
         os.environ["QT_QPA_PLATFORM"] = "offscreen"
         from repolaris.app import HAS_GUI, MainWindow, SettingsDialog
+
         if HAS_GUI:
             from PyQt6.QtWidgets import QApplication
+
             _app = QApplication.instance() or QApplication(["pytest", "-platform", "offscreen"])
             win = MainWindow()
             try:

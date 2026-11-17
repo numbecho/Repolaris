@@ -140,12 +140,16 @@ def load_ecg_dataset(
                     for i, ch in enumerate(channels)
                 }
             else:
-                signals = {f"Lead {i + 1}": signals_matrix[i] for i in range(signals_matrix.shape[0])}
+                signals = {
+                    f"Lead {i + 1}": signals_matrix[i] for i in range(signals_matrix.shape[0])
+                }
             rec_data = meta.get("recording", {})
             fs = float(rec_data.get("sampling_rate", rec_data.get("sampling_rate_hz", 250.0)))
             meta["format"] = "PECG (Portable Clinical ECG)"
             if progress_callback:
-                progress_callback(1.0, f"Successfully loaded {len(signals)} leads from {path.name}.")
+                progress_callback(
+                    1.0, f"Successfully loaded {len(signals)} leads from {path.name}."
+                )
             return signals, fs, meta
 
         case "ishne":
@@ -393,7 +397,11 @@ def open_ecg_buffer(
             meta, sig_mat = load_pecg(path, mmap=True, progress_callback=progress_callback)
             channels = meta.get("recording", {}).get("channels", [])
             sigs = {
-                (channels[i].get("name", f"Lead {i + 1}") if i < len(channels) else f"Lead {i + 1}"): sig_mat[i]
+                (
+                    channels[i].get("name", f"Lead {i + 1}")
+                    if i < len(channels)
+                    else f"Lead {i + 1}"
+                ): sig_mat[i]
                 for i in range(sig_mat.shape[0])
             }
             fs = float(meta.get("recording", {}).get("sampling_rate", 500.0))

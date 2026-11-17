@@ -26,7 +26,20 @@ from repolaris.preprocessing.baseline import remove_baseline_wander
 from repolaris.preprocessing.filter import bandpass_filter
 
 PRECORDIAL_LEADS: frozenset[str] = frozenset(
-    {"V1", "V2", "V3", "V4", "V5", "V6", "LEAD V1", "LEAD V2", "LEAD V3", "LEAD V4", "LEAD V5", "LEAD V6"}
+    {
+        "V1",
+        "V2",
+        "V3",
+        "V4",
+        "V5",
+        "V6",
+        "LEAD V1",
+        "LEAD V2",
+        "LEAD V3",
+        "LEAD V4",
+        "LEAD V5",
+        "LEAD V6",
+    }
 )
 
 
@@ -94,9 +107,11 @@ def calculate_qt_dispersion(
         matrix = np.asarray(lead_signals, dtype=np.float64)
         if matrix.ndim != 2:
             return None
-        names = lead_names if lead_names and len(lead_names) == matrix.shape[0] else [
-            f"Lead {i + 1}" for i in range(matrix.shape[0])
-        ]
+        names = (
+            lead_names
+            if lead_names and len(lead_names) == matrix.shape[0]
+            else [f"Lead {i + 1}" for i in range(matrix.shape[0])]
+        )
 
     n_leads, n_samples = matrix.shape
     if n_leads < 3 or n_samples < int(fs * 1.5):
@@ -115,7 +130,9 @@ def calculate_qt_dispersion(
             rejected_leads.append(name)
             continue
 
-        trace = remove_baseline_wander(bandpass_filter(raw_trace, fs), fs) if preprocess else raw_trace
+        trace = (
+            remove_baseline_wander(bandpass_filter(raw_trace, fs), fs) if preprocess else raw_trace
+        )
         sqi = evaluate_lead_quality(trace, fs)
         lead_sqi[name] = sqi
 

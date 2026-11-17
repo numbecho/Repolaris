@@ -8,6 +8,7 @@ import numpy as np
 from repolaris.io.ecg_loader import load_ecg_dataset, stream_ecg_chunks
 from repolaris.io.ishne_reader import read_ishne, write_ishne
 
+
 class TestISHNEReader(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
@@ -36,10 +37,10 @@ class TestISHNEReader(unittest.TestCase):
             first_name="John",
             last_name="Doe",
             sex_code=1,  # Male
-            race_code=1, # Caucasian
+            race_code=1,  # Caucasian
             record_date=date(2026, 10, 27),
             start_time=time(14, 30, 0),
-            clinical_notes="24-hour ambulatory Holter recording."
+            clinical_notes="24-hour ambulatory Holter recording.",
         )
         self.assertTrue(os.path.exists(out))
 
@@ -65,6 +66,7 @@ class TestISHNEReader(unittest.TestCase):
         self.assertEqual(len(sigs_dict), 3)
         chunks = list(stream_ecg_chunks(out, chunk_duration_sec=2.0))
         self.assertEqual(len(chunks), 3)
+
 
 if __name__ == "__main__":
     unittest.main()

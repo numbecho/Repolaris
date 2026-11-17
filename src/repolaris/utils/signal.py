@@ -20,11 +20,11 @@ def generate_synthetic_ecg(
 
     # Gaussian wave parameters: (amplitude_mv, time_offset_sec, width_sec)
     waves = [
-        (0.15, -0.16, 0.035),   # P-wave
+        (0.15, -0.16, 0.035),  # P-wave
         (-0.15, -0.04, 0.015),  # Q-wave
-        (1.20, 0.00, 0.025),    # R-peak
-        (-0.25, 0.04, 0.020),   # S-wave
-        (0.30, 0.22, 0.070),    # T-wave
+        (1.20, 0.00, 0.025),  # R-peak
+        (-0.25, 0.04, 0.020),  # S-wave
+        (0.30, 0.22, 0.070),  # T-wave
     ]
 
     # Evaluate each beat within a local window (+/- 0.6s) for O(N_samples) complexity

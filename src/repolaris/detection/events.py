@@ -63,96 +63,114 @@ def detect_clinical_events(
         # 1. Sinus Pauses / Asystole (RR >= threshold)
         if rr_sec >= pause_thresh_sec:
             sev = "CRITICAL" if rr_sec >= 2.5 else "WARNING"
-            events.append(ECGEvent(
-                timestamp_sec=float(t_sec),
-                event_type="PAUSE",
-                severity=sev,
-                metric_value=float(rr_sec),
-                unit="s",
-                beat_index=i,
-                description=f"Sinus pause of {rr_sec:.2f} s",
-            ))
+            events.append(
+                ECGEvent(
+                    timestamp_sec=float(t_sec),
+                    event_type="PAUSE",
+                    severity=sev,
+                    metric_value=float(rr_sec),
+                    unit="s",
+                    beat_index=i,
+                    description=f"Sinus pause of {rr_sec:.2f} s",
+                )
+            )
 
         # 2. Severe QTc Prolongation (Torsades de Pointes risk)
         if not np.isnan(qtc_b):
             if qtc_b >= qtc_critical_thresh_ms:
-                events.append(ECGEvent(
-                    timestamp_sec=float(t_sec),
-                    event_type="CRITICAL_QTC",
-                    severity="CRITICAL",
-                    metric_value=float(qtc_b),
-                    unit="ms",
-                    beat_index=i,
-                    description=f"Severe QTc prolongation: {qtc_b:.1f} ms",
-                ))
+                events.append(
+                    ECGEvent(
+                        timestamp_sec=float(t_sec),
+                        event_type="CRITICAL_QTC",
+                        severity="CRITICAL",
+                        metric_value=float(qtc_b),
+                        unit="ms",
+                        beat_index=i,
+                        description=f"Severe QTc prolongation: {qtc_b:.1f} ms",
+                    )
+                )
             elif qtc_b >= qtc_warning_thresh_ms:
-                events.append(ECGEvent(
-                    timestamp_sec=float(t_sec),
-                    event_type="BORDERLINE_QTC",
-                    severity="WARNING",
-                    metric_value=float(qtc_b),
-                    unit="ms",
-                    beat_index=i,
-                    description=f"Prolonged QTc: {qtc_b:.1f} ms",
-                ))
+                events.append(
+                    ECGEvent(
+                        timestamp_sec=float(t_sec),
+                        event_type="BORDERLINE_QTC",
+                        severity="WARNING",
+                        metric_value=float(qtc_b),
+                        unit="ms",
+                        beat_index=i,
+                        description=f"Prolonged QTc: {qtc_b:.1f} ms",
+                    )
+                )
             elif qtc_b <= short_qt_thresh_ms:
-                events.append(ECGEvent(
-                    timestamp_sec=float(t_sec),
-                    event_type="SHORT_QT",
-                    severity="WARNING",
-                    metric_value=float(qtc_b),
-                    unit="ms",
-                    beat_index=i,
-                    description=f"Abnormally short QTc: {qtc_b:.1f} ms",
-                ))
+                events.append(
+                    ECGEvent(
+                        timestamp_sec=float(t_sec),
+                        event_type="SHORT_QT",
+                        severity="WARNING",
+                        metric_value=float(qtc_b),
+                        unit="ms",
+                        beat_index=i,
+                        description=f"Abnormally short QTc: {qtc_b:.1f} ms",
+                    )
+                )
 
         # 3. Tachycardia & Bradycardia runs
         if not np.isnan(hr):
             if hr >= tachy_thresh_bpm:
-                events.append(ECGEvent(
-                    timestamp_sec=float(t_sec),
-                    event_type="TACHYCARDIA",
-                    severity="WARNING",
-                    metric_value=float(hr),
-                    unit="BPM",
-                    beat_index=i,
-                    description=f"Tachycardia episode: {hr:.1f} BPM",
-                ))
+                events.append(
+                    ECGEvent(
+                        timestamp_sec=float(t_sec),
+                        event_type="TACHYCARDIA",
+                        severity="WARNING",
+                        metric_value=float(hr),
+                        unit="BPM",
+                        beat_index=i,
+                        description=f"Tachycardia episode: {hr:.1f} BPM",
+                    )
+                )
             elif hr <= brady_thresh_bpm:
-                events.append(ECGEvent(
-                    timestamp_sec=float(t_sec),
-                    event_type="BRADYCARDIA",
-                    severity="WARNING",
-                    metric_value=float(hr),
-                    unit="BPM",
-                    beat_index=i,
-                    description=f"Bradycardia episode: {hr:.1f} BPM",
-                ))
+                events.append(
+                    ECGEvent(
+                        timestamp_sec=float(t_sec),
+                        event_type="BRADYCARDIA",
+                        severity="WARNING",
+                        metric_value=float(hr),
+                        unit="BPM",
+                        beat_index=i,
+                        description=f"Bradycardia episode: {hr:.1f} BPM",
+                    )
+                )
 
         # 4. Premature Ventricular Contractions (PVCs)
         b_class = beat.get("beat_class")
         if b_class == "V":
-            events.append(ECGEvent(
-                timestamp_sec=float(t_sec),
-                event_type="PVC",
-                severity="INFO",
-                metric_value=float(rr_sec),
-                unit="s",
-                beat_index=i,
-                description=str(beat.get("diagnostic_rationale", "Premature ventricular ectopic beat")),
-            ))
-        elif b_class is None and i >= 2:
-            prev_rr = beats[i - 1].get("rr_sec", 1.0)
-            if rr_sec < 0.75 * prev_rr and hr > 80:
-                events.append(ECGEvent(
+            events.append(
+                ECGEvent(
                     timestamp_sec=float(t_sec),
                     event_type="PVC",
                     severity="INFO",
                     metric_value=float(rr_sec),
                     unit="s",
                     beat_index=i,
-                    description="Premature ventricular ectopic beat",
-                ))
+                    description=str(
+                        beat.get("diagnostic_rationale", "Premature ventricular ectopic beat")
+                    ),
+                )
+            )
+        elif b_class is None and i >= 2:
+            prev_rr = beats[i - 1].get("rr_sec", 1.0)
+            if rr_sec < 0.75 * prev_rr and hr > 80:
+                events.append(
+                    ECGEvent(
+                        timestamp_sec=float(t_sec),
+                        event_type="PVC",
+                        severity="INFO",
+                        metric_value=float(rr_sec),
+                        unit="s",
+                        beat_index=i,
+                        description="Premature ventricular ectopic beat",
+                    )
+                )
 
     # 5. Flag Study Extremes (Max HR and Min HR of the entire recording)
     if hrs:
@@ -161,25 +179,29 @@ def detect_clinical_events(
         max_beat = valid_hr_beats[max_idx]
         min_beat = valid_hr_beats[min_idx]
 
-        events.append(ECGEvent(
-            timestamp_sec=float(beats[max_beat]["time_sec"]),
-            event_type="MAX_HR",
-            severity="INFO",
-            metric_value=float(hrs[max_idx]),
-            unit="BPM",
-            beat_index=max_beat,
-            description=f"Maximum Heart Rate: {hrs[max_idx]:.1f} BPM",
-        ))
+        events.append(
+            ECGEvent(
+                timestamp_sec=float(beats[max_beat]["time_sec"]),
+                event_type="MAX_HR",
+                severity="INFO",
+                metric_value=float(hrs[max_idx]),
+                unit="BPM",
+                beat_index=max_beat,
+                description=f"Maximum Heart Rate: {hrs[max_idx]:.1f} BPM",
+            )
+        )
 
-        events.append(ECGEvent(
-            timestamp_sec=float(beats[min_beat]["time_sec"]),
-            event_type="MIN_HR",
-            severity="INFO",
-            metric_value=float(hrs[min_idx]),
-            unit="BPM",
-            beat_index=min_beat,
-            description=f"Minimum Heart Rate: {hrs[min_idx]:.1f} BPM",
-        ))
+        events.append(
+            ECGEvent(
+                timestamp_sec=float(beats[min_beat]["time_sec"]),
+                event_type="MIN_HR",
+                severity="INFO",
+                metric_value=float(hrs[min_idx]),
+                unit="BPM",
+                beat_index=min_beat,
+                description=f"Minimum Heart Rate: {hrs[min_idx]:.1f} BPM",
+            )
+        )
 
     events.sort(key=lambda ev: ev.timestamp_sec)
     return events

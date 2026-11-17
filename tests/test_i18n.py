@@ -99,6 +99,7 @@ class TestI18n(unittest.TestCase):
     def test_clinical_ecg_zoom_and_scale_constants(self):
         """Verify standard ECG sweep speeds, sensitivities, and grid visibility logic."""
         from repolaris.app import CLINICAL_SPEEDS, CLINICAL_GAINS
+
         self.assertEqual(CLINICAL_SPEEDS, [12.5, 25.0, 50.0, 100.0])
         self.assertEqual(CLINICAL_GAINS, [2.5, 5.0, 10.0, 20.0])
 
@@ -122,6 +123,7 @@ class TestI18n(unittest.TestCase):
     def test_time_axis_millisecond_precision(self):
         """Verify time axis precision down to milliseconds (hh:mm:ss:xxx)."""
         from repolaris.app import TimeAxisItem
+
         axis = TimeAxisItem()
 
         # Sub-second tick strings (e.g. at 25 mm/s or 50 mm/s where spacing < 1.0s)
@@ -137,7 +139,13 @@ class TestI18n(unittest.TestCase):
         self.assertEqual(ticks, ["00:00:00:000", "00:00:00:040", "00:00:00:080", "00:00:00:120"])
 
         # Test axis_time label localization contains hh:mm:ss:xxx
-        for lang, expected_token in [("en", "hh:mm:ss:xxx"), ("es", "hh:mm:ss:xxx"), ("fr", "hh:mm:ss:xxx"), ("de", "hh:mm:ss:xxx"), ("pt", "hh:mm:ss:xxx")]:
+        for lang, expected_token in [
+            ("en", "hh:mm:ss:xxx"),
+            ("es", "hh:mm:ss:xxx"),
+            ("fr", "hh:mm:ss:xxx"),
+            ("de", "hh:mm:ss:xxx"),
+            ("pt", "hh:mm:ss:xxx"),
+        ]:
             set_locale(lang)
             self.assertIn(expected_token, tr("axis_time"))
 
@@ -172,7 +180,9 @@ class TestI18n(unittest.TestCase):
         from repolaris.api import StudyAPI, AnalysisAPI
 
         # 1. StudyAPI demo generation
-        t, sig, r_peaks = StudyAPI.generate_demo_study(duration_sec=3.0, fs=500.0, heart_rate_bpm=72.0)
+        t, sig, r_peaks = StudyAPI.generate_demo_study(
+            duration_sec=3.0, fs=500.0, heart_rate_bpm=72.0
+        )
         self.assertEqual(len(t), 1500)
         self.assertEqual(len(sig), 1500)
         self.assertTrue(len(r_peaks) >= 3)
@@ -210,13 +220,12 @@ class TestI18n(unittest.TestCase):
 
     def test_dictionary_key_parity(self):
         """Ensure all supported languages have all the keys present in English."""
-        en_keys = set(TRANSLATIONS["en"].keys())
+        en_keys = set(TRANSLATIONS["en"])
         for lang in ("es", "fr", "de", "pt"):
-            lang_keys = set(TRANSLATIONS[lang].keys())
+            lang_keys = set(TRANSLATIONS[lang])
             missing = en_keys - lang_keys
             self.assertEqual(
-                len(missing), 0,
-                f"Language '{lang}' is missing translation keys: {missing}"
+                len(missing), 0, f"Language '{lang}' is missing translation keys: {missing}"
             )
 
 

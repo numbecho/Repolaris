@@ -7,6 +7,7 @@ import numpy as np
 
 from repolaris.io.pecg_format import load_pecg, save_pecg
 
+
 class TestPECGFormat(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
@@ -23,16 +24,17 @@ class TestPECGFormat(unittest.TestCase):
             "race": "Hispanic / Latino",
             "sex": "M",
             "indication": "Syncope, evaluate for drug-induced QT prolongation",
-            "pacemaker": "VVI"
+            "pacemaker": "VVI",
         }
 
         self.annotations = {
             "physician_notes": [
-                {"author": "Dr. Cardiologist", "comment": "Review prolonged repolarization around beat 5"}
+                {
+                    "author": "Dr. Cardiologist",
+                    "comment": "Review prolonged repolarization around beat 5",
+                }
             ],
-            "caliper_overrides": [
-                {"beat_index": 5, "q_onset_sec": 4.120, "t_end_sec": 4.568}
-            ]
+            "caliper_overrides": [{"beat_index": 5, "q_onset_sec": 4.120, "t_end_sec": 4.568}],
         }
 
     def tearDown(self):
@@ -47,7 +49,7 @@ class TestPECGFormat(unittest.TestCase):
             lead_names=self.lead_names,
             patient_info=self.patient,
             annotations=self.annotations,
-            compression="none"
+            compression="none",
         )
 
         meta, sigs = load_pecg(filepath, mmap=False)
@@ -69,7 +71,7 @@ class TestPECGFormat(unittest.TestCase):
             lead_names=self.lead_names,
             patient_info=self.patient,
             annotations=self.annotations,
-            compression="deflate"
+            compression="deflate",
         )
 
         meta, sigs = load_pecg(filepath)
@@ -78,7 +80,6 @@ class TestPECGFormat(unittest.TestCase):
         self.assertEqual(meta["patient"]["pacemaker"], "VVI")
         self.assertEqual(len(meta["annotations"]["physician_notes"]), 1)
         np.testing.assert_allclose(sigs, self.signals, rtol=1e-5)
-
 
     def test_security_sanitization_rejections(self):
         import struct
@@ -118,13 +119,16 @@ class TestPECGFormat(unittest.TestCase):
 
         # 5. Rejects invalid channel count (> 64)
         p_bad_ch = os.path.join(self.temp_dir.name, "bad_ch.pecg")
-        bad_meta = json.dumps({"recording": {"num_channels": 256, "num_samples": 100, "sampling_rate": 250.0}}).encode("utf-8")
+        bad_meta = json.dumps(
+            {"recording": {"num_channels": 256, "num_samples": 100, "sampling_rate": 250.0}}
+        ).encode()
         with open(p_bad_ch, "wb") as f:
             f.write(b"PECG" + struct.pack("<HBB I", 1, 0, 0, len(bad_meta)))
             f.write(bad_meta)
         with self.assertRaises(ValueError) as cm:
             load_pecg(p_bad_ch)
         self.assertIn("Invalid channel count", str(cm.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

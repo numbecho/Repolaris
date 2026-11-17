@@ -56,6 +56,7 @@ try:
         QWidget,
     )
     import pyqtgraph as pg
+
     HAS_GUI = True
 except ImportError:
     HAS_GUI = False
@@ -339,10 +340,9 @@ except ImportError:
     pg = _QMock()  # type: ignore
 
 
-
-
 class BackgroundTaskWorker(QThread):
     """Executes long-running API tasks in a dedicated background worker thread."""
+
     progress = pyqtSignal(float, str)
     finished = pyqtSignal(object)
     error = pyqtSignal(str)
@@ -355,6 +355,7 @@ class BackgroundTaskWorker(QThread):
 
     def run(self) -> None:
         try:
+
             def _callback(pct: float, msg: str) -> None:
                 self.progress.emit(pct, msg)
 
@@ -363,6 +364,7 @@ class BackgroundTaskWorker(QThread):
             self.finished.emit(result)
         except Exception as exc:
             self.error.emit(str(exc))
+
 
 # -----------------------------------------------------------------------------
 # THEME SPECIFICATIONS (Dark, Light, Color Blind Friendly)
@@ -421,7 +423,7 @@ THEMES: dict[str, dict[str, Any]] = {
             QGroupBox { font-weight: bold; border: 1px solid #2e3650; border-radius: 6px; margin-top: 8px; padding-top: 10px; color: #60a5fa; }
             QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 4px; }
             QDialog { background-color: #0f111a; color: #cbd5e1; }
-        """
+        """,
     },
     "light": {
         "id": "light",
@@ -476,7 +478,7 @@ THEMES: dict[str, dict[str, Any]] = {
             QGroupBox { font-weight: bold; border: 1px solid #cbd5e1; border-radius: 6px; margin-top: 8px; padding-top: 10px; color: #0284c7; }
             QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 4px; }
             QDialog { background-color: #f1f5f9; color: #1e293b; }
-        """
+        """,
     },
     "colorblind": {
         "id": "colorblind",
@@ -531,8 +533,8 @@ THEMES: dict[str, dict[str, Any]] = {
             QGroupBox { font-weight: bold; border: 2px solid #555555; border-radius: 6px; margin-top: 8px; padding-top: 10px; color: #56b4e9; }
             QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 4px; }
             QDialog { background-color: #121212; color: #ffffff; }
-        """
-    }
+        """,
+    },
 }
 
 
@@ -551,7 +553,7 @@ _SEVERITY_COLORS: dict[str, str] = {
 }
 
 CLINICAL_SPEEDS: list[float] = [12.5, 25.0, 50.0, 100.0]  # Standard ECG sweep speeds (mm/s)
-CLINICAL_GAINS: list[float] = [2.5, 5.0, 10.0, 20.0]      # Standard ECG voltage sensitivities (mm/mV)
+CLINICAL_GAINS: list[float] = [2.5, 5.0, 10.0, 20.0]  # Standard ECG voltage sensitivities (mm/mV)
 
 CANVAS_THEMES: dict[str, dict[str, Any]] = {
     "dark": {
@@ -562,13 +564,13 @@ CANVAS_THEMES: dict[str, dict[str, Any]] = {
         "axis_text": "#94a3b8",
         "grid_color": "#2e3650",
         "grid_alpha": 0.22,
-        "curve_color": "#38bdf8",         # Bright Medical Cyan (contrasts on dark canvas)
+        "curve_color": "#38bdf8",  # Bright Medical Cyan (contrasts on dark canvas)
         "curve_width": 1.8,
-        "r_peak_brush": "#f87171",        # Coral Salmon
+        "r_peak_brush": "#f87171",  # Coral Salmon
         "r_peak_symbol": "t1",
-        "q_caliper_color": "#fbbf24",     # Vibrant Gold/Amber (contrasts with cyan curve)
+        "q_caliper_color": "#fbbf24",  # Vibrant Gold/Amber (contrasts with cyan curve)
         "q_caliper_style": Qt.PenStyle.DashLine,
-        "t_caliper_color": "#e879f9",     # Vivid Fuchsia/Magenta (contrasts with cyan & gold)
+        "t_caliper_color": "#e879f9",  # Vivid Fuchsia/Magenta (contrasts with cyan & gold)
         "t_caliper_style": Qt.PenStyle.DashLine,
         "caliper_label_fill": (26, 30, 44, 220),
         "badge_bg": "rgba(26, 30, 44, 0.90)",
@@ -578,18 +580,18 @@ CANVAS_THEMES: dict[str, dict[str, Any]] = {
     "light": {
         "id": "light",
         "name_key": "canvas_light",
-        "plot_bg": "#ffffff",             # Pure Paper White
+        "plot_bg": "#ffffff",  # Pure Paper White
         "axis_pen": "#94a3b8",
         "axis_text": "#334155",
         "grid_color": "#cbd5e1",
         "grid_alpha": 0.40,
-        "curve_color": "#0369a1",         # Deep Ocean Blue (sharp contrast on white)
+        "curve_color": "#0369a1",  # Deep Ocean Blue (sharp contrast on white)
         "curve_width": 2.0,
-        "r_peak_brush": "#dc2626",        # Crimson Red
+        "r_peak_brush": "#dc2626",  # Crimson Red
         "r_peak_symbol": "t1",
-        "q_caliper_color": "#d97706",     # Deep Amber Orange (contrasts with blue curve & white bg)
+        "q_caliper_color": "#d97706",  # Deep Amber Orange (contrasts with blue curve & white bg)
         "q_caliper_style": Qt.PenStyle.DashLine,
-        "t_caliper_color": "#7c3aed",     # Vivid Purple/Violet (contrasts with amber & blue)
+        "t_caliper_color": "#7c3aed",  # Vivid Purple/Violet (contrasts with amber & blue)
         "t_caliper_style": Qt.PenStyle.DashLine,
         "caliper_label_fill": (241, 245, 249, 230),
         "badge_bg": "rgba(241, 245, 249, 0.95)",
@@ -599,18 +601,18 @@ CANVAS_THEMES: dict[str, dict[str, Any]] = {
     "ecg_pink": {
         "id": "ecg_pink",
         "name_key": "canvas_ecg_pink",
-        "plot_bg": "#fff1f2",             # Traditional ECG Thermal Paper Pink
+        "plot_bg": "#fff1f2",  # Traditional ECG Thermal Paper Pink
         "axis_pen": "#9f1239",
         "axis_text": "#881337",
-        "grid_color": "#fda4af",         # Classic Millimeter Red/Pink Grid
+        "grid_color": "#fda4af",  # Classic Millimeter Red/Pink Grid
         "grid_alpha": 0.50,
-        "curve_color": "#0f172a",         # Jet Black Trace (Standard clinical print appearance)
+        "curve_color": "#0f172a",  # Jet Black Trace (Standard clinical print appearance)
         "curve_width": 2.0,
-        "r_peak_brush": "#e11d48",        # Deep Rose
+        "r_peak_brush": "#e11d48",  # Deep Rose
         "r_peak_symbol": "t1",
-        "q_caliper_color": "#2563eb",     # Electric Royal Blue (pops out from black trace & pink grid)
+        "q_caliper_color": "#2563eb",  # Electric Royal Blue (pops out from black trace & pink grid)
         "q_caliper_style": Qt.PenStyle.DashLine,
-        "t_caliper_color": "#d97706",     # Bold Amber/Orange (pops out from blue & black)
+        "t_caliper_color": "#d97706",  # Bold Amber/Orange (pops out from blue & black)
         "t_caliper_style": Qt.PenStyle.DashLine,
         "caliper_label_fill": (255, 228, 230, 230),
         "badge_bg": "rgba(255, 228, 230, 0.95)",
@@ -620,18 +622,18 @@ CANVAS_THEMES: dict[str, dict[str, Any]] = {
     "colorblind": {
         "id": "colorblind",
         "name_key": "canvas_colorblind",
-        "plot_bg": "#000000",             # Pitch Black (Maximum luminance separation)
+        "plot_bg": "#000000",  # Pitch Black (Maximum luminance separation)
         "axis_pen": "#b0bec5",
         "axis_text": "#ffffff",
         "grid_color": "#525252",
         "grid_alpha": 0.35,
-        "curve_color": "#56b4e9",         # Okabe-Ito Sky Blue
+        "curve_color": "#56b4e9",  # Okabe-Ito Sky Blue
         "curve_width": 2.2,
-        "r_peak_brush": "#f0e442",        # Okabe-Ito Bright Yellow (stands out on black)
-        "r_peak_symbol": "d",             # Diamond symbol for shape-based distinction
-        "q_caliper_color": "#e69f00",     # Okabe-Ito Vermilion/Orange
+        "r_peak_brush": "#f0e442",  # Okabe-Ito Bright Yellow (stands out on black)
+        "r_peak_symbol": "d",  # Diamond symbol for shape-based distinction
+        "q_caliper_color": "#e69f00",  # Okabe-Ito Vermilion/Orange
         "q_caliper_style": Qt.PenStyle.DashLine,
-        "t_caliper_color": "#ffffff",     # High-luminance White (distinct line style & color)
+        "t_caliper_color": "#ffffff",  # High-luminance White (distinct line style & color)
         "t_caliper_style": Qt.PenStyle.DashDotLine,
         "caliper_label_fill": (0, 0, 0, 230),
         "badge_bg": "rgba(20, 20, 20, 0.95)",
@@ -641,24 +643,24 @@ CANVAS_THEMES: dict[str, dict[str, Any]] = {
     "green_phosphor": {
         "id": "green_phosphor",
         "name_key": "canvas_green_phosphor",
-        "plot_bg": "#021a0f",             # Deep Night Emerald
+        "plot_bg": "#021a0f",  # Deep Night Emerald
         "axis_pen": "#16a34a",
         "axis_text": "#86efac",
         "grid_color": "#14532d",
         "grid_alpha": 0.35,
-        "curve_color": "#22c55e",         # Neon Phosphor Green
+        "curve_color": "#22c55e",  # Neon Phosphor Green
         "curve_width": 2.0,
-        "r_peak_brush": "#facc15",        # Phosphor Amber
+        "r_peak_brush": "#facc15",  # Phosphor Amber
         "r_peak_symbol": "t1",
-        "q_caliper_color": "#fb923c",     # Vivid Orange (contrasts with green trace & dark bg)
+        "q_caliper_color": "#fb923c",  # Vivid Orange (contrasts with green trace & dark bg)
         "q_caliper_style": Qt.PenStyle.DashLine,
-        "t_caliper_color": "#f43f5e",     # Hot Coral/Pink (contrasts with orange & green)
+        "t_caliper_color": "#f43f5e",  # Hot Coral/Pink (contrasts with orange & green)
         "t_caliper_style": Qt.PenStyle.DashLine,
         "caliper_label_fill": (5, 46, 22, 230),
         "badge_bg": "rgba(5, 46, 22, 0.95)",
         "badge_border": "#22c55e",
         "badge_text": "#86efac",
-    }
+    },
 }
 
 _AxisItemBase = pg.AxisItem if HAS_GUI else object
@@ -667,7 +669,9 @@ _AxisItemBase = pg.AxisItem if HAS_GUI else object
 class TimeAxisItem(_AxisItemBase):  # type: ignore[misc]
     """Custom AxisItem formatting timestamps into clinical hh:mm:ss:xxx format with millisecond precision."""
 
-    def __init__(self, orientation: str = "bottom", millisecond_separator: str = ":", **kwargs: Any) -> None:
+    def __init__(
+        self, orientation: str = "bottom", millisecond_separator: str = ":", **kwargs: Any
+    ) -> None:
         if HAS_GUI:
             super().__init__(orientation=orientation, **kwargs)
         self.millisecond_separator = millisecond_separator
@@ -700,6 +704,7 @@ class TimeAxisItem(_AxisItemBase):  # type: ignore[misc]
         include_millis = spacing < 1.0
         return [self.format_timestamp(val, include_millis=include_millis) for val in values]
 
+
 class ECGPlotWidget:
     """PyQtGraph-based high-performance interactive ECG waveform viewer with draggable calipers,
     independent canvas color schemes, hh:mm:ss clinical time axis, and scale overlays."""
@@ -712,11 +717,7 @@ class ECGPlotWidget:
         # Clinical axis labels
         self.plot_widget.setLabel("bottom", tr("axis_time"))
         self.plot_widget.setLabel("left", tr("axis_voltage"))
-        self.plot_widget.setTitle(
-            "ECG Waveform — Lead II (Standard)",
-            color="#93c5fd",
-            size="11pt"
-        )
+        self.plot_widget.setTitle("ECG Waveform — Lead II (Standard)", color="#93c5fd", size="11pt")
 
         self.current_canvas_theme = CANVAS_THEMES["dark"]
         self.current_grid_mode = "lines"
@@ -737,16 +738,20 @@ class ECGPlotWidget:
 
         # Interactive draggable caliper lines for QT measurement
         self.q_line = pg.InfiniteLine(
-            pos=0.0, angle=90, movable=True,
+            pos=0.0,
+            angle=90,
+            movable=True,
             pen=pg.mkPen(color="#fbbf24", width=2.2, style=Qt.PenStyle.DashLine),
             label="Q-Onset: {value:.3f}s",
-            labelOpts={"position": 0.92, "color": "#fbbf24", "fill": (26, 30, 44, 220)}
+            labelOpts={"position": 0.92, "color": "#fbbf24", "fill": (26, 30, 44, 220)},
         )
         self.t_line = pg.InfiniteLine(
-            pos=0.0, angle=90, movable=True,
+            pos=0.0,
+            angle=90,
+            movable=True,
             pen=pg.mkPen(color="#e879f9", width=2.2, style=Qt.PenStyle.DashLine),
             label="T-End: {value:.3f}s",
-            labelOpts={"position": 0.78, "color": "#e879f9", "fill": (26, 30, 44, 220)}
+            labelOpts={"position": 0.78, "color": "#e879f9", "fill": (26, 30, 44, 220)},
         )
 
         self.plot_widget.addItem(self.q_line)
@@ -838,14 +843,22 @@ class ECGPlotWidget:
 
     def get_scale_text(self) -> str:
         """Returns localized scale description based on active sweep speed and gain."""
-        s_str = f"{int(self.current_speed)}" if self.current_speed.is_integer() else f"{self.current_speed}"
-        g_str = f"{int(self.current_gain)}" if self.current_gain.is_integer() else f"{self.current_gain}"
+        s_str = (
+            f"{int(self.current_speed)}"
+            if self.current_speed.is_integer()
+            else f"{self.current_speed}"
+        )
+        g_str = (
+            f"{int(self.current_gain)}"
+            if self.current_gain.is_integer()
+            else f"{self.current_gain}"
+        )
         return tr("canvas_scale_fmt", speed=s_str, gain=g_str)
 
     def update_corner_badge(self) -> None:
         """Ensures the clinical scale badge stays pinned to the top-right corner.
         Scale badge is ONLY visible when the grid is enabled."""
-        if hasattr(self, 'scale_corner_label') and self.scale_corner_label is not None:
+        if hasattr(self, "scale_corner_label") and self.scale_corner_label is not None:
             if self.current_grid_mode == "none":
                 self.scale_corner_label.setVisible(False)
                 return
@@ -869,7 +882,9 @@ class ECGPlotWidget:
         left_axis.setTextPen(pg.mkPen(color=theme["axis_text"]))
 
         # Style lead curve & R-peak markers
-        self.signal_curve.setPen(pg.mkPen(color=theme["curve_color"], width=theme.get("curve_width", 1.8)))
+        self.signal_curve.setPen(
+            pg.mkPen(color=theme["curve_color"], width=theme.get("curve_width", 1.8))
+        )
         self.r_peak_scatter.setBrush(pg.mkBrush(theme["r_peak_brush"]))
         if "r_peak_symbol" in theme:
             self.r_peak_scatter.setSymbol(theme["r_peak_symbol"])
@@ -887,7 +902,7 @@ class ECGPlotWidget:
         self.t_line.label.fill = pg.mkBrush(*theme["caliper_label_fill"])
 
         # Style on-canvas corner scale badge
-        if hasattr(self, 'scale_corner_label') and self.scale_corner_label is not None:
+        if hasattr(self, "scale_corner_label") and self.scale_corner_label is not None:
             self.scale_corner_label.setStyleSheet(f"""
                 QLabel#cornerScaleBadge {{
                     background-color: {theme.get("badge_bg", "rgba(26, 30, 44, 0.90)")};
@@ -910,7 +925,7 @@ class ECGPlotWidget:
         self.current_grid_mode = mode
         if mode == "none":
             self.plot_widget.showGrid(x=False, y=False)
-            if hasattr(self, 'scale_corner_label') and self.scale_corner_label is not None:
+            if hasattr(self, "scale_corner_label") and self.scale_corner_label is not None:
                 self.scale_corner_label.setVisible(False)
             return
 
@@ -923,7 +938,7 @@ class ECGPlotWidget:
         bottom_axis.setGrid(alpha)
         left_axis.setGrid(alpha)
 
-        if hasattr(self, 'scale_corner_label') and self.scale_corner_label is not None:
+        if hasattr(self, "scale_corner_label") and self.scale_corner_label is not None:
             self.scale_corner_label.setVisible(True)
             self.update_corner_badge()
 
@@ -959,8 +974,14 @@ class ECGPlotWidget:
 
     def zoom_in(self) -> None:
         """Increases zoom level by stepping to the next clinical speed or gain."""
-        s_idx = CLINICAL_SPEEDS.index(self.current_speed) if self.current_speed in CLINICAL_SPEEDS else 1
-        g_idx = CLINICAL_GAINS.index(self.current_gain) if self.current_gain in CLINICAL_GAINS else 2
+        s_idx = (
+            CLINICAL_SPEEDS.index(self.current_speed)
+            if self.current_speed in CLINICAL_SPEEDS
+            else 1
+        )
+        g_idx = (
+            CLINICAL_GAINS.index(self.current_gain) if self.current_gain in CLINICAL_GAINS else 2
+        )
 
         if s_idx < len(CLINICAL_SPEEDS) - 1:
             self.set_scale(CLINICAL_SPEEDS[s_idx + 1], self.current_gain)
@@ -969,8 +990,14 @@ class ECGPlotWidget:
 
     def zoom_out(self) -> None:
         """Decreases zoom level by stepping to the previous clinical speed or gain."""
-        s_idx = CLINICAL_SPEEDS.index(self.current_speed) if self.current_speed in CLINICAL_SPEEDS else 1
-        g_idx = CLINICAL_GAINS.index(self.current_gain) if self.current_gain in CLINICAL_GAINS else 2
+        s_idx = (
+            CLINICAL_SPEEDS.index(self.current_speed)
+            if self.current_speed in CLINICAL_SPEEDS
+            else 1
+        )
+        g_idx = (
+            CLINICAL_GAINS.index(self.current_gain) if self.current_gain in CLINICAL_GAINS else 2
+        )
 
         if s_idx > 0:
             self.set_scale(CLINICAL_SPEEDS[s_idx - 1], self.current_gain)
@@ -1003,7 +1030,9 @@ class ECGPlotWidget:
             width = x_range[1] - x_range[0]
             self.set_calipers(center - width * 0.10, center + width * 0.10)
 
-    def add_draggable_vertical_line(self, pos: float | None = None, label: str | None = None) -> Any:
+    def add_draggable_vertical_line(
+        self, pos: float | None = None, label: str | None = None
+    ) -> Any:
         """Adds an additional interactive draggable vertical measurement line."""
         if pos is None:
             try:
@@ -1017,10 +1046,16 @@ class ECGPlotWidget:
         theme = self.current_canvas_theme
         color = theme.get("curve_color", "#38bdf8")
         line = pg.InfiniteLine(
-            pos=pos, angle=90, movable=True,
+            pos=pos,
+            angle=90,
+            movable=True,
             pen=pg.mkPen(color=color, width=2.0, style=Qt.PenStyle.DashDotLine),
             label=f"{tag}: " + "{value:.3f}s",
-            labelOpts={"position": max(0.2, 0.70 - (idx * 0.12)), "color": color, "fill": theme.get("caliper_label_fill", (26, 30, 44, 200))}
+            labelOpts={
+                "position": max(0.2, 0.70 - (idx * 0.12)),
+                "color": color,
+                "fill": theme.get("caliper_label_fill", (26, 30, 44, 200)),
+            },
         )
         line.setVisible(self.calipers_visible)
         self.plot_widget.addItem(line)
@@ -1033,9 +1068,6 @@ class ECGPlotWidget:
             with contextlib.suppress(Exception):
                 self.plot_widget.removeItem(line)
         self.extra_vertical_lines.clear()
-
-
-
 
 
 class SettingsDialog(QDialog):
@@ -1087,7 +1119,9 @@ class SettingsDialog(QDialog):
 
         # 3. Independent Waveform Canvas Scheme Section
         self.lbl_canvas_section = QLabel(tr("settings_canvas_theme"))
-        self.lbl_canvas_section.setStyleSheet("font-weight: bold; font-size: 10pt; margin-top: 4px;")
+        self.lbl_canvas_section.setStyleSheet(
+            "font-weight: bold; font-size: 10pt; margin-top: 4px;"
+        )
         layout.addWidget(self.lbl_canvas_section)
 
         self.combo_canvas = QComboBox()
@@ -1107,7 +1141,11 @@ class SettingsDialog(QDialog):
         layout.addWidget(self.lbl_grid_section)
 
         self.combo_grid = QComboBox()
-        self.grid_modes = [("lines", tr("grid_lines")), ("dots", tr("grid_dots")), ("none", tr("grid_none"))]
+        self.grid_modes = [
+            ("lines", tr("grid_lines")),
+            ("dots", tr("grid_dots")),
+            ("none", tr("grid_none")),
+        ]
         grid_idx = 0
         for idx, (gid, gname) in enumerate(self.grid_modes):
             self.combo_grid.addItem(gname, gid)
@@ -1179,7 +1217,9 @@ class SettingsDialog(QDialog):
         # Description Cue
         self.lbl_theme_desc = QLabel(tr(THEMES[self.main_window.current_theme_id]["desc_key"]))
         self.lbl_theme_desc.setWordWrap(True)
-        self.lbl_theme_desc.setStyleSheet("color: #94a3b8; font-size: 8.5pt; font-style: italic; margin-top: 4px;")
+        self.lbl_theme_desc.setStyleSheet(
+            "color: #94a3b8; font-size: 8.5pt; font-style: italic; margin-top: 4px;"
+        )
         layout.addWidget(self.lbl_theme_desc)
 
         layout.addSpacing(10)
@@ -1232,7 +1272,11 @@ class SettingsDialog(QDialog):
         self.combo_grid.blockSignals(True)
         curr_g_idx = self.combo_grid.currentIndex()
         self.combo_grid.clear()
-        for gid, gname in [("lines", tr("grid_lines")), ("dots", tr("grid_dots")), ("none", tr("grid_none"))]:
+        for gid, gname in [
+            ("lines", tr("grid_lines")),
+            ("dots", tr("grid_dots")),
+            ("none", tr("grid_none")),
+        ]:
             self.combo_grid.addItem(gname, gid)
         self.combo_grid.setCurrentIndex(curr_g_idx)
         self.combo_grid.blockSignals(False)
@@ -1279,6 +1323,7 @@ class SettingsDialog(QDialog):
         tend_id = self.combo_t_end.itemData(index)
         if tend_id:
             self.main_window.set_t_end_method(tend_id)
+
 
 class MainWindow(QMainWindow):
     """Clinical Electrocardiogram Analysis & Colleague Exchange Workstation."""
@@ -1887,10 +1932,14 @@ class MainWindow(QMainWindow):
         self.card_qtc = self._create_kpi_card(tr("kpi_qtc_title"), "-- ms", tr("qtc_sub_normal"))
         ov_layout.addWidget(self.card_qtc)
 
-        self.card_ectopic = self._create_kpi_card(tr("kpi_ectopic_title"), "0.0%", tr("ect_sub_normal"))
+        self.card_ectopic = self._create_kpi_card(
+            tr("kpi_ectopic_title"), "0.0%", tr("ect_sub_normal")
+        )
         ov_layout.addWidget(self.card_ectopic)
 
-        self.card_sqi = self._create_kpi_card(tr("kpi_sqi_title"), "Good", tr("sqi_sub_clean", snr=20.0))
+        self.card_sqi = self._create_kpi_card(
+            tr("kpi_sqi_title"), "Good", tr("sqi_sub_clean", snr=20.0)
+        )
         ov_layout.addWidget(self.card_sqi)
 
         self.card_qtd = self._create_kpi_card(tr("kpi_qtd_title"), "N/A", tr("qtd_sub_single"))
@@ -1930,9 +1979,9 @@ class MainWindow(QMainWindow):
         ev_layout = QVBoxLayout(events_tab)
         ev_layout.setContentsMargins(8, 8, 8, 8)
         self.events_table = QTableWidget(0, 4)
-        self.events_table.setHorizontalHeaderLabels([
-            tr("hdr_time"), tr("hdr_event"), tr("hdr_value"), tr("hdr_severity")
-        ])
+        self.events_table.setHorizontalHeaderLabels(
+            [tr("hdr_time"), tr("hdr_event"), tr("hdr_value"), tr("hdr_severity")]
+        )
         self.events_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.events_table.cellClicked.connect(self._on_event_selected)
         ev_layout.addWidget(self.events_table)
@@ -1945,16 +1994,18 @@ class MainWindow(QMainWindow):
         b_layout = QVBoxLayout(beats_tab)
         b_layout.setContentsMargins(8, 8, 8, 8)
         self.beat_table = QTableWidget(0, 8)
-        self.beat_table.setHorizontalHeaderLabels([
-            tr("hdr_beat_num"),
-            tr("hdr_time"),
-            tr("hdr_class"),
-            tr("hdr_pattern"),
-            tr("hdr_rr"),
-            tr("hdr_hr"),
-            tr("hdr_qt"),
-            tr("hdr_qtc"),
-        ])
+        self.beat_table.setHorizontalHeaderLabels(
+            [
+                tr("hdr_beat_num"),
+                tr("hdr_time"),
+                tr("hdr_class"),
+                tr("hdr_pattern"),
+                tr("hdr_rr"),
+                tr("hdr_hr"),
+                tr("hdr_qt"),
+                tr("hdr_qtc"),
+            ]
+        )
         self.beat_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.beat_table.cellClicked.connect(self._on_beat_selected)
         self.beat_table.cellDoubleClicked.connect(self._on_beat_double_clicked)
@@ -2047,17 +2098,21 @@ class MainWindow(QMainWindow):
 
         # 10-Model Comparative Ranking Table (Click row to switch active model)
         self.qtrr_models_table = QTableWidget(0, 8)
-        self.qtrr_models_table.setHorizontalHeaderLabels([
-            tr("qtrr_hdr_model"),
-            tr("qtrr_hdr_eq"),
-            tr("qtrr_hdr_slope"),
-            tr("qtrr_hdr_r"),
-            tr("qtrr_hdr_r2"),
-            tr("qtrr_hdr_rmse"),
-            tr("qtrr_hdr_aic"),
-            tr("qtrr_hdr_qtc_ind"),
-        ])
-        self.qtrr_models_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.qtrr_models_table.setHorizontalHeaderLabels(
+            [
+                tr("qtrr_hdr_model"),
+                tr("qtrr_hdr_eq"),
+                tr("qtrr_hdr_slope"),
+                tr("qtrr_hdr_r"),
+                tr("qtrr_hdr_r2"),
+                tr("qtrr_hdr_rmse"),
+                tr("qtrr_hdr_aic"),
+                tr("qtrr_hdr_qtc_ind"),
+            ]
+        )
+        self.qtrr_models_table.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.Stretch
+        )
         self.qtrr_models_table.setMinimumHeight(145)
         self.qtrr_models_table.cellClicked.connect(self._on_qtrr_table_row_clicked)
         qtrr_layout.addWidget(self.qtrr_models_table)
@@ -2081,33 +2136,39 @@ class MainWindow(QMainWindow):
         holter_layout.addWidget(self.lbl_holter_summary_banner)
 
         self.holter_trends_table = QTableWidget(0, 8)
-        self.holter_trends_table.setHorizontalHeaderLabels([
-            tr("holter_hdr_hour"),
-            tr("holter_hdr_beats"),
-            tr("holter_hdr_hr"),
-            tr("holter_hdr_pvc"),
-            tr("holter_hdr_pac"),
-            tr("holter_hdr_runs"),
-            tr("holter_hdr_pauses"),
-            tr("holter_hdr_af"),
-        ])
-        self.holter_trends_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.holter_trends_table.setHorizontalHeaderLabels(
+            [
+                tr("holter_hdr_hour"),
+                tr("holter_hdr_beats"),
+                tr("holter_hdr_hr"),
+                tr("holter_hdr_pvc"),
+                tr("holter_hdr_pac"),
+                tr("holter_hdr_runs"),
+                tr("holter_hdr_pauses"),
+                tr("holter_hdr_af"),
+            ]
+        )
+        self.holter_trends_table.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.Stretch
+        )
         self.holter_trends_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.holter_trends_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.holter_trends_table.cellClicked.connect(self._on_holter_hour_clicked)
         holter_layout.addWidget(self.holter_trends_table, stretch=2)
 
         self.holter_af_table = QTableWidget(0, 8)
-        self.holter_af_table.setHorizontalHeaderLabels([
-            tr("af_hdr_ep"),
-            tr("af_hdr_start"),
-            tr("af_hdr_end"),
-            tr("af_hdr_dur"),
-            tr("af_hdr_hr"),
-            tr("af_hdr_max_hr"),
-            tr("af_hdr_entropy"),
-            tr("af_hdr_irreg"),
-        ])
+        self.holter_af_table.setHorizontalHeaderLabels(
+            [
+                tr("af_hdr_ep"),
+                tr("af_hdr_start"),
+                tr("af_hdr_end"),
+                tr("af_hdr_dur"),
+                tr("af_hdr_hr"),
+                tr("af_hdr_max_hr"),
+                tr("af_hdr_entropy"),
+                tr("af_hdr_irreg"),
+            ]
+        )
         self.holter_af_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.holter_af_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.holter_af_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
@@ -2140,7 +2201,9 @@ class MainWindow(QMainWindow):
         grp_a_vbox.setContentsMargins(8, 8, 8, 8)
         self.meta_table_a = QTableWidget(0, 2)
         self.meta_table_a.setHorizontalHeaderLabels([tr("hdr_field"), tr("hdr_value")])
-        self.meta_table_a.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        self.meta_table_a.horizontalHeader().setSectionResizeMode(
+            0, QHeaderView.ResizeMode.ResizeToContents
+        )
         self.meta_table_a.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.meta_table_a.verticalHeader().setVisible(False)
         self.meta_table_a.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
@@ -2155,7 +2218,9 @@ class MainWindow(QMainWindow):
         grp_b_vbox.setContentsMargins(8, 8, 8, 8)
         self.meta_table_b = QTableWidget(0, 2)
         self.meta_table_b.setHorizontalHeaderLabels([tr("hdr_field"), tr("hdr_value")])
-        self.meta_table_b.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        self.meta_table_b.horizontalHeader().setSectionResizeMode(
+            0, QHeaderView.ResizeMode.ResizeToContents
+        )
         self.meta_table_b.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.meta_table_b.verticalHeader().setVisible(False)
         self.meta_table_b.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
@@ -2308,7 +2373,9 @@ class MainWindow(QMainWindow):
 
     def _show_license_dialog(self) -> None:
         """Displays Apache-2.0 open-source software license dialog."""
-        license_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "..", "LICENSE")
+        license_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "..", "LICENSE"
+        )
         license_text = ""
         if os.path.exists(license_path):
             with contextlib.suppress(OSError), open(license_path, encoding="utf-8") as f:
@@ -2382,9 +2449,12 @@ class MainWindow(QMainWindow):
         self.ecg_plot.apply_grid(grid_mode)
 
         # Scale label and value visibility
-        is_grid_enabled = (grid_mode != "none")
+        is_grid_enabled = grid_mode != "none"
         self.lbl_scale_badge.setVisible(is_grid_enabled)
-        if hasattr(self.ecg_plot, "scale_corner_label") and self.ecg_plot.scale_corner_label is not None:
+        if (
+            hasattr(self.ecg_plot, "scale_corner_label")
+            and self.ecg_plot.scale_corner_label is not None
+        ):
             self.ecg_plot.scale_corner_label.setVisible(is_grid_enabled)
 
         # Sync toggle buttons
@@ -2493,9 +2563,12 @@ class MainWindow(QMainWindow):
     def _update_scale_badge_display(self) -> None:
         scale_text = f"📐 {self.ecg_plot.get_scale_text()}"
         self.lbl_scale_badge.setText(scale_text)
-        is_grid_enabled = (self.current_grid_mode != "none")
+        is_grid_enabled = self.current_grid_mode != "none"
         self.lbl_scale_badge.setVisible(is_grid_enabled)
-        if hasattr(self.ecg_plot, "scale_corner_label") and self.ecg_plot.scale_corner_label is not None:
+        if (
+            hasattr(self.ecg_plot, "scale_corner_label")
+            and self.ecg_plot.scale_corner_label is not None
+        ):
             self.ecg_plot.scale_corner_label.setVisible(is_grid_enabled)
 
     def set_language(self, lang_code: str) -> None:
@@ -2626,41 +2699,47 @@ class MainWindow(QMainWindow):
         else:
             self.tabs.setTabText(3, tr("tab_metadata"))
         if hasattr(self, "holter_trends_table"):
-            self.holter_trends_table.setHorizontalHeaderLabels([
-                tr("holter_hdr_hour"),
-                tr("holter_hdr_beats"),
-                tr("holter_hdr_hr"),
-                tr("holter_hdr_pvc"),
-                tr("holter_hdr_pac"),
-                tr("holter_hdr_runs"),
-                tr("holter_hdr_pauses"),
-                tr("holter_hdr_af"),
-            ])
-            self.holter_af_table.setHorizontalHeaderLabels([
-                tr("af_hdr_ep"),
-                tr("af_hdr_start"),
-                tr("af_hdr_end"),
-                tr("af_hdr_dur"),
-                tr("af_hdr_hr"),
-                tr("af_hdr_max_hr"),
-                tr("af_hdr_entropy"),
-                tr("af_hdr_irreg"),
-            ])
+            self.holter_trends_table.setHorizontalHeaderLabels(
+                [
+                    tr("holter_hdr_hour"),
+                    tr("holter_hdr_beats"),
+                    tr("holter_hdr_hr"),
+                    tr("holter_hdr_pvc"),
+                    tr("holter_hdr_pac"),
+                    tr("holter_hdr_runs"),
+                    tr("holter_hdr_pauses"),
+                    tr("holter_hdr_af"),
+                ]
+            )
+            self.holter_af_table.setHorizontalHeaderLabels(
+                [
+                    tr("af_hdr_ep"),
+                    tr("af_hdr_start"),
+                    tr("af_hdr_end"),
+                    tr("af_hdr_dur"),
+                    tr("af_hdr_hr"),
+                    tr("af_hdr_max_hr"),
+                    tr("af_hdr_entropy"),
+                    tr("af_hdr_irreg"),
+                ]
+            )
         if hasattr(self, "lbl_tab_qtrr_model"):
             self.lbl_tab_qtrr_model.setText(tr("qtrr_lbl_model"))
             self.lbl_tab_hyst_mode.setText(tr("qtrr_lbl_hyst"))
             self.qtrr_plot_widget.setLabel("bottom", tr("qtrr_axis_rr"))
             self.qtrr_plot_widget.setLabel("left", tr("qtrr_axis_qt"))
-            self.qtrr_models_table.setHorizontalHeaderLabels([
-                tr("qtrr_hdr_model"),
-                tr("qtrr_hdr_eq"),
-                tr("qtrr_hdr_slope"),
-                tr("qtrr_hdr_r"),
-                tr("qtrr_hdr_r2"),
-                tr("qtrr_hdr_rmse"),
-                tr("qtrr_hdr_aic"),
-                tr("qtrr_hdr_qtc_ind"),
-            ])
+            self.qtrr_models_table.setHorizontalHeaderLabels(
+                [
+                    tr("qtrr_hdr_model"),
+                    tr("qtrr_hdr_eq"),
+                    tr("qtrr_hdr_slope"),
+                    tr("qtrr_hdr_r"),
+                    tr("qtrr_hdr_r2"),
+                    tr("qtrr_hdr_rmse"),
+                    tr("qtrr_hdr_aic"),
+                    tr("qtrr_hdr_qtc_ind"),
+                ]
+            )
 
         self.grp_a_box.setTitle(tr("group_a_title"))
         self.grp_b_box.setTitle(tr("group_b_title"))
@@ -2677,19 +2756,21 @@ class MainWindow(QMainWindow):
         self.adv_group.setTitle(tr("adv_group_title"))
 
         # Table Headers
-        self.events_table.setHorizontalHeaderLabels([
-            tr("hdr_time"), tr("hdr_event"), tr("hdr_value"), tr("hdr_severity")
-        ])
-        self.beat_table.setHorizontalHeaderLabels([
-            tr("hdr_beat_num"),
-            tr("hdr_time"),
-            tr("hdr_class"),
-            tr("hdr_pattern"),
-            tr("hdr_rr"),
-            tr("hdr_hr"),
-            tr("hdr_qt"),
-            tr("hdr_qtc"),
-        ])
+        self.events_table.setHorizontalHeaderLabels(
+            [tr("hdr_time"), tr("hdr_event"), tr("hdr_value"), tr("hdr_severity")]
+        )
+        self.beat_table.setHorizontalHeaderLabels(
+            [
+                tr("hdr_beat_num"),
+                tr("hdr_time"),
+                tr("hdr_class"),
+                tr("hdr_pattern"),
+                tr("hdr_rr"),
+                tr("hdr_hr"),
+                tr("hdr_qt"),
+                tr("hdr_qtc"),
+            ]
+        )
 
         # Re-render current metric evaluations or fallback placeholders
         if self.analysis_results:
@@ -2708,7 +2789,6 @@ class MainWindow(QMainWindow):
                 self.lbl_qtrr_summary_banner.setText(tr("qtrr_banner_ready"))
             if hasattr(self, "lbl_holter_summary_banner"):
                 self.lbl_holter_summary_banner.setText(tr("holter_summary_ready"))
-
 
     def set_task_progress(self, fraction: float, message: str) -> None:
         """Updates status bar message and progress indicator."""
@@ -2735,13 +2815,14 @@ class MainWindow(QMainWindow):
         on_error: Callable[[str], None] | None = None,
         initial_msg: str = "Processing...",
         *args: Any,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> None:
         """Runs a heavy API task either in a QThread (GUI mode) or synchronously (mock mode)."""
         self.set_task_progress(0.0, initial_msg)
 
         if not HAS_GUI:
             try:
+
                 def _prog(pct: float, msg: str) -> None:
                     self.set_task_progress(pct, msg)
 
@@ -2799,7 +2880,10 @@ class MainWindow(QMainWindow):
 
         def _task(progress_callback=None):
             return StudyAPI.generate_demo_study(
-                duration_sec=12.0, fs=self.fs, heart_rate_bpm=72.0, progress_callback=progress_callback
+                duration_sec=12.0,
+                fs=self.fs,
+                heart_rate_bpm=72.0,
+                progress_callback=progress_callback,
             )
 
         def _on_done(demo_res):
@@ -2838,11 +2922,7 @@ class MainWindow(QMainWindow):
             self.signal_data = self.multi_lead_signals[self.current_lead_name]
             self._run_pipeline_and_display()
 
-        self._run_background_task(
-            _task,
-            _on_done,
-            initial_msg=tr("status_loading")
-        )
+        self._run_background_task(_task, _on_done, initial_msg=tr("status_loading"))
 
     def _open_file_dialog(self) -> None:
         """Opens any clinical recording, detects all available channels, and sets active lead."""
@@ -2863,6 +2943,7 @@ class MainWindow(QMainWindow):
         )
         if not path:
             return
+
         def _task(progress_callback=None):
             return StudyAPI.load_study_dataset(path, progress_callback=progress_callback)
 
@@ -2878,7 +2959,10 @@ class MainWindow(QMainWindow):
                 if len(sig) == 0 or np.all(sig == 0) or np.std(sig) < 1e-6:
                     zeroed_leads.append(name)
 
-            if len(zeroed_leads) == len(self.multi_lead_signals) and len(self.multi_lead_signals) > 0:
+            if (
+                len(zeroed_leads) == len(self.multi_lead_signals)
+                and len(self.multi_lead_signals) > 0
+            ):
                 QMessageBox.warning(
                     self,
                     tr("warning_title"),
@@ -2920,11 +3004,7 @@ class MainWindow(QMainWindow):
             self.time_data = np.arange(len(self.signal_data)) / self.fs
             self._run_pipeline_and_display()
 
-        self._run_background_task(
-            _task,
-            _on_done,
-            initial_msg=tr("status_loading")
-        )
+        self._run_background_task(_task, _on_done, initial_msg=tr("status_loading"))
 
     def _on_lead_changed(self, index: int) -> None:
         """Dynamically re-analyzes and renders the newly selected lead."""
@@ -3003,7 +3083,9 @@ class MainWindow(QMainWindow):
 
             if self.time_data is not None and hasattr(self, "ecg_plot"):
                 beat_classes = [str(b.get("beat_class", "N")) for b in beats]
-                self.ecg_plot.display_signal(self.time_data, clean, r_peaks, beat_classes=beat_classes)
+                self.ecg_plot.display_signal(
+                    self.time_data, clean, r_peaks, beat_classes=beat_classes
+                )
                 if hasattr(self.ecg_plot, "plot_widget"):
                     self.ecg_plot.plot_widget.setTitle(
                         f"ECG Waveform — {self.current_lead_name}",
@@ -3020,11 +3102,7 @@ class MainWindow(QMainWindow):
             elif beats:
                 self._select_beat(0)
 
-        self._run_background_task(
-            _task,
-            _on_done,
-            initial_msg=tr("status_analyzing")
-        )
+        self._run_background_task(_task, _on_done, initial_msg=tr("status_analyzing"))
 
     def _update_cards_and_tables(self) -> None:
         """Refreshes KPI cards and tables with current localized descriptions."""
@@ -3129,7 +3207,10 @@ class MainWindow(QMainWindow):
         if qtrr is not None:
             m_tag = qtrr.get("model", "linear")
             self.lbl_adv_qtrr.setText(
-                tr("adv_qtrr", val=f"[{m_tag}] {qtrr['slope']:.3f} (r={qtrr['pearson_r']:.2f}, R²={qtrr.get('r_squared', 0.0):.2f})")
+                tr(
+                    "adv_qtrr",
+                    val=f"[{m_tag}] {qtrr['slope']:.3f} (r={qtrr['pearson_r']:.2f}, R²={qtrr.get('r_squared', 0.0):.2f})",
+                )
             )
         else:
             self.lbl_adv_qtrr.setText(tr("adv_qtrr_na"))
@@ -3197,7 +3278,7 @@ class MainWindow(QMainWindow):
 
         self._update_qtrr_visualization()
 
-        self.lbl_adv_total.setText(tr("adv_total_cycles", count=summary['total_beats']))
+        self.lbl_adv_total.setText(tr("adv_total_cycles", count=summary["total_beats"]))
 
         # Populate Beat Table (8 documented columns: Beat #, Time, Class, Pattern, RR, HR, QT, QTc)
         self.beat_table.setRowCount(len(beats))
@@ -3214,14 +3295,22 @@ class MainWindow(QMainWindow):
             self.beat_table.setItem(row, 3, QTableWidgetItem(pattern_str))
 
             rr_ms_val = float(b.get("rr_sec", 0.0)) * 1000.0
-            self.beat_table.setItem(row, 4, QTableWidgetItem(f"{rr_ms_val:.0f}" if rr_ms_val > 0 else "--"))
+            self.beat_table.setItem(
+                row, 4, QTableWidgetItem(f"{rr_ms_val:.0f}" if rr_ms_val > 0 else "--")
+            )
 
             hr_val = float(b.get("hr_bpm", 0.0))
-            self.beat_table.setItem(row, 5, QTableWidgetItem(f"{hr_val:.1f}" if np.isfinite(hr_val) and hr_val > 0 else "--"))
+            self.beat_table.setItem(
+                row,
+                5,
+                QTableWidgetItem(f"{hr_val:.1f}" if np.isfinite(hr_val) and hr_val > 0 else "--"),
+            )
 
             self.beat_table.setItem(row, 6, QTableWidgetItem(f"{b['qt_ms']:.0f}"))
             qtc_b_val = (b.get("qtc") or {}).get("bazett_ms")
-            self.beat_table.setItem(row, 7, QTableWidgetItem(f"{qtc_b_val:.0f}" if qtc_b_val is not None else "--"))
+            self.beat_table.setItem(
+                row, 7, QTableWidgetItem(f"{qtc_b_val:.0f}" if qtc_b_val is not None else "--")
+            )
 
         # Populate Events Diary
         self.events_table.setRowCount(len(events))
@@ -3380,7 +3469,7 @@ class MainWindow(QMainWindow):
         # Populate 10-model comparison table (8 columns: Model, Equation, Slope, Pearson r, R², RMSE, AIC, QTc,ind)
         self.qtrr_models_table.setRowCount(len(ranking))
         for r_idx, m_info in enumerate(ranking):
-            is_active = (m_info["model"] == active_fit["model"])
+            is_active = m_info["model"] == active_fit["model"]
             row_color = QColor("#38bdf8") if is_active else QColor("#cbd5e1")
 
             cells = [
@@ -3446,7 +3535,11 @@ class MainWindow(QMainWindow):
     def keyPressEvent(self, event: Any) -> None:
         """Handles Left/Right beat navigation and N/V/S/F/Q AAMI reclassification hotkeys."""
         key_code = event.key() if hasattr(event, "key") and callable(event.key) else None
-        key_text = event.text().upper() if hasattr(event, "text") and callable(event.text) and event.text() else ""
+        key_text = (
+            event.text().upper()
+            if hasattr(event, "text") and callable(event.text) and event.text()
+            else ""
+        )
 
         if key_code == getattr(Qt.Key, "Key_Left", 0x01000012) or key_text == "LEFT":
             self.prev_beat()
@@ -3521,30 +3614,46 @@ class MainWindow(QMainWindow):
         pvc_cnt = counts.get("V", 0)
         pac_cnt = counts.get("S", 0)
         ect_summary = self.analysis_results.get("ectopic_summary") or {}
-        ect_summary.update({
-            "total_beats": tot_b,
-            "counts": counts,
-            "pvc_count": pvc_cnt,
-            "pac_count": pac_cnt,
-            "pvc_percentage": round(pvc_cnt / tot_b * 100.0, 2) if tot_b > 0 else 0.0,
-            "ectopic_burden_pct": round((pvc_cnt + pac_cnt) / tot_b * 100.0, 2) if tot_b > 0 else 0.0,
-        })
+        ect_summary.update(
+            {
+                "total_beats": tot_b,
+                "counts": counts,
+                "pvc_count": pvc_cnt,
+                "pac_count": pac_cnt,
+                "pvc_percentage": round(pvc_cnt / tot_b * 100.0, 2) if tot_b > 0 else 0.0,
+                "ectopic_burden_pct": round((pvc_cnt + pac_cnt) / tot_b * 100.0, 2)
+                if tot_b > 0
+                else 0.0,
+            }
+        )
         self.analysis_results["ectopic_summary"] = ect_summary
         if "summary" in self.analysis_results:
             self.analysis_results["summary"]["ectopic_summary"] = ect_summary
 
-        nn_ms = [b["rr_sec"] * 1000.0 for b in beats if b.get("beat_class") == "N" and b.get("rr_sec", 0.0) > 0.2]
-        hrv_in = nn_ms if len(nn_ms) >= 4 else [b["rr_sec"] * 1000.0 for b in beats if b.get("rr_sec", 0.0) > 0.2]
+        nn_ms = [
+            b["rr_sec"] * 1000.0
+            for b in beats
+            if b.get("beat_class") == "N" and b.get("rr_sec", 0.0) > 0.2
+        ]
+        hrv_in = (
+            nn_ms
+            if len(nn_ms) >= 4
+            else [b["rr_sec"] * 1000.0 for b in beats if b.get("rr_sec", 0.0) > 0.2]
+        )
         if len(hrv_in) >= 2:
             self.analysis_results["hrv"] = AnalysisAPI.analyze_hrv(hrv_in)
         r_peaks = self.analysis_results.get("r_peaks")
         if classified_beats and r_peaks is not None:
-            self.analysis_results["hrt"] = AnalysisAPI.analyze_hrt(classified_beats, r_peaks, fs=self.fs)
+            self.analysis_results["hrt"] = AnalysisAPI.analyze_hrt(
+                classified_beats, r_peaks, fs=self.fs
+            )
 
         clean_sig = self.analysis_results.get("clean_signal")
         if self.time_data is not None and clean_sig is not None and r_peaks is not None:
             beat_classes = [str(b.get("beat_class", "N")) for b in beats]
-            self.ecg_plot.display_signal(self.time_data, clean_sig, r_peaks, beat_classes=beat_classes)
+            self.ecg_plot.display_signal(
+                self.time_data, clean_sig, r_peaks, beat_classes=beat_classes
+            )
 
         self._update_cards_and_tables()
 
@@ -3598,8 +3707,12 @@ class MainWindow(QMainWindow):
                 new_sum["ectopic_summary"] = ect_keep
                 self.analysis_results["summary"] = new_sum
 
-                self.beat_table.setItem(self.current_beat_index, 6, QTableWidgetItem(f"{qt_ms:.0f}"))
-                self.beat_table.setItem(self.current_beat_index, 7, QTableWidgetItem(f"{qtc['bazett_ms']:.0f}"))
+                self.beat_table.setItem(
+                    self.current_beat_index, 6, QTableWidgetItem(f"{qt_ms:.0f}")
+                )
+                self.beat_table.setItem(
+                    self.current_beat_index, 7, QTableWidgetItem(f"{qtc['bazett_ms']:.0f}")
+                )
                 mean_qtc_b = new_sum.get("mean_qtc_bazett_ms", qtc["bazett_ms"])
                 self.card_qtc.val_lbl.setText(f"{mean_qtc_b:.0f} ms")
 
@@ -3614,10 +3727,14 @@ class MainWindow(QMainWindow):
         if not path:
             return
 
-        age, ok = QInputDialog.getInt(self, tr("patient_age_title"), tr("patient_age_prompt"), 55, 0, 120)
+        age, ok = QInputDialog.getInt(
+            self, tr("patient_age_title"), tr("patient_age_prompt"), 55, 0, 120
+        )
         if not ok:
             return
-        race, ok = QInputDialog.getText(self, tr("patient_race_title"), tr("patient_race_prompt"), text="Unspecified")
+        race, ok = QInputDialog.getText(
+            self, tr("patient_race_title"), tr("patient_race_prompt"), text="Unspecified"
+        )
         if not ok:
             return
         pm_items = ["NO", "YES (Unspecified)", "VVI", "AAI", "DDD", "BIVENTRICULAR / CRT"]
@@ -3647,7 +3764,13 @@ class MainWindow(QMainWindow):
                 signals=lead_matrix,
                 sampling_rate=self.fs,
                 lead_names=lead_names,
-                patient_info={"age": age, "race": race, "sex": "UNKNOWN", "indication": notes, "pacemaker": pacemaker},
+                patient_info={
+                    "age": age,
+                    "race": race,
+                    "sex": "UNKNOWN",
+                    "indication": notes,
+                    "pacemaker": pacemaker,
+                },
                 annotations=ann_payload,
                 events=self.analysis_results.get("events", []) if self.analysis_results else [],
                 compression="zstd",
@@ -3655,14 +3778,11 @@ class MainWindow(QMainWindow):
             )
 
         def _on_done(saved_path):
-            QMessageBox.information(self, tr("export_success_title"), tr("export_success_msg", path=saved_path))
+            QMessageBox.information(
+                self, tr("export_success_title"), tr("export_success_msg", path=saved_path)
+            )
 
-        self._run_background_task(
-            _task,
-            _on_done,
-            initial_msg=tr("status_exporting")
-        )
-
+        self._run_background_task(_task, _on_done, initial_msg=tr("status_exporting"))
 
     def _populate_metadata_tables(self) -> None:
         """Populates Group A (Demographics & Timing) and Group B (Clinical Context & Study Specs) tables."""
@@ -3670,8 +3790,18 @@ class MainWindow(QMainWindow):
         patient_sub = meta.get("patient", {}) if isinstance(meta.get("patient"), dict) else {}
         rec_sub = meta.get("recording", {}) if isinstance(meta.get("recording"), dict) else {}
 
-        pid = str(meta.get("patient_id") or patient_sub.get("patient_id") or meta.get("record_name") or "ANONYMOUS")
-        sex = str(meta.get("gender") or meta.get("sex") or patient_sub.get("sex") or tr("meta_unspecified"))
+        pid = str(
+            meta.get("patient_id")
+            or patient_sub.get("patient_id")
+            or meta.get("record_name")
+            or "ANONYMOUS"
+        )
+        sex = str(
+            meta.get("gender")
+            or meta.get("sex")
+            or patient_sub.get("sex")
+            or tr("meta_unspecified")
+        )
         age_val = meta.get("age") if meta.get("age") is not None else patient_sub.get("age")
         bdate = str(meta.get("birth_date") or "")
         if age_val is not None and bdate:
@@ -3683,7 +3813,13 @@ class MainWindow(QMainWindow):
         else:
             age_str = tr("meta_unspecified")
 
-        rdate = str(meta.get("record_date") or meta.get("study_date") or meta.get("start_date") or meta.get("effective_time") or "")
+        rdate = str(
+            meta.get("record_date")
+            or meta.get("study_date")
+            or meta.get("start_date")
+            or meta.get("effective_time")
+            or ""
+        )
         stime = str(meta.get("start_time") or meta.get("study_time") or "")
         timing_str = f"{rdate} {stime}".strip() or tr("meta_unspecified")
 
@@ -3699,20 +3835,30 @@ class MainWindow(QMainWindow):
             self.meta_table_a.setItem(r_idx, 1, QTableWidgetItem(str(val_str)))
 
         pm_str = str(meta.get("pacemaker") or patient_sub.get("pacemaker") or "NO")
-        ind_str = str(meta.get("indication") or patient_sub.get("indication") or tr("meta_unspecified"))
+        ind_str = str(
+            meta.get("indication") or patient_sub.get("indication") or tr("meta_unspecified")
+        )
         race_str = str(meta.get("race") or patient_sub.get("race") or tr("meta_unspecified"))
         fmt_str = str(meta.get("format") or "Standard ECG")
         if "PECG" in fmt_str.upper():
             name_str = tr("meta_deidentified")
         else:
-            name_str = str(meta.get("patient_name") or f"{meta.get('first_name', '')} {meta.get('last_name', '')}".strip() or tr("meta_deidentified"))
+            name_str = str(
+                meta.get("patient_name")
+                or f"{meta.get('first_name', '')} {meta.get('last_name', '')}".strip()
+                or tr("meta_deidentified")
+            )
 
         n_ch = len(self.multi_lead_signals) if self.multi_lead_signals else 1
         ch_str = f"{n_ch} leads @ {self.fs:.0f} Hz"
         dur_sec = float(
             meta.get("duration_sec")
             or rec_sub.get("duration_sec")
-            or (len(self.signal_data) / self.fs if (self.signal_data is not None and self.fs > 0) else 0.0)
+            or (
+                len(self.signal_data) / self.fs
+                if (self.signal_data is not None and self.fs > 0)
+                else 0.0
+            )
         )
         dur_str = f"{dur_sec:.1f} s ({dur_sec / 60.0:.1f} min)"
         notes_str = str(meta.get("clinical_notes") or tr("meta_unspecified"))
@@ -3761,27 +3907,55 @@ class MainWindow(QMainWindow):
 
         self.holter_trends_table.setRowCount(len(bins))
         for r_idx, b in enumerate(bins):
-            self.holter_trends_table.setItem(r_idx, 0, QTableWidgetItem(f"H{b.get('hour_index', r_idx + 1)}"))
-            self.holter_trends_table.setItem(r_idx, 1, QTableWidgetItem(str(b.get("total_beats", 0))))
-            self.holter_trends_table.setItem(r_idx, 2, QTableWidgetItem(f"{b.get('mean_hr_bpm', 0.0):.1f}"))
+            self.holter_trends_table.setItem(
+                r_idx, 0, QTableWidgetItem(f"H{b.get('hour_index', r_idx + 1)}")
+            )
+            self.holter_trends_table.setItem(
+                r_idx, 1, QTableWidgetItem(str(b.get("total_beats", 0)))
+            )
+            self.holter_trends_table.setItem(
+                r_idx, 2, QTableWidgetItem(f"{b.get('mean_hr_bpm', 0.0):.1f}")
+            )
             self.holter_trends_table.setItem(r_idx, 3, QTableWidgetItem(str(b.get("pvc_count", 0))))
             self.holter_trends_table.setItem(r_idx, 4, QTableWidgetItem(str(b.get("pac_count", 0))))
             self.holter_trends_table.setItem(
-                r_idx, 5, QTableWidgetItem(f"{b.get('couplet_count', 0)}/{b.get('vt_run_count', 0)}")
+                r_idx,
+                5,
+                QTableWidgetItem(f"{b.get('couplet_count', 0)}/{b.get('vt_run_count', 0)}"),
             )
-            self.holter_trends_table.setItem(r_idx, 6, QTableWidgetItem(str(b.get("pause_count", 0))))
-            self.holter_trends_table.setItem(r_idx, 7, QTableWidgetItem(f"{b.get('af_burden_pct', 0.0):.1f}%"))
+            self.holter_trends_table.setItem(
+                r_idx, 6, QTableWidgetItem(str(b.get("pause_count", 0)))
+            )
+            self.holter_trends_table.setItem(
+                r_idx, 7, QTableWidgetItem(f"{b.get('af_burden_pct', 0.0):.1f}%")
+            )
 
         self.holter_af_table.setRowCount(len(episodes))
         for r_idx, ep in enumerate(episodes):
-            self.holter_af_table.setItem(r_idx, 0, QTableWidgetItem(str(ep.get("episode_index", r_idx + 1))))
-            self.holter_af_table.setItem(r_idx, 1, QTableWidgetItem(f"{ep.get('start_time_sec', 0.0):.1f}"))
-            self.holter_af_table.setItem(r_idx, 2, QTableWidgetItem(f"{ep.get('end_time_sec', 0.0):.1f}"))
-            self.holter_af_table.setItem(r_idx, 3, QTableWidgetItem(f"{ep.get('duration_sec', 0.0):.1f}"))
-            self.holter_af_table.setItem(r_idx, 4, QTableWidgetItem(f"{ep.get('mean_hr_bpm', 0.0):.1f}"))
-            self.holter_af_table.setItem(r_idx, 5, QTableWidgetItem(f"{ep.get('max_hr_bpm', 0.0):.1f}"))
-            self.holter_af_table.setItem(r_idx, 6, QTableWidgetItem(f"{ep.get('shannon_entropy', 0.0):.2f}"))
-            self.holter_af_table.setItem(r_idx, 7, QTableWidgetItem(f"{ep.get('irregularity_score', 0.0):.3f}"))
+            self.holter_af_table.setItem(
+                r_idx, 0, QTableWidgetItem(str(ep.get("episode_index", r_idx + 1)))
+            )
+            self.holter_af_table.setItem(
+                r_idx, 1, QTableWidgetItem(f"{ep.get('start_time_sec', 0.0):.1f}")
+            )
+            self.holter_af_table.setItem(
+                r_idx, 2, QTableWidgetItem(f"{ep.get('end_time_sec', 0.0):.1f}")
+            )
+            self.holter_af_table.setItem(
+                r_idx, 3, QTableWidgetItem(f"{ep.get('duration_sec', 0.0):.1f}")
+            )
+            self.holter_af_table.setItem(
+                r_idx, 4, QTableWidgetItem(f"{ep.get('mean_hr_bpm', 0.0):.1f}")
+            )
+            self.holter_af_table.setItem(
+                r_idx, 5, QTableWidgetItem(f"{ep.get('max_hr_bpm', 0.0):.1f}")
+            )
+            self.holter_af_table.setItem(
+                r_idx, 6, QTableWidgetItem(f"{ep.get('shannon_entropy', 0.0):.2f}")
+            )
+            self.holter_af_table.setItem(
+                r_idx, 7, QTableWidgetItem(f"{ep.get('irregularity_score', 0.0):.3f}")
+            )
 
     def _on_holter_hour_clicked(self, row: int, col: int) -> None:
         """Seeks the waveform plot to the start of the selected hourly bin."""
@@ -3808,7 +3982,10 @@ class MainWindow(QMainWindow):
             return
 
         path, _ = QFileDialog.getSaveFileName(
-            self, tr("export_pdf_dialog_title"), "repolaris_clinical_report.pdf", "PDF Report (*.pdf)"
+            self,
+            tr("export_pdf_dialog_title"),
+            "repolaris_clinical_report.pdf",
+            "PDF Report (*.pdf)",
         )
         if not path:
             return
@@ -3824,7 +4001,9 @@ class MainWindow(QMainWindow):
             )
 
         def _on_done(saved_path):
-            QMessageBox.information(self, tr("export_success_title"), tr("export_success_msg", path=saved_path))
+            QMessageBox.information(
+                self, tr("export_success_title"), tr("export_success_msg", path=saved_path)
+            )
 
         self._run_background_task(
             _task,

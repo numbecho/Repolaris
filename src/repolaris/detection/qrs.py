@@ -3,20 +3,23 @@ from __future__ import annotations
 import numpy as np
 from scipy.signal import find_peaks
 
-def detect_r_peaks(filtered_signal: np.ndarray, fs: float, refractory_ms: float = 250.0) -> np.ndarray:
+
+def detect_r_peaks(
+    filtered_signal: np.ndarray, fs: float, refractory_ms: float = 250.0
+) -> np.ndarray:
     """Derivative and energy-integration R-peak detection inspired by Pan-Tompkins."""
     # 1. First-order derivative
     diff = np.diff(filtered_signal, prepend=filtered_signal[0])
 
     # 2. Squaring function to accentuate steep slopes
-    squared = diff ** 2
+    squared = diff**2
 
     # 3. Moving-window integrator
     window_len = int(0.120 * fs)
     if window_len < 3:
         window_len = 3
     kernel = np.ones(window_len) / window_len
-    integrated = np.convolve(squared, kernel, mode='same')
+    integrated = np.convolve(squared, kernel, mode="same")
 
     # 4. Adaptive peak finding
     min_distance = int((refractory_ms / 1000.0) * fs)

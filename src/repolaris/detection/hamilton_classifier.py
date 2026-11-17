@@ -26,7 +26,6 @@ from repolaris.detection.classifier import (
 @dataclass
 class MorphologyTemplate:
     """A running heartbeat morphology template cluster."""
-
     template_id: int
     beat_class: BeatClass
     waveform: np.ndarray
@@ -82,9 +81,7 @@ class HamiltonBeatClassifier:
             counts_hist, _ = np.histogram(all_rrs, bins=16, density=False)
             probs = counts_hist / float(len(all_rrs))
             probs = probs[probs > 0]
-            shannon_ent = (
-                -float(np.sum(probs * np.log2(probs))) / np.log2(16) if len(probs) > 1 else 0.0
-            )
+            shannon_ent = -float(np.sum(probs * np.log2(probs))) / np.log2(16) if len(probs) > 1 else 0.0
             is_high_entropy_rhythm = shannon_ent > 0.75
         else:
             is_high_entropy_rhythm = False
@@ -121,14 +118,8 @@ class HamiltonBeatClassifier:
             post_ratio = post_rr / running_rr if running_rr > 0 else 1.0
             comp_ratio = (pre_rr + post_rr) / (2.0 * running_rr) if running_rr > 0 else 1.0
 
-            q_on = (
-                int(q_onsets[i])
-                if (q_onsets is not None and i < len(q_onsets))
-                else int(r_idx) - int(0.04 * self.fs)
-            )
-            qrs_dur_ms = max(
-                30.0, float(int(r_idx) + int(0.05 * self.fs) - q_on) / self.fs * 1000.0
-            )
+            q_on = int(q_onsets[i]) if (q_onsets is not None and i < len(q_onsets)) else int(r_idx) - int(0.04 * self.fs)
+            qrs_dur_ms = max(30.0, float(int(r_idx) + int(0.05 * self.fs) - q_on) / self.fs * 1000.0)
 
             best_match_id = -1
             best_corr = -1.0
@@ -158,8 +149,9 @@ class HamiltonBeatClassifier:
                 else:
                     if b_class == BeatClass.NORMAL:
                         matched_tmpl.waveform = (
-                            1.0 - self.adaptation_rate
-                        ) * matched_tmpl.waveform + self.adaptation_rate * norm_slice
+                            (1.0 - self.adaptation_rate) * matched_tmpl.waveform
+                            + self.adaptation_rate * norm_slice
+                        )
                         matched_tmpl.count += 1
                     confidence = max(0.80, min(0.99, best_corr))
                     rationale = f"Hamilton OSEA: Matched template #{best_match_id} ({b_class}) with correlation {best_corr:.2f}"
@@ -207,11 +199,7 @@ class HamiltonBeatClassifier:
                 polarity=1 if signal[int(r_idx)] >= 0 else -1,
             )
 
-            r_pattern = (
-                RhythmPattern.NORMAL_SINUS
-                if b_class == BeatClass.NORMAL
-                else RhythmPattern.ISOLATED_ECTOPIC
-            )
+            r_pattern = RhythmPattern.NORMAL_SINUS if b_class == BeatClass.NORMAL else RhythmPattern.ISOLATED_ECTOPIC
 
             classified_beats.append(
                 ClassifiedBeat(

@@ -5,7 +5,6 @@ import numpy as np
 from repolaris.preprocessing.baseline import remove_baseline_wander
 from repolaris.preprocessing.filter import bandpass_filter
 
-
 class TestPreprocessing(unittest.TestCase):
     def setUp(self):
         self.fs = 500.0
@@ -27,8 +26,7 @@ class TestPreprocessing(unittest.TestCase):
         cleaned = remove_baseline_wander(sig, self.fs)
 
         # Verify low frequency component is suppressed
-        self.assertLess(np.max(np.abs(cleaned[-int(self.fs) :])), 1.8)
-
+        self.assertLess(np.max(np.abs(cleaned[-int(self.fs):])), 1.8)
 
 if __name__ == "__main__":
     unittest.main()

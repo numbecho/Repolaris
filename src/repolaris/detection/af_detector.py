@@ -22,7 +22,6 @@ import numpy as np
 @dataclass
 class AFEpisode:
     """Represents a discrete episode of Atrial Fibrillation or Flutter."""
-
     episode_index: int
     start_time_sec: float
     end_time_sec: float
@@ -43,7 +42,6 @@ class AFEpisode:
 @dataclass
 class AFBurdenReport:
     """Summary metrics of atrial fibrillation / flutter burden across a recording."""
-
     total_duration_sec: float
     af_total_duration_sec: float
     af_burden_pct: float
@@ -169,11 +167,7 @@ def detect_atrial_fibrillation(
             dur = end_t - start_t
 
             if dur >= min_episode_duration_sec:
-                ep_rrs = (
-                    rr_sec[ep_start:ep_end]
-                    if ep_end > ep_start
-                    else rr_sec[ep_start : ep_start + 1]
-                )
+                ep_rrs = rr_sec[ep_start:ep_end] if ep_end > ep_start else rr_sec[ep_start : ep_start + 1]
                 bpms = 60.0 / ep_rrs[ep_rrs > 0] if len(ep_rrs) > 0 else np.array([75.0])
                 mean_hr = float(np.mean(bpms)) if len(bpms) > 0 else 75.0
                 max_hr = float(np.max(bpms)) if len(bpms) > 0 else mean_hr
@@ -205,9 +199,7 @@ def detect_atrial_fibrillation(
         end_t = float(r_peaks[ep_end] / fs)
         dur = end_t - start_t
         if dur >= min_episode_duration_sec:
-            ep_rrs = (
-                rr_sec[ep_start:ep_end] if ep_end > ep_start else rr_sec[ep_start : ep_start + 1]
-            )
+            ep_rrs = rr_sec[ep_start:ep_end] if ep_end > ep_start else rr_sec[ep_start : ep_start + 1]
             bpms = 60.0 / ep_rrs[ep_rrs > 0] if len(ep_rrs) > 0 else np.array([75.0])
             mean_hr = float(np.mean(bpms)) if len(bpms) > 0 else 75.0
             max_hr = float(np.max(bpms)) if len(bpms) > 0 else mean_hr

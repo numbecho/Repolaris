@@ -83,11 +83,7 @@ def compute_heart_rate_turbulence(
     rr_ms = (np.diff(peaks) / float(fs)) * 1000.0
 
     # Determine effective post-sinus requirement (allow >= 6 on short strips < 35 beats)
-    eff_post = (
-        min_post_sinus_beats
-        if n_peaks >= (min_post_sinus_beats + 6)
-        else min(6, max(5, n_peaks - 5))
-    )
+    eff_post = min_post_sinus_beats if n_peaks >= (min_post_sinus_beats + 6) else min(6, max(5, n_peaks - 5))
 
     episodes: list[dict[str, Any]] = []
     aligned_profiles: list[np.ndarray] = []

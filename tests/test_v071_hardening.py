@@ -88,11 +88,7 @@ class TestVersion071Hardening(unittest.TestCase):
                 t_sec = float(7200.0 + (i - 200) * 30.0)  # 7200 to 8700s (Hour 3)
 
             b_class = BeatClass.PVC if (i % 25 == 0) else BeatClass.NORMAL
-            r_pat = (
-                RhythmPattern.ISOLATED_ECTOPIC
-                if b_class == BeatClass.PVC
-                else RhythmPattern.NORMAL_SINUS
-            )
+            r_pat = RhythmPattern.ISOLATED_ECTOPIC if b_class == BeatClass.PVC else RhythmPattern.NORMAL_SINUS
 
             features = BeatFeatures(
                 pre_rr_sec=0.85,

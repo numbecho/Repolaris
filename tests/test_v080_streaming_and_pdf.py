@@ -95,12 +95,7 @@ class TestVersion080StreamingAndPDF(unittest.TestCase):
         out = ExportAPI.export_clinical_pdf(
             filepath=pdf_path,
             analysis_results=res,
-            patient_metadata={
-                "patient_id": "PT-080",
-                "age": 62,
-                "gender": "Male",
-                "indication": "Holter Syncope Evaluation",
-            },
+            patient_metadata={"patient_id": "PT-080", "age": 62, "gender": "Male", "indication": "Holter Syncope Evaluation"},
             fs=self.fs,
             lead_name="Lead II",
         )
@@ -167,11 +162,7 @@ class TestVersion080StreamingAndPDF(unittest.TestCase):
         pecg_path = os.path.join(self.tmp_dir.name, "chunks_case.pecg")
         _, sig, _ = StudyAPI.generate_demo_study(duration_sec=25.0, fs=250.0, heart_rate_bpm=72.0)
         save_pecg(pecg_path, sig[np.newaxis, :], 250.0, ["Lead II"])
-        chunks = list(
-            StudyAPI.stream_study_chunks(
-                pecg_path, lead=0, chunk_duration_sec=10.0, overlap_sec=1.0
-            )
-        )
+        chunks = list(StudyAPI.stream_study_chunks(pecg_path, lead=0, chunk_duration_sec=10.0, overlap_sec=1.0))
         self.assertEqual(len(chunks), 3)
         self.assertEqual(chunks[0]["fs"], 250.0)
 
@@ -206,9 +197,7 @@ class TestVersion080StreamingAndPDF(unittest.TestCase):
         pecg_path = os.path.join(self.tmp_dir.name, "direct_stream.pecg")
         _, sig, _ = StudyAPI.generate_demo_study(duration_sec=12.0, fs=self.fs, heart_rate_bpm=72.0)
         save_pecg(pecg_path, sig[np.newaxis, :], self.fs, ["Lead II"])
-        res = analyze_ecg_stream(
-            pecg_path, fs=self.fs, lead="Lead II", chunk_duration_sec=6.0, overlap_sec=1.5
-        )
+        res = analyze_ecg_stream(pecg_path, fs=self.fs, lead="Lead II", chunk_duration_sec=6.0, overlap_sec=1.5)
         self.assertTrue(res["streamed"])
         self.assertGreaterEqual(res["summary"]["total_beats"], 10)
 
@@ -277,9 +266,7 @@ class TestVersion080StreamingAndPDF(unittest.TestCase):
         """Verifies AnnotationManager.override_beat_label updates beat label and author."""
         mgr = AnnotationManager()
         mgr.add_annotation(sample=250, timestamp_sec=0.5, label="N", author="AI_DETECTOR")
-        updated = mgr.override_beat_label(
-            sample=250, new_label="V", reviewer="Dr. Cardio", notes="Confirmed PVC"
-        )
+        updated = mgr.override_beat_label(sample=250, new_label="V", reviewer="Dr. Cardio", notes="Confirmed PVC")
         self.assertIsNotNone(updated)
         self.assertEqual(mgr.annotations[0].label, "V")
         self.assertTrue(mgr.annotations[0].is_manual_override)
@@ -287,9 +274,7 @@ class TestVersion080StreamingAndPDF(unittest.TestCase):
 
     def test_af_detection_and_hourly_trends_direct(self):
         """Verifies AnalysisAPI.detect_af and AnalysisAPI.compute_hourly_trends on synthetic beats."""
-        _, sig, r_peaks = StudyAPI.generate_demo_study(
-            duration_sec=10.0, fs=self.fs, heart_rate_bpm=72.0
-        )
+        _, sig, r_peaks = StudyAPI.generate_demo_study(duration_sec=10.0, fs=self.fs, heart_rate_bpm=72.0)
         af = AnalysisAPI.detect_af(r_peaks, fs=self.fs)
         self.assertEqual(af["num_episodes"], 0)
         res = AnalysisAPI.analyze_signal(sig, fs=self.fs)
@@ -307,18 +292,11 @@ class TestVersion080StreamingAndPDF(unittest.TestCase):
         win = MainWindow()
         try:
             self.assertFalse(hasattr(win, "nonexistent_fake_widget_xyz"))
-            _, sig, _ = StudyAPI.generate_demo_study(
-                duration_sec=10.0, fs=self.fs, heart_rate_bpm=72.0
-            )
+            _, sig, _ = StudyAPI.generate_demo_study(duration_sec=10.0, fs=self.fs, heart_rate_bpm=72.0)
             res = AnalysisAPI.analyze_signal(sig, fs=self.fs)
             win.signal_data = sig
             win.fs = self.fs
-            win.current_metadata = {
-                "patient_id": "PT-900",
-                "age": 61,
-                "gender": "Female",
-                "format": "ISHNE 1.0",
-            }
+            win.current_metadata = {"patient_id": "PT-900", "age": 61, "gender": "Female", "format": "ISHNE 1.0"}
             win.analysis_results = res
             win._update_cards_and_tables()
             win._on_holter_hour_clicked(0, 0)
@@ -336,16 +314,16 @@ class TestVersion080StreamingAndPDF(unittest.TestCase):
         pecg_out = os.path.join(self.tmp_dir.name, "exported_bundle.pecg")
         _, sig, _ = StudyAPI.generate_demo_study(duration_sec=6.0, fs=250.0, heart_rate_bpm=70.0)
         np.save(npy_path, sig)
-        cli_main(
-            [
-                "export",
-                npy_path,
-                pecg_out,
-                "--compression",
-                "deflate",
-            ]
-        )
+        cli_main([
+            "export",
+            npy_path,
+            pecg_out,
+            "--compression",
+            "deflate",
+        ])
         self.assertTrue(os.path.isfile(pecg_out))
+
+
 
     def test_ui_ux_audit_all_7_fixes(self) -> None:
         """Verifies all 7 UI/UX vs. documentation fixes (caliper persistence, beat reclassification propagation, RR HUD, 8-column tables, and 5-language i18n)."""
@@ -393,6 +371,8 @@ class TestVersion080StreamingAndPDF(unittest.TestCase):
             self.assertTrue(len(win.lbl_adv_hyst.text()) > 0)
         win.set_language("en")
 
+
+
     def test_keyboard_navigation_aami_hotkeys_and_ectopic_markers(self) -> None:
         """Verifies Left/Right beat navigation, N/V/S/F/Q single-key hotkeys, and color-coded ectopic R-peak markers."""
         from repolaris.app import MainWindow, Qt
@@ -401,10 +381,8 @@ class TestVersion080StreamingAndPDF(unittest.TestCase):
             def __init__(self, key_code: int = 0, text_char: str = "") -> None:
                 self._k = key_code
                 self._t = text_char
-
             def key(self) -> int:
                 return self._k
-
             def text(self) -> str:
                 return self._t
 

@@ -74,7 +74,7 @@ def resample_berger(
     # Forward/backward fill zeros
     if np.any(valid):
         first_val = resampled[valid][0]
-        resampled[: np.argmax(valid)] = first_val
+        resampled[:np.argmax(valid)] = first_val
         for idx in range(len(resampled)):
             if resampled[idx] == 0:
                 resampled[idx] = resampled[idx - 1] if idx > 0 else first_val

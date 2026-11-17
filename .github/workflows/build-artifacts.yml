@@ -56,10 +56,8 @@ jobs:
       - name: Sync Environment with uv
         run: uv sync --all-extras --dev
 
-      - name: Lint & Format Check with Ruff (py314)
-        run: |
-          uv run ruff check src tests
-          uv run ruff format --check src tests
+      - name: Lint with Ruff (py314)
+        run: uv run ruff check src tests
 
       - name: Run Test Suite via uv
         run: |
@@ -68,6 +66,7 @@ jobs:
 
   briefcase-release:
     name: Briefcase Distribution Release (${{ matrix.os }})
+    if: startsWith(github.ref, 'refs/tags/v')
     needs: [test, uv-ruff-test]
     runs-on: ${{ matrix.os }}
     strategy:

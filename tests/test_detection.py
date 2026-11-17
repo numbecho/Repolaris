@@ -6,7 +6,6 @@ from repolaris.detection.qrs import detect_r_peaks
 from repolaris.detection.t_end import detect_t_end
 from repolaris.utils.signal import generate_synthetic_ecg
 
-
 class TestDetection(unittest.TestCase):
     def setUp(self):
         self.fs = 500.0
@@ -41,7 +40,6 @@ class TestDetection(unittest.TestCase):
         # At RR = 1.0s, QTc Bazett and Fridericia must equal raw QT
         self.assertAlmostEqual(qtc["bazett_ms"], 400.0, places=1)
         self.assertAlmostEqual(qtc["fridericia_ms"], 400.0, places=1)
-
 
 if __name__ == "__main__":
     unittest.main()

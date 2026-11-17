@@ -23,6 +23,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 matplotlib.use("Agg")
 
 
+
 def _style_grid_table(
     tbl: Any,
     fontsize: float,
@@ -198,9 +199,7 @@ def _render_page1_summary(
             q_s = b.get("q_onset_sample", -1)
             t_s = b.get("t_end_sample", -1)
             if 0 <= q_s < strip_samples:
-                ax_strip.axvline(
-                    q_s / fs, color="#d97706", linestyle="--", linewidth=0.7, alpha=0.6
-                )
+                ax_strip.axvline(q_s / fs, color="#d97706", linestyle="--", linewidth=0.7, alpha=0.6)
             if 0 <= t_s < strip_samples:
                 ax_strip.axvline(t_s / fs, color="#9333ea", linestyle=":", linewidth=0.7, alpha=0.6)
         ax_strip.legend(loc="upper right", fontsize=7.5)
@@ -270,9 +269,7 @@ def _render_page2_holter_and_dynamics(analysis_results: dict[str, Any]) -> plt.F
 
     ax_tr_tbl = fig2.add_axes([0.06, 0.56, 0.88, 0.33])
     ax_tr_tbl.axis("off")
-    ax_tr_tbl.set_title(
-        "Hourly Holter Distribution Table", fontsize=9.5, fontweight="bold", loc="left", pad=4
-    )
+    ax_tr_tbl.set_title("Hourly Holter Distribution Table", fontsize=9.5, fontweight="bold", loc="left", pad=4)
 
     tr_headers = [
         "Hour",
@@ -349,9 +346,7 @@ def _render_page2_holter_and_dynamics(analysis_results: dict[str, Any]) -> plt.F
                 label="Hysteresis (RR_eff, QT)",
             )
             ax_qtrr.legend(loc="best", fontsize=7.0)
-    ax_qtrr.set_title(
-        f"QT-RR Dynamics ({qtrr.get('label', 'Restitution')})", fontsize=9.0, fontweight="bold"
-    )
+    ax_qtrr.set_title(f"QT-RR Dynamics ({qtrr.get('label', 'Restitution')})", fontsize=9.0, fontweight="bold")
     ax_qtrr.set_xlabel("Cycle Length RR / RR_eff (s)", fontsize=8.0)
     ax_qtrr.set_ylabel("QT Interval (ms)", fontsize=8.0)
     ax_qtrr.grid(True, color="#e2e8f0", linestyle="-", linewidth=0.6)
@@ -375,16 +370,12 @@ def generate_clinical_pdf_report(
         progress_callback(0.15, "Preparing clinical report layout and metrics...")
 
     with PdfPages(str(out_path)) as pdf:
-        fig1 = _render_page1_summary(
-            analysis_results, meta, fs, lead_name, progress_callback=progress_callback
-        )
+        fig1 = _render_page1_summary(analysis_results, meta, fs, lead_name, progress_callback=progress_callback)
         pdf.savefig(fig1)
         plt.close(fig1)
 
         if progress_callback:
-            progress_callback(
-                0.75, "Rendering Holter hourly trends, Poincaré, and QT-RR dynamics..."
-            )
+            progress_callback(0.75, "Rendering Holter hourly trends, Poincaré, and QT-RR dynamics...")
 
         fig2 = _render_page2_holter_and_dynamics(analysis_results)
         pdf.savefig(fig2)

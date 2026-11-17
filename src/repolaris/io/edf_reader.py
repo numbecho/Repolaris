@@ -36,9 +36,7 @@ def read_edf(filepath: str | Path) -> EDFRecord:
 
     file_size = filepath.stat().st_size
     if file_size < 256:
-        raise ValueError(
-            f"Corrupt EDF file: File size ({file_size} B) is smaller than the 256-byte header."
-        )
+        raise ValueError(f"Corrupt EDF file: File size ({file_size} B) is smaller than the 256-byte header.")
 
     with open(filepath, "rb") as f:
         # 1. Main Header (256 bytes)
@@ -57,13 +55,9 @@ def read_edf(filepath: str | Path) -> EDFRecord:
 
         # Defensive bounds validation
         if not (1 <= num_signals <= 64):
-            raise ValueError(
-                f"Security Alert: Invalid EDF signal count ({num_signals}). Must be between 1 and 64."
-            )
+            raise ValueError(f"Security Alert: Invalid EDF signal count ({num_signals}). Must be between 1 and 64.")
         if header_bytes < 256 or header_bytes > 10 * 1024 * 1024 or header_bytes > file_size:
-            raise ValueError(
-                f"Corrupt EDF file: Header byte length ({header_bytes}) is invalid or exceeds 10 MB ceiling."
-            )
+            raise ValueError(f"Corrupt EDF file: Header byte length ({header_bytes}) is invalid or exceeds 10 MB ceiling.")
 
         # 2. Per-Signal Headers (num_signals * 256 bytes)
         raw_sig_headers = f.read(header_bytes - 256)
@@ -73,10 +67,7 @@ def read_edf(filepath: str | Path) -> EDFRecord:
             field_bytes = length * num_signals
             chunk = raw_sig_headers[:field_bytes]
             raw_sig_headers = raw_sig_headers[field_bytes:]
-            return [
-                chunk[i * length : (i + 1) * length].decode("ascii", errors="ignore").strip()
-                for i in range(num_signals)
-            ]
+            return [chunk[i*length:(i+1)*length].decode("ascii", errors="ignore").strip() for i in range(num_signals)]
 
         labels = read_fields(16)
         read_fields(80)  # transducers
@@ -92,9 +83,7 @@ def read_edf(filepath: str | Path) -> EDFRecord:
         # 3. Read Data Records
         record_size_samples = sum(samples_per_record)
         if record_size_samples <= 0:
-            raise ValueError(
-                f"Corrupt EDF file: Sum of samples per record is zero or negative ({record_size_samples})."
-            )
+            raise ValueError(f"Corrupt EDF file: Sum of samples per record is zero or negative ({record_size_samples}).")
         raw_data = np.fromfile(f, dtype="<i2")
 
     if len(raw_data) == 0:
@@ -120,9 +109,7 @@ def read_edf(filepath: str | Path) -> EDFRecord:
         ch_raw = np.empty(actual_records * s_per_rec, dtype=np.int16)
         for rec in range(actual_records):
             rec_start = rec * record_size_samples + offset_in_rec
-            ch_raw[rec * s_per_rec : (rec + 1) * s_per_rec] = raw_data[
-                rec_start : rec_start + s_per_rec
-            ]
+            ch_raw[rec * s_per_rec : (rec + 1) * s_per_rec] = raw_data[rec_start : rec_start + s_per_rec]
 
         # Convert digital counts to physical units
         d_min = dig_mins[ch_idx]
@@ -159,7 +146,7 @@ def read_edf(filepath: str | Path) -> EDFRecord:
     max_len = max(len(c) for c in valid_channels) if valid_channels else 0
     signals_matrix = np.zeros((len(valid_channels), max_len), dtype=np.float32)
     for i, c in enumerate(valid_channels):
-        signals_matrix[i, : len(c)] = c
+        signals_matrix[i, :len(c)] = c
 
     return EDFRecord(
         patient_id=patient_id,
@@ -171,5 +158,5 @@ def read_edf(filepath: str | Path) -> EDFRecord:
         lead_names=valid_labels,
         units=valid_units,
         sampling_rates=valid_fs,
-        signals=signals_matrix,
+        signals=signals_matrix
     )

@@ -65,7 +65,7 @@ def compute_time_domain_hrv(nn_intervals_ms: np.ndarray | list[float]) -> dict[s
     median_nn = float(np.median(nn))
     sdnn = float(np.std(nn, ddof=1))
     diffs = np.diff(nn)
-    rmssd = float(np.sqrt(np.mean(diffs**2)))
+    rmssd = float(np.sqrt(np.mean(diffs ** 2)))
     pnn50 = float(np.sum(np.abs(diffs) > 50.0) / float(len(diffs)) * 100.0)
     cv_percent = float((sdnn / mean_nn) * 100.0) if mean_nn > 0 else 0.0
 
@@ -221,9 +221,7 @@ def _compute_dfa_exponent(series: np.ndarray, scale_min: int, scale_max: int) ->
     if eff_max <= scale_min:
         return 1.0
 
-    scales = np.unique(
-        np.linspace(scale_min, eff_max, num=min(8, eff_max - scale_min + 1), dtype=int)
-    )
+    scales = np.unique(np.linspace(scale_min, eff_max, num=min(8, eff_max - scale_min + 1), dtype=int))
     flucts: list[float] = []
     valid_scales: list[int] = []
 

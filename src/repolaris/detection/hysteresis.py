@@ -92,9 +92,7 @@ def optimize_hysteresis_parameter(
     rr = rr[:min_len]
 
     if min_len < 5:
-        raise ValueError(
-            "At least 5 paired QT-RR observations are required for hysteresis modeling."
-        )
+        raise ValueError("At least 5 paired QT-RR observations are required for hysteresis modeling.")
 
     qt_sec = qt / 1000.0 if float(np.median(qt)) > 10.0 else qt.copy()
     rr_sec = rr / 1000.0 if float(np.median(rr)) > 10.0 else rr.copy()

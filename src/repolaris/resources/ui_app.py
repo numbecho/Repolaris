@@ -11,26 +11,21 @@ from typing import Any
 try:
     from PyQt6 import QtCore, QtWidgets
     import pyqtgraph as pg
-
     HAS_GUI = True
 except ImportError:
     HAS_GUI = False
-
     class _Mock:
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             self._val = 0
             self._text = args[0] if (args and isinstance(args[0], str)) else ""
-
         def __getattr__(self, name: str) -> Any:
             return lambda *args, **kwargs: _Mock()
-
         def __call__(self, *args: Any, **kwargs: Any) -> Any:
             return _Mock()
-
     QtCore = _Mock()  # type: ignore
-    QtGui = _Mock()  # type: ignore
-    QtWidgets = _Mock()  # type: ignore
-    pg = _Mock()  # type: ignore
+    QtGui = _Mock()   # type: ignore
+    QtWidgets = _Mock() # type: ignore
+    pg = _Mock()      # type: ignore
 
 
 class Ui_MainWindow:
@@ -149,15 +144,11 @@ class Ui_MainWindow:
         self.btn_grid_off.setObjectName("btn_grid_off")
         self.c_layout.addWidget(self.btn_grid_off)
 
-        self.btn_calipers_toggle = (
-            QtWidgets.QPushButton(self.canvas_bar) if HAS_GUI else QtWidgets()
-        )
+        self.btn_calipers_toggle = QtWidgets.QPushButton(self.canvas_bar) if HAS_GUI else QtWidgets()
         self.btn_calipers_toggle.setObjectName("btn_calipers_toggle")
         self.c_layout.addWidget(self.btn_calipers_toggle)
 
-        self.btn_calipers_center = (
-            QtWidgets.QPushButton(self.canvas_bar) if HAS_GUI else QtWidgets()
-        )
+        self.btn_calipers_center = QtWidgets.QPushButton(self.canvas_bar) if HAS_GUI else QtWidgets()
         self.btn_calipers_center.setObjectName("btn_calipers_center")
         self.c_layout.addWidget(self.btn_calipers_center)
 
@@ -206,11 +197,7 @@ class Ui_MainWindow:
         self.left_layout.addWidget(self.canvas_bar)
 
         # Promoted PlotWidget Canvas
-        self.plot_widget = (
-            pg.PlotWidget(self.left_container)
-            if HAS_GUI and hasattr(pg, "PlotWidget")
-            else QtWidgets()
-        )
+        self.plot_widget = pg.PlotWidget(self.left_container) if HAS_GUI and hasattr(pg, "PlotWidget") else QtWidgets()
         self.plot_widget.setObjectName("plot_widget")
         self.left_layout.addWidget(self.plot_widget, stretch=1)
 
@@ -304,9 +291,7 @@ class Ui_MainWindow:
 
         self.card_ectopic = QtWidgets.QFrame(self.tab_overview) if HAS_GUI else QtWidgets()
         self.card_ectopic.setObjectName("card_ectopic")
-        self.card_ectopic_layout = (
-            QtWidgets.QVBoxLayout(self.card_ectopic) if HAS_GUI else QtWidgets()
-        )
+        self.card_ectopic_layout = QtWidgets.QVBoxLayout(self.card_ectopic) if HAS_GUI else QtWidgets()
         self.card_ectopic_title = QtWidgets.QLabel(self.card_ectopic) if HAS_GUI else QtWidgets()
         self.card_ectopic_val = QtWidgets.QLabel(self.card_ectopic) if HAS_GUI else QtWidgets()
         self.card_ectopic_sub = QtWidgets.QLabel(self.card_ectopic) if HAS_GUI else QtWidgets()
@@ -370,9 +355,7 @@ class Ui_MainWindow:
         self.qtrr_layout = QtWidgets.QVBoxLayout(self.tab_qtrr) if HAS_GUI else QtWidgets()
         self.combo_qtrr_model = QtWidgets.QComboBox(self.tab_qtrr) if HAS_GUI else QtWidgets()
         self.combo_qtrr_model.setObjectName("combo_qtrr_model")
-        self.qtrr_plot_widget = (
-            pg.PlotWidget(self.tab_qtrr) if HAS_GUI and hasattr(pg, "PlotWidget") else QtWidgets()
-        )
+        self.qtrr_plot_widget = pg.PlotWidget(self.tab_qtrr) if HAS_GUI and hasattr(pg, "PlotWidget") else QtWidgets()
         self.qtrr_plot_widget.setObjectName("qtrr_plot_widget")
         self.lbl_qtrr_stats = QtWidgets.QLabel(self.tab_qtrr) if HAS_GUI else QtWidgets()
         self.lbl_qtrr_stats.setObjectName("lbl_qtrr_stats")
@@ -389,9 +372,7 @@ class Ui_MainWindow:
         self.card_af_burden_val = QtWidgets.QLabel(self.tab_holter) if HAS_GUI else QtWidgets()
         self.card_af_cv_val = QtWidgets.QLabel(self.tab_holter) if HAS_GUI else QtWidgets()
         self.card_af_sampen_val = QtWidgets.QLabel(self.tab_holter) if HAS_GUI else QtWidgets()
-        self.holter_hourly_table = (
-            QtWidgets.QTableWidget(self.tab_holter) if HAS_GUI else QtWidgets()
-        )
+        self.holter_hourly_table = QtWidgets.QTableWidget(self.tab_holter) if HAS_GUI else QtWidgets()
         self.holter_hourly_table.setObjectName("holter_hourly_table")
         self.holter_layout.addWidget(self.card_af_status_val)
         self.holter_layout.addWidget(self.card_af_burden_val)
@@ -474,3 +455,4 @@ class Ui_MainWindow:
         self.tabs.setTabText(self.tabs.indexOf(self.tab_metadata), "📋 Study & Patient")
         self.grp_a_box.setTitle("Core Demographics & Identification")
         self.grp_b_box.setTitle("Clinical Indications & Acquisition Parameters")
+

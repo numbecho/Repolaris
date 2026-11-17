@@ -56,7 +56,6 @@ SCP_LEAD_NAMES = {
 @dataclass
 class SCPRecord:
     """Decoded physiological signals and clinical header data from an SCP-ECG binary container."""
-
     sampling_rate: float
     num_leads: int
     num_samples: int
@@ -111,18 +110,14 @@ def read_scp_ecg(filepath: str | Path | os.PathLike[str]) -> SCPRecord:
         data = f.read()
 
     if len(data) < 32:
-        raise ValueError(
-            f"Corrupt SCP-ECG file: Length ({len(data)} B) too small for valid header."
-        )
+        raise ValueError(f"Corrupt SCP-ECG file: Length ({len(data)} B) too small for valid header.")
 
     _crc, _reported_len = struct.unpack("<HI", data[0:6])
 
     # Section 0 header starts at byte 6 (16 bytes total header)
     _s0_crc, s0_id, s0_len = struct.unpack("<HHI", data[6:14])
     if s0_id != 0:
-        raise ValueError(
-            f"Invalid SCP file: First section ID is {s0_id}, expected Section 0 pointer table."
-        )
+        raise ValueError(f"Invalid SCP file: First section ID is {s0_id}, expected Section 0 pointer table.")
 
     # Read pointer table in Section 0 body (starts at byte 6 + 16 = 22)
     sec_pointers: dict[int, tuple[int, int]] = {}  # sec_id -> (length, offset_0_based)
@@ -180,9 +175,7 @@ def read_scp_ecg(filepath: str | Path | os.PathLike[str]) -> SCPRecord:
     # Section 6 Header is 16 bytes
     s6_body = s6_off + 16
     # 2B AVM (in nV), 2B sampling interval (in us), 1B diff, 1B bimodal
-    avm_nv, sample_interval_us, diff_mode, _bimodal = struct.unpack(
-        "<HHBB", data[s6_body : s6_body + 6]
-    )
+    avm_nv, sample_interval_us, diff_mode, _bimodal = struct.unpack("<HHBB", data[s6_body : s6_body + 6])
     avm_nv = avm_nv if avm_nv > 0 else 5000  # Default 5 uV per LSB = 5000 nV
     fs = 1_000_000.0 / sample_interval_us if sample_interval_us > 0 else 500.0
 

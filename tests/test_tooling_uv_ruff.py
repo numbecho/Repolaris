@@ -84,9 +84,7 @@ class TestPython314UvAndRuffTooling(unittest.TestCase):
 
                 if not str(path).endswith("__init__.py"):
                     used_names = {
-                        n.id
-                        for n in ast.walk(tree)
-                        if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Load)
+                        n.id for n in ast.walk(tree) if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Load)
                     }
                     unused = {k: v for k, v in imported_names.items() if k not in used_names}
                     self.assertFalse(unused, f"Unused imports (F401) detected in {path}: {unused}")
@@ -115,11 +113,7 @@ class TestPython314UvAndRuffTooling(unittest.TestCase):
                                     "object",
                                     f"{path}:{node.lineno} class `{node.name}` inherits from `object` (UP004)",
                                 )
-                    if (
-                        isinstance(node, ast.Attribute)
-                        and node.attr == "utc"
-                        and isinstance(node.value, ast.Name)
-                    ):
+                    if isinstance(node, ast.Attribute) and node.attr == "utc" and isinstance(node.value, ast.Name):
                         self.assertNotEqual(
                             node.value.id,
                             "timezone",
@@ -141,9 +135,7 @@ class TestPython314UvAndRuffTooling(unittest.TestCase):
                         )
                     if isinstance(node, ast.Try) and not node.orelse and not node.finalbody:
                         for handler in node.handlers:
-                            is_bare_pass = len(handler.body) == 1 and isinstance(
-                                handler.body[0], ast.Pass
-                            )
+                            is_bare_pass = len(handler.body) == 1 and isinstance(handler.body[0], ast.Pass)
                             self.assertFalse(
                                 is_bare_pass,
                                 f"{path}:{node.lineno} contains try/except/pass (SIM105); use contextlib.suppress",
@@ -160,15 +152,7 @@ class TestPython314UvAndRuffTooling(unittest.TestCase):
 
                         def _collect_returns(n: ast.AST, acc: list[ast.Return] = returns) -> None:
                             for child in ast.iter_child_nodes(n):
-                                if isinstance(
-                                    child,
-                                    (
-                                        ast.FunctionDef,
-                                        ast.AsyncFunctionDef,
-                                        ast.ClassDef,
-                                        ast.Lambda,
-                                    ),
-                                ):
+                                if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
                                     continue
                                 if isinstance(child, ast.Return):
                                     acc.append(child)
@@ -176,8 +160,7 @@ class TestPython314UvAndRuffTooling(unittest.TestCase):
 
                         _collect_returns(node)
                         has_val = any(
-                            r.value is not None
-                            and not (isinstance(r.value, ast.Constant) and r.value.value is None)
+                            r.value is not None and not (isinstance(r.value, ast.Constant) and r.value.value is None)
                             for r in returns
                         )
                         if has_val:
@@ -197,15 +180,11 @@ class TestPython314UvAndRuffTooling(unittest.TestCase):
                 text=True,
                 check=False,
             )
-            self.assertEqual(
-                proc.returncode, 0, f"ruff check failed:\n{proc.stdout}\n{proc.stderr}"
-            )
+            self.assertEqual(proc.returncode, 0, f"ruff check failed:\n{proc.stdout}\n{proc.stderr}")
 
         uv_bin = shutil.which("uv")
         if uv_bin:
-            proc_uv = subprocess.run(
-                [uv_bin, "--version"], capture_output=True, text=True, check=False
-            )
+            proc_uv = subprocess.run([uv_bin, "--version"], capture_output=True, text=True, check=False)
             self.assertEqual(proc_uv.returncode, 0)
             self.assertIn("uv", proc_uv.stdout.lower())
 

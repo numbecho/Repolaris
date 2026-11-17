@@ -2,10 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-
-def detect_q_onset(
-    signal: np.ndarray, r_peak: int, fs: float, search_window_ms: float = 100.0
-) -> int:
+def detect_q_onset(signal: np.ndarray, r_peak: int, fs: float, search_window_ms: float = 100.0) -> int:
     """Finds the Q-wave trough and Q-onset (inflection point prior to depolarization)."""
     window_samples = int((search_window_ms / 1000.0) * fs)
     start_idx = max(0, r_peak - window_samples)

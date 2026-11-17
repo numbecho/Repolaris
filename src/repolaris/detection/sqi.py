@@ -79,7 +79,7 @@ def compute_ksqi(signal: np.ndarray) -> float:
     if std <= 1e-12:
         return 0.0
     z = (x - float(np.mean(x))) / std
-    return float(np.mean(z**4))
+    return float(np.mean(z ** 4))
 
 
 def compute_ssqi(signal: np.ndarray) -> float:
@@ -91,7 +91,7 @@ def compute_ssqi(signal: np.ndarray) -> float:
     if std <= 1e-12:
         return 0.0
     z = (x - float(np.mean(x))) / std
-    return float(np.abs(np.mean(z**3)))
+    return float(np.abs(np.mean(z ** 3)))
 
 
 def evaluate_lead_quality(
@@ -107,11 +107,7 @@ def evaluate_lead_quality(
     evaluated on the baseline-suppressed trace.
     """
     raw_x = np.asarray(signal, dtype=np.float64)
-    cond_x = (
-        np.asarray(conditioned_signal, dtype=np.float64)
-        if conditioned_signal is not None
-        else raw_x
-    )
+    cond_x = np.asarray(conditioned_signal, dtype=np.float64) if conditioned_signal is not None else raw_x
 
     if len(raw_x) < 10 or float(np.std(raw_x)) <= 1e-6:
         return {
@@ -185,11 +181,7 @@ def rank_leads_two_stage(
         if arr.ndim == 1:
             arr = arr[None, :]
         n_leads = arr.shape[0]
-        names = (
-            lead_names
-            if (lead_names and len(lead_names) == n_leads)
-            else [f"Lead_{i + 1}" for i in range(n_leads)]
-        )
+        names = lead_names if (lead_names and len(lead_names) == n_leads) else [f"Lead_{i+1}" for i in range(n_leads)]
         signals = [arr[i] for i in range(n_leads)]
 
     per_lead: dict[str, dict[str, Any]] = {}

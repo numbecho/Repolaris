@@ -37,9 +37,7 @@ def _build_parser() -> argparse.ArgumentParser:
     demo_p.add_argument("--duration", type=float, default=10.0, help="Duration in seconds")
     demo_p.add_argument("--fs", type=float, default=500.0, help="Sampling frequency (Hz)")
     demo_p.add_argument("--hr", type=float, default=72.0, help="Heart rate (BPM)")
-    demo_p.add_argument(
-        "--export", help="Optional target .pecg path to export the study after analysis"
-    )
+    demo_p.add_argument("--export", help="Optional target .pecg path to export the study after analysis")
     demo_p.add_argument("--pdf", help="Optional target .pdf path to generate a clinical PDF report")
 
     ana_p = subparsers.add_parser("analyze", help="Analyze an ECG recording file")
@@ -54,27 +52,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Optional sampling frequency override (Hz); auto-detected from file header by default",
     )
     ana_p.add_argument("--lead", default=0, help="Lead index or channel name")
-    ana_p.add_argument(
-        "--export", help="Optional target .pecg path to export the study after analysis"
-    )
+    ana_p.add_argument("--export", help="Optional target .pecg path to export the study after analysis")
     ana_p.add_argument("--pdf", help="Optional target .pdf path to generate a clinical PDF report")
-    ana_p.add_argument(
-        "--stream",
-        action="store_true",
-        help="Use chunked out-of-core streaming for multi-hour Holters",
-    )
+    ana_p.add_argument("--stream", action="store_true", help="Use chunked out-of-core streaming for multi-hour Holters")
 
-    exp_p = subparsers.add_parser(
-        "export", help="Convert and export an ECG recording to .pecg format"
-    )
+    exp_p = subparsers.add_parser("export", help="Convert and export an ECG recording to .pecg format")
     exp_p.add_argument("file", help="Path to input ECG recording")
     exp_p.add_argument("output", help="Target .pecg output path")
-    exp_p.add_argument(
-        "--compression",
-        default="zstd",
-        choices=["zstd", "deflate", "none"],
-        help="Compression mode",
-    )
+    exp_p.add_argument("--compression", default="zstd", choices=["zstd", "deflate", "none"], help="Compression mode")
 
     return parser
 
@@ -212,9 +197,7 @@ def _print_report(results: dict[str, Any]) -> None:
     if "mean_qtc_hodges_ms" in summary:
         print(f"Mean QTc Hodges:     {summary['mean_qtc_hodges_ms']:.1f} ms")
     if ectopic:
-        print(
-            f"PVC Count:           {ectopic.get('pvc_count', 0)} ({ectopic.get('pvc_percentage', 0.0):.1f}%)"
-        )
+        print(f"PVC Count:           {ectopic.get('pvc_count', 0)} ({ectopic.get('pvc_percentage', 0.0):.1f}%)")
         print(f"PAC Count:           {ectopic.get('pac_count', 0)}")
     if qtvi is not None:
         print(f"QTVI:                {qtvi:.2f}")
@@ -222,27 +205,19 @@ def _print_report(results: dict[str, Any]) -> None:
         slope_val = qtrr.get("slope", qtrr.get("linear_slope", 0.0))
         print(f"QT-RR Slope (Beta):  {slope_val:.4f}")
     if hyst:
-        print(
-            f"Hysteresis Lambda*:  {hyst.get('optimal_lambda', 0.0):.4f} (t90: {hyst.get('t90_sec', 0.0):.1f}s)"
-        )
+        print(f"Hysteresis Lambda*:  {hyst.get('optimal_lambda', 0.0):.4f} (t90: {hyst.get('t90_sec', 0.0):.1f}s)")
     if hrv and "time_domain" in hrv:
         td = hrv["time_domain"]
         print(f"HRV (SDNN / RMSSD):  {td.get('sdnn', 0.0):.1f} ms / {td.get('rmssd', 0.0):.1f} ms")
     if twa and "mma" in twa:
-        print(
-            f"Peak MMA TWA:        {twa['mma'].get('max_v_mma_uv', 0.0):.1f} uV ({twa['mma'].get('risk_level', 'NORMAL')})"
-        )
+        print(f"Peak MMA TWA:        {twa['mma'].get('max_v_mma_uv', 0.0):.1f} uV ({twa['mma'].get('risk_level', 'NORMAL')})")
     if sqi:
         print(f"SQI (pSQI/basSQI):   {sqi.get('psqi', 0):.2f} / {sqi.get('bassqi', 0):.2f}")
         print(f"Quality Status:      {sqi.get('verdict', sqi.get('status', 'Unknown'))}")
     if af_report:
-        print(
-            f"AF Burden:           {af_report.get('af_burden_pct', 0.0):.2f}% ({af_report.get('num_episodes', 0)} episodes)"
-        )
+        print(f"AF Burden:           {af_report.get('af_burden_pct', 0.0):.2f}% ({af_report.get('num_episodes', 0)} episodes)")
     if trends:
-        print(
-            f"Holter Pauses:       {trends.get('total_pauses', 0)} (max {trends.get('max_pause_sec', 0.0):.2f}s)"
-        )
+        print(f"Holter Pauses:       {trends.get('total_pauses', 0)} (max {trends.get('max_pause_sec', 0.0):.2f}s)")
     if events:
         print(f"Clinical Events:     {len(events)} detected")
         for ev in events[:5]:

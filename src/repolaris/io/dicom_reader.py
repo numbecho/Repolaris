@@ -55,7 +55,6 @@ DICOM_LEAD_NAMES = {
 @dataclass
 class DICOMWaveformRecord:
     """Decoded physical ECG waveform container from a DICOM Waveform SOP instance."""
-
     patient_id: str
     patient_name: str
     study_date: str
@@ -107,9 +106,7 @@ def read_dicom_waveform(
 
     file_size = path.stat().st_size
     if file_size > 500 * 1024 * 1024:
-        raise ValueError(
-            f"Security Alert: DICOM file ({file_size} B) exceeds the 500 MB safety ceiling."
-        )
+        raise ValueError(f"Security Alert: DICOM file ({file_size} B) exceeds the 500 MB safety ceiling.")
 
     # 1. Preferred route: pydicom if available
     with contextlib.suppress(ImportError):
@@ -131,9 +128,7 @@ def _read_with_pydicom(path: Path) -> DICOMWaveformRecord:
     study_time = str(getattr(ds, "StudyTime", "")).strip()
 
     if "WaveformSequence" not in ds or len(ds.WaveformSequence) == 0:
-        raise ValueError(
-            f"DICOM file '{path.name}' does not contain a WaveformSequence (Tag 5400,0100)."
-        )
+        raise ValueError(f"DICOM file '{path.name}' does not contain a WaveformSequence (Tag 5400,0100).")
 
     # Use first valid ECG multiplex group
     multiplex = ds.WaveformSequence[0]
@@ -142,9 +137,7 @@ def _read_with_pydicom(path: Path) -> DICOMWaveformRecord:
     fs = float(getattr(multiplex, "SamplingFrequency", 500.0))
 
     if num_channels <= 0 or num_samples <= 0:
-        raise ValueError(
-            f"Corrupt DICOM Waveform: Invalid dimensions (channels={num_channels}, samples={num_samples})."
-        )
+        raise ValueError(f"Corrupt DICOM Waveform: Invalid dimensions (channels={num_channels}, samples={num_samples}).")
 
     lead_names: list[str] = []
     sensitivities: list[float] = []
@@ -222,9 +215,7 @@ def _read_native_dicom(path: Path) -> DICOMWaveformRecord:
     with open(path, "rb") as f:
         f.seek(128)
         if f.read(4) != b"DICM":
-            raise ValueError(
-                f"File '{path.name}' is not a valid DICOM file (missing 'DICM' preamble)."
-            )
+            raise ValueError(f"File '{path.name}' is not a valid DICOM file (missing 'DICM' preamble).")
         data = f.read()
 
     # Fast heuristic scan for WaveformData Tag: (5400, 1010) -> b'\x00\x54\x10\x10'
@@ -257,22 +248,9 @@ def _read_native_dicom(path: Path) -> DICOMWaveformRecord:
     # Scale: standard 200 LSB/mV (0.005 mV/LSB)
     signals_mv = matrix.astype(np.float32) / 200.0
 
-    lead_names = [
-        "Lead I",
-        "Lead II",
-        "Lead III",
-        "aVR",
-        "aVL",
-        "aVF",
-        "V1",
-        "V2",
-        "V3",
-        "V4",
-        "V5",
-        "V6",
-    ]
+    lead_names = ["Lead I", "Lead II", "Lead III", "aVR", "aVL", "aVF", "V1", "V2", "V3", "V4", "V5", "V6"]
     if num_channels < 12:
-        lead_names = [f"Channel_{i + 1}" for i in range(num_channels)]
+        lead_names = [f"Channel_{i+1}" for i in range(num_channels)]
 
     return DICOMWaveformRecord(
         patient_id="ANONYMOUS",

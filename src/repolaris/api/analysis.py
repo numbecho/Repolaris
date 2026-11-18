@@ -1,7 +1,9 @@
 """Repolaris In-Process Analysis Service API.
 
 Orchestrates beat classification, repolarization interval calculations, FDA CiPA sub-intervals,
-Poincaré STV_QT/LTV_QT, 3D SVD T-wave morphology, Butterfly median beat synthesis, spatial QT
+Poincaré STV_QT/LTV_QT, 3D SVD T-wave morphology, Butterfly median beat synthesis, PRSA
+Deceleration/Acceleration Capacity, ST-segment ischemia tracking, AF-gated P-wave & AV block
+screening, ECG-Derived Respiration (EDR), high-rate pacemaker spike guarding, spatial QT
 dispersion, microvolt T-wave alternans, heart rate turbulence, HRV, hysteresis, AF burden,
 hourly trends, and autonomic risk triage.
 """
@@ -16,6 +18,7 @@ import numpy as np
 from repolaris.config import DetectionConfig, ECGConfig
 from repolaris.detection.af_detector import detect_atrial_fibrillation
 from repolaris.detection.dispersion import calculate_qt_dispersion
+from repolaris.detection.edr import compute_ecg_derived_respiration
 from repolaris.detection.hrt import compute_heart_rate_turbulence
 from repolaris.detection.hrv import compute_comprehensive_hrv
 from repolaris.detection.hysteresis import (
@@ -23,7 +26,12 @@ from repolaris.detection.hysteresis import (
     compute_effective_rr_linear,
     optimize_hysteresis_parameter,
 )
+from repolaris.detection.p_wave import (
+    analyze_p_waves_and_av_block,
+    detect_pacemaker_spikes,
+)
 from repolaris.detection.pipeline import analyze_ecg, analyze_ecg_stream
+from repolaris.detection.prsa import compute_prsa_capacity
 from repolaris.detection.pulse_metrics import (
     compute_cipa_metrics,
     compute_qtc,
@@ -31,6 +39,7 @@ from repolaris.detection.pulse_metrics import (
 )
 from repolaris.detection.qtrr import fit_all_qtrr_models
 from repolaris.detection.sqi import rank_leads_two_stage
+from repolaris.detection.st_segment import analyze_st_segment
 from repolaris.detection.t_morphology import (
     compute_superimposed_median_beat,
     compute_t_wave_morphology,
@@ -50,6 +59,7 @@ class AnalysisAPI:
         progress_callback: Callable[[float, str], None] | None = None,
         multi_lead_signals: np.ndarray | dict[str, np.ndarray] | None = None,
         lead_names: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Executes full electrophysiology analysis pipeline on an ECG signal."""
         return analyze_ecg(
@@ -59,6 +69,7 @@ class AnalysisAPI:
             progress_callback=progress_callback,
             multi_lead_signals=multi_lead_signals,
             lead_names=lead_names,
+            metadata=metadata,
         )
 
     @staticmethod
@@ -130,6 +141,86 @@ class AnalysisAPI:
             lead_names=lead_names,
             config=config,
         )
+
+    @staticmethod
+    def analyze_prsa(
+        rr_intervals_ms: np.ndarray | list[float],
+        beat_classes: list[str] | None = None,
+        window_half_width: int = 16,
+        wavelet_scale_s: int = 2,
+    ) -> dict[str, Any]:
+        """Computes Phase-Rectified Signal Averaging (PRSA) Deceleration (DC) & Acceleration Capacity (AC)."""
+        return compute_prsa_capacity(
+            rr_intervals_ms,
+            beat_classes=beat_classes,
+            window_half_width=window_half_width,
+            wavelet_scale_s=wavelet_scale_s,
+        )
+
+    @staticmethod
+    def analyze_st_segment(
+        signal: np.ndarray,
+        fs: float = 500.0,
+        beats: list[dict[str, Any]] | None = None,
+        r_peaks: np.ndarray | None = None,
+        threshold_uv: float = 100.0,
+        min_episode_duration_sec: float = 60.0,
+        sqi_passed: bool = True,
+    ) -> dict[str, Any]:
+        """Computes J+60/80 ms ST-segment deviation, slope, and sustained ischemic episodes."""
+        return analyze_st_segment(
+            signal,
+            fs=fs,
+            beats=beats,
+            r_peaks=r_peaks,
+            threshold_uv=threshold_uv,
+            min_episode_duration_sec=min_episode_duration_sec,
+            sqi_passed=sqi_passed,
+        )
+
+    @staticmethod
+    def analyze_p_waves_and_av_block(
+        signal: np.ndarray,
+        fs: float = 500.0,
+        beats: list[dict[str, Any]] | None = None,
+        r_peaks: np.ndarray | None = None,
+        af_report: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Delineates AF-gated P-waves, beat-to-beat PR intervals, and 1st/2nd-degree (Mobitz I/II) AV block."""
+        return analyze_p_waves_and_av_block(
+            signal,
+            fs=fs,
+            beats=beats,
+            r_peaks=r_peaks,
+            af_report=af_report,
+        )
+
+    @staticmethod
+    def analyze_edr(
+        signal: np.ndarray,
+        fs: float = 500.0,
+        r_peaks: np.ndarray | None = None,
+        beats: list[dict[str, Any]] | None = None,
+        fs_edr: float = 4.0,
+    ) -> dict[str, Any]:
+        """Computes ECG-Derived Respiration (EDR) rate (breaths/min) and CVHR sleep-apnea screening."""
+        return compute_ecg_derived_respiration(
+            signal,
+            fs=fs,
+            r_peaks=r_peaks,
+            beats=beats,
+            fs_edr=fs_edr,
+        )
+
+    @staticmethod
+    def detect_pacemaker_spikes(
+        raw_signal: np.ndarray,
+        fs: float,
+        r_peaks: np.ndarray | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Detects narrow pacemaker impulses (strictly gated to fs >= 1000 Hz) and reconciles metadata flags."""
+        return detect_pacemaker_spikes(raw_signal, fs=fs, r_peaks=r_peaks, metadata=metadata)
 
     @staticmethod
     def evaluate_qtrr_models(

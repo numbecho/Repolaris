@@ -976,6 +976,34 @@
                 </widget>
                </item>
                <item>
+                <widget class="QLabel" name="lbl_adv_prsa">
+                 <property name="text">
+                  <string>PRSA Deceleration Capacity (DC / AC): --</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLabel" name="lbl_adv_st">
+                 <property name="text">
+                  <string>ST-Segment Ischemia (J+60/80 µV): --</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLabel" name="lbl_adv_pwave">
+                 <property name="text">
+                  <string>P-Wave &amp; AV Conduction (PR / Mobitz): --</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLabel" name="lbl_adv_edr">
+                 <property name="text">
+                  <string>ECG-Derived Respiration (EDR / CVHR): --</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
                 <widget class="QLabel" name="lbl_adv_total">
                  <property name="text">
                   <string>Total Analyzed Cycles: --</string>

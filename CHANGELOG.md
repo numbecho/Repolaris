@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-11-18 — Clinical Repolarization & Ambulatory Holter Suite
+
+### Added
+- **FDA CiPA Sub-Interval Decomposition (`q_onset.py`, `pulse_metrics.py`)**: Automated QRS offset (`detect_j_point`) delineation and beat-by-beat $J\text{–}T_{\text{peak}}$, rate-corrected $J\text{–}T_{\text{peak}}c = J\text{–}T_{\text{peak}} / RR^{0.58}$ (Johannesen et al., 2016), transmural dispersion $T_{pe} = T_{\text{end}} - T_{\text{peak}}$, and arrhythmogenic $T_{pe}/QT$ ratio.
+- **Poincaré Short-Term & Long-Term QT Variability (`qtvi.py`, `pulse_metrics.py`)**: Ectopic-gated beat-to-beat $STV_{QT} = \sum |QT_{n+1} - QT_n| / (N\sqrt{2})$, $LTV_{QT}$, orthogonal $SD1_{QT} / SD2_{QT}$, Instability Index $II_{QT}$, and Torsades de Pointes (TdP) risk stratification (Thomsen et al., 2004).
+- **T-Wave Morphology & 3D SVD/PCA Loop Descriptors (`t_morphology.py`)**: Single-lead ascending/descending slope ratio, area symmetry, flatness (kurtosis), $20\text{ ms}$-smoothed notch & biphasic detection, and multi-lead 3D Singular Value Decomposition ($T_2/T_1$ loop roundness, $T_3/T_1$ planarity, non-dipolar residue $\%$, and Total Cosine R-to-T $TCRT$, Vicente et al., 2015).
+- **Superimposed Multi-Lead "Butterfly" Median Beat View (`t_morphology.py`, `app.py`)**: New interactive `🦋 Butterfly & T-PCA` workstation tab overlaying R-peak-aligned median beats across all active leads with a spatial RMS magnitude curve and 4 synchronized global calipers ($Q_{\text{onset}}, J, T_{\text{peak}}, T_{\text{end}}$).
+- **Phase-Rectified Signal Averaging (`prsa.py`)**: Autonomic Deceleration Capacity ($DC$) and Acceleration Capacity ($AC$) via Haar wavelet scale $s=2$ on ectopic-gated $RR$ intervals with Bauer et al. (2006) post-MI vagal risk tiers ($\le 2.5\text{ ms}$ High Risk, $2.6\text{–}4.5\text{ ms}$ Intermediate Risk, $> 4.5\text{ ms}$ Low Risk).
+- **Ambulatory ST-Segment Level, Slope & Transient Ischemia Detection (`st_segment.py`)**: Local PQ isoelectric baseline reference, rate-adaptive $J+80\text{ ms}$ ($\text{HR} \le 120\text{ BPM}$) vs. $J+60\text{ ms}$ ($\text{HR} > 120\text{ BPM}$) ST deviation ($\mu\text{V}$), ST slope ($\text{mV/s}$), sustained ischemic episode segmentation (`STIschemicEpisode`), and hourly ST trend bins.
+- **AF-Gated P-Wave Delineation, PR Interval & AV Block Screening (`p_wave.py`)**: Diastolic $P_{\text{onset}}, P_{\text{peak}}, P_{\text{end}}$ localization (automatically suppressed during active AF episodes), beat-to-beat $PR$ interval tracking, 1st-degree AV block ($PR > 200\text{ ms}$), and 2nd-degree Mobitz Type I (Wenckebach) vs. Mobitz Type II conduction block screening.
+- **ECG-Derived Respiration (`edr.py`)**: Moody & Mark (1985) beat-to-beat QRS area/amplitude modulation resampling ($4\text{ Hz}$), $0.12\text{–}0.45\text{ Hz}$ Welch PSD respiratory rate ($\text{breaths/min}$), and Cyclic Variation of Heart Rate (`CVHR`, $0.01\text{–}0.04\text{ Hz}$) sleep-apnea screening.
+- **High-Rate Pacemaker Spike Guard (`p_wave.py`)**: Strict Nyquist sampling-rate guard (`fs >= 1000 Hz`) combining first-derivative slew rate ($|dV/dt|$) and second-difference narrow-impulse energy ($\le 3\text{ ms}$) to flag paced beats at high sampling rates while falling back to container metadata at standard $250\text{–}500\text{ Hz}$ Holter rates.
+- **Comprehensive v0.9.0 Verification Suite (`tests/test_v090_repolarization_core.py`, `tests/test_v090_holter_suite.py`)**: Expanded automated test suite from 99 to **110 unit tests** across 21 test modules (`0` warnings, `100%` Ruff `py314` clean).
+
 ## [0.8.1] - 2026-11-16
 
 ### Added
@@ -16,7 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Expanded 8-Column Clinical Tables & 100% 5-Language Parity**: Expanded `beat_table` (adding `Pattern`, `RR (ms)`, `HR (BPM)`), `holter_af_table` (adding `Max HR`, `Shannon Ent.`, `Irregularity`), and `qtrr_models_table` (adding `Slope (α)`, `Pearson r`, `AIC`) to 8 columns each, and localized all remaining banners, labels, and tooltips across `en`, `es`, `fr`, `de`, and `pt`.
 - **Python 3.14 Syntax Modernization & Additive `uv` / `ruff` Tooling Suite (`tests/test_tooling_uv_ruff.py`, `.github/workflows/build-artifacts.yml`)**:
   - Modernized all 56 Python modules across `src/repolaris/` and `tests/` to native `X | Y` unions, built-in generics (`list`, `dict`, `tuple`, `set`), `StrEnum`, `match`/`case` structural pattern matching, and `contextlib.suppress`, eliminating duplicated dispatch ladders and dead code.
-  - Added `.python-version` (`3.14`), `[tool.uv]`, `[tool.ruff]` (`target-version = "py314"`), PEP 735 `[dependency-groups]`, the `uv-ruff-test` CI job, and `tests/test_tooling_uv_ruff.py` alongside the existing `pip` + `unittest` suite (**104 passing unit tests**).
+  - Added `.python-version` (`3.14`), `[tool.uv]`, `[tool.ruff]` (`target-version = "py314"`), PEP 735 `[dependency-groups]`, the `uv-ruff-test` CI job, and `tests/test_tooling_uv_ruff.py` alongside the existing `pip` + `unittest` suite (**110 passing unit tests**).
 
 ### Fixed
 - **Hostile Audit Signal & I/O Hardening (`ecg_loader.py`, `pipeline.py`, `hysteresis.py`, `sqi.py`, `hamilton_classifier.py`, `events.py`, `qtrr.py`, `qtvi.py`)**:

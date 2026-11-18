@@ -10,7 +10,7 @@ This document tracks architectural milestones, clinical electrophysiology module
 - **Workstation UX & Documentation Parity (`app.py`, `i18n.py`, `app.ui`, `ui_app.py`)**:
   - Keyboard beat-by-beat navigation (`Left`/`Right` arrows & `◀`/`▶`), single-key AAMI reclassification hotkeys (`N`, `V`, `S`, `F`, `Q`), color-coded ectopic R-peak markers with on-canvas text tags, persistent manual caliper drag calibration, live `RR` HUD readout, 8-column clinical tables, and 100% 5-language (`en`, `es`, `fr`, `de`, `pt`) translation parity.
 - **Python 3.14 Refactoring & Additive `uv` / `ruff` Suite (`pyproject.toml`, `tests/test_tooling_uv_ruff.py`)**:
-  - Modernized all modules to native `X | Y` unions, built-in generics, `StrEnum`, `match`/`case`, and `contextlib.suppress`, and added `uv` + `ruff` (`target-version = "py314"`) tests alongside the standard `unittest` suite (104 passing unit tests).
+  - Modernized all modules to native `X | Y` unions, built-in generics, `StrEnum`, `match`/`case`, and `contextlib.suppress`, and added `uv` + `ruff` (`target-version = "py314"`) tests alongside the standard `unittest` suite (110 passing unit tests).
 - **Signal Engine & I/O Hardening (`ecg_loader.py`, `pipeline.py`, `sqi.py`, `hysteresis.py`, `qtrr.py`)**:
   - `SignalBuffer` context-manager cleanup, raw-signal `basSQI`/`snr_db` evaluation with Stage 1 `kSQI`/`snr_db` gating, `HamiltonBeatClassifier` pipeline integration, and Tikhonov ridge stabilization for constant-rate QT-RR regression.
 

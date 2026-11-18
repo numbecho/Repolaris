@@ -28,6 +28,10 @@ for _sub in (
     "af_detector",
     "trends",
     "t_morphology",
+    "prsa",
+    "st_segment",
+    "p_wave",
+    "edr",
     "pipeline",
 ):
     _mod_name = f"repolaris.detection.{_sub}"

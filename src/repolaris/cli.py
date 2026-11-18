@@ -254,6 +254,21 @@ def _print_report(results: dict[str, Any]) -> None:
     if sqi:
         print(f"SQI (pSQI/basSQI):   {sqi.get('psqi', 0):.2f} / {sqi.get('bassqi', 0):.2f}")
         print(f"Quality Status:      {sqi.get('verdict', sqi.get('status', 'Unknown'))}")
+    prsa = results.get("prsa") or {}
+    st_seg = results.get("st_segment") or {}
+    p_wave = results.get("p_wave") or {}
+    edr = results.get("edr") or {}
+    pm = results.get("pacemaker") or {}
+    if prsa and prsa.get("valid"):
+        print(f"PRSA DC / AC:        {prsa.get('dc_ms', 0.0):.2f} ms / {prsa.get('ac_ms', 0.0):.2f} ms ({prsa.get('risk_category', 'LOW_RISK')})")
+    if st_seg:
+        print(f"ST Segment (J+80):   {st_seg.get('mean_st_level_uv', 0.0):.1f} uV (Episodes: {st_seg.get('num_episodes', 0)}, {st_seg.get('verdict', 'NORMAL')})")
+    if p_wave and p_wave.get("mean_pr_ms", 0.0) > 0:
+        print(f"PR Interval / AV:    {p_wave.get('mean_pr_ms', 0.0):.1f} ms ({p_wave.get('av_conduction_verdict', 'NORMAL_AV_CONDUCTION')})")
+    if edr and edr.get("valid"):
+        print(f"Respiration (EDR):   {edr.get('respiratory_rate_brpm', 0.0):.1f} br/min ({edr.get('apnea_screening_verdict', 'NORMAL_RESPIRATION')})")
+    if pm:
+        print(f"Pacemaker Guard:     {'ACTIVE (>=1000Hz)' if pm.get('raw_spike_detection_enabled') else 'METADATA-ONLY (<1000Hz)'} (Spikes: {pm.get('spike_count', 0)})")
     if af_report:
         print(f"AF Burden:           {af_report.get('af_burden_pct', 0.0):.2f}% ({af_report.get('num_episodes', 0)} episodes)")
     if trends:

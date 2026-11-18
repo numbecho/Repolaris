@@ -81,7 +81,7 @@ def _render_page1_summary(
     ax_hdr.text(
         0.0,
         0.15,
-        f"Lead: {lead_name}  |  Sampling Rate: {fs:.0f} Hz  |  Generated: {gen_ts}  |  Engine: Repolaris v0.8.1",
+        f"Lead: {lead_name}  |  Sampling Rate: {fs:.0f} Hz  |  Generated: {gen_ts}  |  Engine: Repolaris v0.9.0",
         fontsize=8.5,
         color="#475569",
     )
@@ -165,6 +165,12 @@ def _render_page1_summary(
             f"{ectopic.get('ectopic_burden_pct', 0.0):.2f}% ({ectopic.get('pvc_count', 0)} V, {ectopic.get('pac_count', 0)} S)",
             "AF / Flutter Burden",
             f"{af_report.get('af_burden_pct', 0.0):.2f}% ({af_report.get('num_episodes', 0)} episodes)",
+        ],
+        [
+            "PRSA DC / ST Level",
+            f"{(analysis_results.get('prsa') or {}).get('dc_ms', 0.0):.2f} ms / {(analysis_results.get('st_segment') or {}).get('mean_st_level_uv', 0.0):.1f} uV",
+            "Mean PR / Resp (EDR)",
+            f"{(analysis_results.get('p_wave') or {}).get('mean_pr_ms', 0.0):.1f} ms / {(analysis_results.get('edr') or {}).get('respiratory_rate_brpm', 0.0):.1f} br/m",
         ],
         [
             "HRV (SDNN / RMSSD)",

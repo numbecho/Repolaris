@@ -1961,6 +1961,10 @@ class MainWindow(QMainWindow):
         self.lbl_adv_hrv = QLabel(tr("adv_hrv_na", val="--"))
         self.lbl_adv_hrt = QLabel(tr("adv_hrt_na", val="--"))
         self.lbl_adv_twa = QLabel(tr("adv_twa_na", val="--"))
+        self.lbl_adv_prsa = QLabel(tr("adv_prsa_na", val="--"))
+        self.lbl_adv_st = QLabel(tr("adv_st_na", val="--"))
+        self.lbl_adv_pwave = QLabel(tr("adv_pwave_na", val="--"))
+        self.lbl_adv_edr = QLabel(tr("adv_edr_na", val="--"))
         self.lbl_adv_total = QLabel(tr("adv_total_cycles", count="--"))
         for lbl in (
             self.lbl_adv_cipa,
@@ -1972,6 +1976,10 @@ class MainWindow(QMainWindow):
             self.lbl_adv_hrv,
             self.lbl_adv_hrt,
             self.lbl_adv_twa,
+            self.lbl_adv_prsa,
+            self.lbl_adv_st,
+            self.lbl_adv_pwave,
+            self.lbl_adv_edr,
             self.lbl_adv_total,
         ):
             lbl.setStyleSheet("font-size: 9pt; color: #94a3b8;")
@@ -2444,6 +2452,14 @@ class MainWindow(QMainWindow):
         self.lbl_adv_hrv.setText(tr("adv_hrv_na", val="--"))
         self.lbl_adv_hrt.setText(tr("adv_hrt_na", val="--"))
         self.lbl_adv_twa.setText(tr("adv_twa_na", val="--"))
+        if hasattr(self, "lbl_adv_prsa"):
+            self.lbl_adv_prsa.setText(tr("adv_prsa_na", val="--"))
+        if hasattr(self, "lbl_adv_st"):
+            self.lbl_adv_st.setText(tr("adv_st_na", val="--"))
+        if hasattr(self, "lbl_adv_pwave"):
+            self.lbl_adv_pwave.setText(tr("adv_pwave_na", val="--"))
+        if hasattr(self, "lbl_adv_edr"):
+            self.lbl_adv_edr.setText(tr("adv_edr_na", val="--"))
         self.lbl_adv_total.setText(tr("adv_total_cycles", count="--"))
 
     def _open_wiki(self) -> None:
@@ -3187,6 +3203,8 @@ class MainWindow(QMainWindow):
             ),
         )
 
+        meta_snap = dict(self.current_metadata) if self.current_metadata else {}
+
         def _task(progress_callback=None):
             return AnalysisAPI.analyze_signal(
                 sig,
@@ -3194,6 +3212,7 @@ class MainWindow(QMainWindow):
                 config=cfg,
                 progress_callback=progress_callback,
                 multi_lead_signals=multi_sigs,
+                metadata=meta_snap,
             )
 
         def _on_done(results):
@@ -3441,6 +3460,64 @@ class MainWindow(QMainWindow):
             )
         else:
             self.lbl_adv_twa.setText(tr("adv_twa_na", val="N/A"))
+
+        prsa_res = self.analysis_results.get("prsa") or {}
+        if hasattr(self, "lbl_adv_prsa"):
+            if prsa_res and prsa_res.get("valid"):
+                self.lbl_adv_prsa.setText(
+                    tr(
+                        "adv_prsa",
+                        dc=float(prsa_res.get("dc_ms", 0.0)),
+                        ac=float(prsa_res.get("ac_ms", 0.0)),
+                        risk=str(prsa_res.get("risk_category", "LOW_RISK")),
+                    )
+                )
+            else:
+                self.lbl_adv_prsa.setText(tr("adv_prsa_na", val="N/A"))
+
+        st_res = self.analysis_results.get("st_segment") or {}
+        if hasattr(self, "lbl_adv_st"):
+            if st_res:
+                self.lbl_adv_st.setText(
+                    tr(
+                        "adv_st",
+                        st=float(st_res.get("mean_st_level_uv", 0.0)),
+                        slope=float(st_res.get("mean_st_slope_mv_per_sec", 0.0)),
+                        ep=int(st_res.get("num_episodes", 0)),
+                        verdict=str(st_res.get("verdict", "NORMAL")),
+                    )
+                )
+            else:
+                self.lbl_adv_st.setText(tr("adv_st_na", val="N/A"))
+
+        pw_res = self.analysis_results.get("p_wave") or {}
+        if hasattr(self, "lbl_adv_pwave"):
+            if pw_res and pw_res.get("mean_pr_ms", 0.0) > 0:
+                self.lbl_adv_pwave.setText(
+                    tr(
+                        "adv_pwave",
+                        pr=float(pw_res.get("mean_pr_ms", 0.0)),
+                        rate=float(pw_res.get("p_wave_detection_rate_pct", 0.0)),
+                        drop=int(pw_res.get("dropped_p_wave_count", 0)),
+                        verdict=str(pw_res.get("av_conduction_verdict", "NORMAL_AV_CONDUCTION")),
+                    )
+                )
+            else:
+                self.lbl_adv_pwave.setText(tr("adv_pwave_na", val=str(pw_res.get("av_conduction_verdict", "N/A"))))
+
+        edr_res = self.analysis_results.get("edr") or {}
+        if hasattr(self, "lbl_adv_edr"):
+            if edr_res and edr_res.get("valid"):
+                self.lbl_adv_edr.setText(
+                    tr(
+                        "adv_edr",
+                        brpm=float(edr_res.get("respiratory_rate_brpm", 0.0)),
+                        cvhr=float(edr_res.get("cvhr_power_ratio", 0.0)),
+                        verdict=str(edr_res.get("apnea_screening_verdict", "NORMAL_RESPIRATION")),
+                    )
+                )
+            else:
+                self.lbl_adv_edr.setText(tr("adv_edr_na", val="N/A"))
 
         self._update_qtrr_visualization()
 

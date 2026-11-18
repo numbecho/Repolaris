@@ -201,7 +201,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "menu_settings": "Preferences",
         "menu_help_guide": "Documentation (Wiki)...",
         "about_title": "About Repolaris",
-        "about_text": "Repolaris — Ventricular Repolarization & ECG Workstation\nRelease Version: 0.8.1 (2026)\n\nBrand: Repolaris Clinical Cardiology Suite\n\nCredits & Electrophysiology Compliance:\n• Repolaris Core Contributors & Open Source Community\n• AHA/ACC/HRS Recommendations for the Standardization and Interpretation of the Electrocardiogram\n• FDA E14 Clinical Evaluation of QT/QTc Interval Prolongation\n• AAMI EC57 Testing and Reporting Performance Results of Cardiac Rhythm Algorithms\n\nLicense: Apache License 2.0",
+        "about_text": "Repolaris — Ventricular Repolarization & ECG Workstation\nRelease Version: 0.9.0 (2026)\n\nBrand: Repolaris Clinical Cardiology Suite\n\nCredits & Electrophysiology Compliance:\n• Repolaris Core Contributors & Open Source Community\n• AHA/ACC/HRS Recommendations for the Standardization and Interpretation of the Electrocardiogram\n• FDA E14 Clinical Evaluation of QT/QTc Interval Prolongation\n• AAMI EC57 Testing and Reporting Performance Results of Cardiac Rhythm Algorithms\n\nLicense: Apache License 2.0",
         "help_dialog_title": "Repolaris Clinical User Guide",
         "help_dialog_text": "Repolaris Clinical ECG Workstation — Quick Reference:\n\n• File -> Open Study (Ctrl+O): Open clinical ECG records (.pecg, .ecg, .edf, .hea, .csv)\n• File -> Export Study (Ctrl+E): Export anonymized compressed study container\n• File -> Close Study (Ctrl+W): Close active study and clear workspace\n• Preferences -> Languages / Themes / Calipers: Configure workstation display\n• Help -> Documentation (F1): Open online wiki and clinical guides\n• Calipers: Drag the gold dashed line for Q-onset and fuchsia line for T-end\n• Zoom: Step through clinical sweep speeds (12.5-100 mm/s) and gains (2.5-20 mm/mV)\n• Time Axis: Formatted down to milliseconds (hh:mm:ss:xxx)",
         "license_dialog_title": "Repolaris License",
@@ -391,7 +391,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "menu_settings": "Preferencias",
         "menu_help_guide": "Documentación (Wiki)...",
         "about_title": "Acerca de Repolaris",
-        "about_text": "Repolaris — Estación de Trabajo de Repolarización Ventricular y ECG\nVersión de Lanzamiento: 0.8.1 (2026)\n\nMarca: Suite de Cardiología Clínica Repolaris\n\nCréditos y Cumplimiento Electrofisiológico:\n• Colaboradores Principales de Repolaris y Comunidad de Código Abierto\n• Recomendaciones AHA/ACC/HRS para la Estandarización e Interpretación del ECG\n• Guía FDA E14 para la Evaluación Clínica de la Prolongación del Intervalo QT/QTc\n• Rendimiento de Algoritmos de Ritmo Cardíaco según la Norma AAMI EC57\n\nLicencia: Apache License 2.0",
+        "about_text": "Repolaris — Estación de Trabajo de Repolarización Ventricular y ECG\nVersión de Lanzamiento: 0.9.0 (2026)\n\nMarca: Suite de Cardiología Clínica Repolaris\n\nCréditos y Cumplimiento Electrofisiológico:\n• Colaboradores Principales de Repolaris y Comunidad de Código Abierto\n• Recomendaciones AHA/ACC/HRS para la Estandarización e Interpretación del ECG\n• Guía FDA E14 para la Evaluación Clínica de la Prolongación del Intervalo QT/QTc\n• Rendimiento de Algoritmos de Ritmo Cardíaco según la Norma AAMI EC57\n\nLicencia: Apache License 2.0",
         "help_dialog_title": "Guía de Usuario Clínico de Repolaris",
         "help_dialog_text": "Estación de Trabajo Repolaris — Referencia Rápida:\n\n• Archivo -> Abrir Estudio (Ctrl+O): Abrir registros clínicos (.pecg, .ecg, .edf, .hea, .csv)\n• Archivo -> Exportar Estudio (Ctrl+E): Exportar estudio anonimizado comprimido\n• Archivo -> Cerrar Estudio (Ctrl+W): Cerrar estudio activo y limpiar espacio de trabajo\n• Preferencias -> Idiomas / Temas / Calibradores: Configurar visualización\n• Ayuda -> Documentación (F1): Abrir wiki y guías clínicas\n• Calibradores: Arraste la línea dorada para Q-onset y la fucsia para T-end\n• Zoom: Velocidades clínicas (12.5-100 mm/s) y ganancias (2.5-20 mm/mV)\n• Eje de Tiempo: Formato con precisión de milisegundos (hh:mm:ss:xxx)",
         "license_dialog_title": "Licencia de Repolaris",
@@ -581,7 +581,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "menu_settings": "Préférences",
         "menu_help_guide": "Documentation (Wiki)...",
         "about_title": "À propos de Repolaris",
-        "about_text": "Repolaris — Station Médicale de Repolarisation Ventriculaire et ECG\nVersion : 0.8.1 (2026)\n\nMarque : Suite Cardiologique Médicale Repolaris\n\nCrédits & Conformité Électrophysiologique :\n• Contributeurs de Repolaris & Communauté Open Source\n• Recommandations AHA/ACC/HRS pour la Standardisation et l'Interprétation de l'ECG\n• Évaluation Clinique FDA E14 de la Prolongation de l'Intervalle QT/QTc\n• Algorithmes d'Analyse du Rythme Cardiaque selon le Standard AAMI EC57\n\nLicence : Apache License 2.0",
+        "about_text": "Repolaris — Station Médicale de Repolarisation Ventriculaire et ECG\nVersion : 0.9.0 (2026)\n\nMarque : Suite Cardiologique Médicale Repolaris\n\nCrédits & Conformité Électrophysiologique :\n• Contributeurs de Repolaris & Communauté Open Source\n• Recommandations AHA/ACC/HRS pour la Standardisation et l'Interprétation de l'ECG\n• Évaluation Clinique FDA E14 de la Prolongation de l'Intervalle QT/QTc\n• Algorithmes d'Analyse du Rythme Cardiaque selon le Standard AAMI EC57\n\nLicence : Apache License 2.0",
         "help_dialog_title": "Guide Médical Repolaris",
         "help_dialog_text": "Station Médicale Repolaris — Référence Rapide :\n\n• Fichier -> Ouvrir une Étude (Ctrl+O) : Ouvrir enregistrements ECG (.pecg, .ecg, .edf, .hea, .csv)\n• Fichier -> Exporter l'Étude (Ctrl+E) : Exporter étude anonymisée compressée\n• Fichier -> Fermer l'Étude (Ctrl+W) : Fermer l'étude active et réinitialiser\n• Préférences -> Langues / Thèmes / Compas : Configurer l'affichage\n• Aide -> Documentation (F1) : Ouvrir wiki et guides cliniques\n• Compas : Glisser ligne dorée pour Q-onset et fuchsia pour T-end\n• Zoom : Vitesses (12.5-100 mm/s) et gains (2.5-20 mm/mV)\n• Axe Temps : Précision jusqu'aux millisecondes (hh:mm:ss:xxx)",
         "license_dialog_title": "Licence Repolaris",
@@ -771,7 +771,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "menu_settings": "Einstellungen",
         "menu_help_guide": "Dokumentation (Wiki)...",
         "about_title": "Über Repolaris",
-        "about_text": "Repolaris — EKG-Arbeitsplatz für Ventrikuläre Repolarisation\nRelease-Version: 0.8.1 (2026)\n\nMarke: Repolaris Klinische Kardiologie-Suite\n\nCredits & Elektrophysiologische Konformität:\n• Repolaris-Kernentwickler & Open-Source-Gemeinschaft\n• AHA/ACC/HRS-Empfehlungen zur Standardisierung und Interpretation des EKGs\n• FDA E14 Klinische Bewertung der QT/QTc-Intervallverlängerung\n• Algorithmen zur Herzrhythmusanalyse nach dem Standard AAMI EC57\n\nLizenz: Apache License 2.0",
+        "about_text": "Repolaris — EKG-Arbeitsplatz für Ventrikuläre Repolarisation\nRelease-Version: 0.9.0 (2026)\n\nMarke: Repolaris Klinische Kardiologie-Suite\n\nCredits & Elektrophysiologische Konformität:\n• Repolaris-Kernentwickler & Open-Source-Gemeinschaft\n• AHA/ACC/HRS-Empfehlungen zur Standardisierung und Interpretation des EKGs\n• FDA E14 Klinische Bewertung der QT/QTc-Intervallverlängerung\n• Algorithmen zur Herzrhythmusanalyse nach dem Standard AAMI EC57\n\nLizenz: Apache License 2.0",
         "help_dialog_title": "Repolaris Klinisches Benutzerhandbuch",
         "help_dialog_text": "Repolaris EKG-Arbeitsplatz — Schnellreferenz:\n\n• Datei -> Studie Öffnen (Ctrl+O): EKG-Datensätze öffnen (.pecg, .ecg, .edf, .hea, .csv)\n• Datei -> Studie Exportieren (Ctrl+E): Anonymisierte komprimierte Studie exportieren\n• Datei -> Studie Schließen (Ctrl+W): Aktive Studie schließen und Arbeitsbereich zurücksetzen\n• Einstellungen -> Sprachen / Design / Zirkel: Arbeitsbereich anpassen\n• Hilfe -> Dokumentation (F1): Wiki und Benutzerhandbuch öffnen\n• Zirkel: Goldene Linie für Q-Onset, fuchsia Linie für T-End ziehen\n• Zoom: Klinische Geschwindigkeiten (12.5-100 mm/s) und Verstärkungen (2.5-20 mm/mV)\n• Zeitachse: Präzision bis zu Millisekunden (hh:mm:ss:xxx)",
         "license_dialog_title": "Repolaris Lizenz",
@@ -961,7 +961,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "menu_settings": "Preferências",
         "menu_help_guide": "Documentação (Wiki)...",
         "about_title": "Sobre o Repolaris",
-        "about_text": "Repolaris — Estação de Trabalho de Repolarização Ventricular e ECG\nVersão de Lançamento: 0.8.1 (2026)\n\nMarca: Suite de Cardiologia Clínica Repolaris\n\nCréditos e Conformidade Eletrofisiológica:\n• Desenvolvedores Principais do Repolaris e Comunidade de Código Aberto\n• Recomendações AHA/ACC/HRS para Padronização e Interpretação do ECG\n• Avaliação Clínica FDA E14 para Prolongamento do Intervalo QT/QTc\n• Algoritmos de Ritmo Cardíaco Conformes ao Padrão AAMI EC57\n\nLicença: Apache License 2.0",
+        "about_text": "Repolaris — Estação de Trabalho de Repolarização Ventricular e ECG\nVersão de Lançamento: 0.9.0 (2026)\n\nMarca: Suite de Cardiologia Clínica Repolaris\n\nCréditos e Conformidade Eletrofisiológica:\n• Desenvolvedores Principais do Repolaris e Comunidade de Código Aberto\n• Recomendações AHA/ACC/HRS para Padronização e Interpretação do ECG\n• Avaliação Clínica FDA E14 para Prolongamento do Intervalo QT/QTc\n• Algoritmos de Ritmo Cardíaco Conformes ao Padrão AAMI EC57\n\nLicença: Apache License 2.0",
         "help_dialog_title": "Guia do Usuário Clínico do Repolaris",
         "help_dialog_text": "Estação de Trabalho Repolaris — Referência Rápida:\n\n• Arquivo -> Abrir Estudo (Ctrl+O): Abrir registros de ECG (.pecg, .ecg, .edf, .hea, .csv)\n• Arquivo -> Exportar Estudo (Ctrl+E): Exportar estudo anonimizado compactado\n• Arquivo -> Fechar Estudo (Ctrl+W): Fechar estudo ativo e limpar tela\n• Preferências -> Idiomas / Temas / Calibradores: Configurar ambiente\n• Ajuda -> Documentação (F1): Abrir wiki e guias clínicos\n• Calibradores: Arraste a linha dourada para Q-onset e a fúcsia para T-end\n• Zoom: Velocidades clínicas (12.5-100 mm/s) e ganhos (2.5-20 mm/mV)\n• Eixo de Tempo: Precisão até milissegundos (hh:mm:ss:xxx)",
         "license_dialog_title": "Licença do Repolaris",
@@ -1100,7 +1100,7 @@ for _lc, _kv in _EXTRA_QTRR_TRANSLATIONS.items():
     if _lc in TRANSLATIONS:
         TRANSLATIONS[_lc].update(_kv)
 
-# Synchronized v0.8.1 Holter Triage Tab & Clinical PDF Report Keys
+# Synchronized v0.9.0 Holter Triage Tab & Clinical PDF Report Keys
 _EXTRA_V080_TRANSLATIONS = {
     "en": {
         "tab_holter": "🕒 Holter Triage",
@@ -1530,6 +1530,64 @@ _EXTRA_V090_TRANSLATIONS: dict[str, dict[str, str]] = {
 }
 
 for _lc, _kv in _EXTRA_V090_TRANSLATIONS.items():
+    if _lc in TRANSLATIONS:
+        TRANSLATIONS[_lc].update(_kv)
+
+
+_EXTRA_V090_PHASE2_TRANSLATIONS: dict[str, dict[str, str]] = {
+    "en": {
+        "adv_prsa": "PRSA Capacity: DC={dc:.2f} ms | AC={ac:.2f} ms ({risk})",
+        "adv_prsa_na": "PRSA Deceleration Capacity (DC / AC): {val}",
+        "adv_st": "ST Segment: J+80={st:.1f} µV (Slope={slope:.2f} mV/s, Ep={ep}, {verdict})",
+        "adv_st_na": "ST-Segment Ischemia (J+60/80 µV): {val}",
+        "adv_pwave": "Atrial / AV: PR={pr:.1f} ms (P-det={rate:.0f}%, Dropped={drop}, {verdict})",
+        "adv_pwave_na": "P-Wave & AV Conduction (PR / Mobitz): {val}",
+        "adv_edr": "Respiration (EDR): {brpm:.1f} br/min (CVHR={cvhr:.2f}, {verdict})",
+        "adv_edr_na": "ECG-Derived Respiration (EDR / CVHR): {val}",
+    },
+    "es": {
+        "adv_prsa": "Capacidad PRSA: DC={dc:.2f} ms | AC={ac:.2f} ms ({risk})",
+        "adv_prsa_na": "Capacidad de Desaceleración PRSA (DC / AC): {val}",
+        "adv_st": "Segmento ST: J+80={st:.1f} µV (Pend={slope:.2f} mV/s, Ep={ep}, {verdict})",
+        "adv_st_na": "Isquemia Segmento ST (J+60/80 µV): {val}",
+        "adv_pwave": "Auricular / AV: PR={pr:.1f} ms (Onda P={rate:.0f}%, Bloq={drop}, {verdict})",
+        "adv_pwave_na": "Onda P y Conducción AV (PR / Mobitz): {val}",
+        "adv_edr": "Respiración (EDR): {brpm:.1f} resp/min (CVHR={cvhr:.2f}, {verdict})",
+        "adv_edr_na": "Respiración Derivada del ECG (EDR / CVHR): {val}",
+    },
+    "fr": {
+        "adv_prsa": "Capacité PRSA : DC={dc:.2f} ms | AC={ac:.2f} ms ({risk})",
+        "adv_prsa_na": "Capacité de Décélération PRSA (DC / AC) : {val}",
+        "adv_st": "Segment ST : J+80={st:.1f} µV (Pente={slope:.2f} mV/s, Ép={ep}, {verdict})",
+        "adv_st_na": "Ischémie Segment ST (J+60/80 µV) : {val}",
+        "adv_pwave": "Auriculaire / AV : PR={pr:.1f} ms (Onde P={rate:.0f}%, Bloq={drop}, {verdict})",
+        "adv_pwave_na": "Onde P & Conduction AV (PR / Mobitz) : {val}",
+        "adv_edr": "Respiration (EDR) : {brpm:.1f} resp/min (CVHR={cvhr:.2f}, {verdict})",
+        "adv_edr_na": "Respiration Dérivée de l'ECG (EDR / CVHR) : {val}",
+    },
+    "de": {
+        "adv_prsa": "PRSA-Kapazität: DC={dc:.2f} ms | AC={ac:.2f} ms ({risk})",
+        "adv_prsa_na": "PRSA-Dezelerationskapazität (DC / AC): {val}",
+        "adv_st": "ST-Strecke: J+80={st:.1f} µV (Steig={slope:.2f} mV/s, Ep={ep}, {verdict})",
+        "adv_st_na": "ST-Strecken-Ischämie (J+60/80 µV): {val}",
+        "adv_pwave": "Vorhof / AV: PR={pr:.1f} ms (P-Erk={rate:.0f}%, Ausf={drop}, {verdict})",
+        "adv_pwave_na": "P-Welle & AV-Überleitung (PR / Mobitz): {val}",
+        "adv_edr": "Atmung (EDR): {brpm:.1f} Atemz/min (CVHR={cvhr:.2f}, {verdict})",
+        "adv_edr_na": "EKG-abgeleitete Atmung (EDR / CVHR): {val}",
+    },
+    "pt": {
+        "adv_prsa": "Capacidade PRSA: DC={dc:.2f} ms | AC={ac:.2f} ms ({risk})",
+        "adv_prsa_na": "Capacidade de Desaceleração PRSA (DC / AC): {val}",
+        "adv_st": "Segmento ST: J+80={st:.1f} µV (Inclin={slope:.2f} mV/s, Ep={ep}, {verdict})",
+        "adv_st_na": "Isquemia Segmento ST (J+60/80 µV): {val}",
+        "adv_pwave": "Atrial / AV: PR={pr:.1f} ms (Onda P={rate:.0f}%, Bloq={drop}, {verdict})",
+        "adv_pwave_na": "Onda P e Condução AV (PR / Mobitz): {val}",
+        "adv_edr": "Respiração (EDR): {brpm:.1f} resp/min (CVHR={cvhr:.2f}, {verdict})",
+        "adv_edr_na": "Respiração Derivada do ECG (EDR / CVHR): {val}",
+    },
+}
+
+for _lc, _kv in _EXTRA_V090_PHASE2_TRANSLATIONS.items():
     if _lc in TRANSLATIONS:
         TRANSLATIONS[_lc].update(_kv)
 

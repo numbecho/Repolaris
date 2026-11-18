@@ -3,7 +3,7 @@
 Coordinates end-to-end processing of electrocardiogram recordings:
 1. Signal conditioning (IIR Q=30 notch filter, 0.05-45 Hz Butterworth bandpass & two-stage median baseline removal).
 2. Two-Stage Signal Quality Index (SQI) evaluation (Stage 1 Li et al. 2014 absolute gates + Stage 2 6-index pairwise voting).
-3. QRS complex identification and R-peak localization.
+3. QRS complex identification, R-peak localization, and high-rate Pacemaker Spike Guard (fs >= 1000 Hz).
 4. Ventricular repolarization segmentation (Q-onset, J-point, and hybrid/tangent/Zhang-2006-area/threshold T-end fiducials).
 5. Rate-corrected QT computation (Bazett, Fridericia, Framingham, Hodges formulas) & FDA CiPA sub-intervals (J-Tpeakc, Tpe, Tpe/QT).
 6. AAMI EC57 & Patrick Hamilton (2002) OSEA abnormal beat classification (Normal, PVC, PAC, Fusion, Unknown).
@@ -12,10 +12,13 @@ Coordinates end-to-end processing of electrocardiogram recordings:
 9. Berger QT Variability Index (QTVI) & Poincaré Short-Term/Long-Term QT Variability (STV_QT / LTV_QT).
 10. Domain-guarded 10-model QT-RR restitution curve modeling (Pueyo et al., 2004) with EW/LW hysteresis compensation.
 11. Unified annotation manager integration.
-12. Autonomic & Spatial Repolarization Suite (HRV, HRT, TWA, Hysteresis, Multi-Lead QTd, 3D SVD T-Wave Morphology & Butterfly Median Beat).
+12. Autonomic & Spatial Repolarization Suite (HRV, HRT, PRSA DC/AC, TWA, Hysteresis, Multi-Lead QTd, 3D SVD T-Wave Morphology & Butterfly Median Beat).
 13. Atrial Fibrillation / Flutter burden & episode detection (repolaris.detection.af_detector).
-14. Hourly Arrhythmia Trend Histograms & Holter Summary (repolaris.detection.trends).
-15. Out-of-Core Streaming Holter Engine (analyze_ecg_stream).
+14. Ambulatory ST-Segment Level & Transient Ischemia Engine (repolaris.detection.st_segment).
+15. AF-Gated P-Wave Delineation & AV Block Screening (repolaris.detection.p_wave).
+16. ECG-Derived Respiration (EDR) & CVHR Sleep-Disordered Breathing Screening (repolaris.detection.edr).
+17. Hourly Arrhythmia Trend Histograms & Holter Summary (repolaris.detection.trends).
+18. Out-of-Core Streaming Holter Engine (analyze_ecg_stream).
 """
 
 from __future__ import annotations
@@ -31,6 +34,7 @@ from repolaris.detection.af_detector import detect_atrial_fibrillation
 from repolaris.detection.annotations import AnnotationManager
 from repolaris.detection.classifier import ClassifiedBeat, classify_all_beats, detect_rhythm_patterns
 from repolaris.detection.dispersion import calculate_qt_dispersion
+from repolaris.detection.edr import compute_ecg_derived_respiration
 from repolaris.detection.events import detect_clinical_events
 from repolaris.detection.hamilton_classifier import HamiltonBeatClassifier
 from repolaris.detection.hrt import compute_heart_rate_turbulence
@@ -39,6 +43,11 @@ from repolaris.detection.hysteresis import (
     compute_effective_rr_linear,
     optimize_hysteresis_parameter,
 )
+from repolaris.detection.p_wave import (
+    analyze_p_waves_and_av_block,
+    detect_pacemaker_spikes,
+)
+from repolaris.detection.prsa import compute_prsa_capacity
 from repolaris.detection.pulse_metrics import (
     compute_cipa_metrics,
     compute_qtc,
@@ -50,6 +59,7 @@ from repolaris.detection.qrs import detect_r_peaks
 from repolaris.detection.qtrr import fit_all_qtrr_models
 from repolaris.detection.qtvi import compute_qtvi
 from repolaris.detection.sqi import evaluate_lead_quality, rank_leads_two_stage
+from repolaris.detection.st_segment import analyze_st_segment
 from repolaris.detection.t_end import detect_t_end
 from repolaris.detection.t_morphology import (
     compute_t_wave_morphology,
@@ -153,9 +163,17 @@ def _build_annotation_manager(
 
 
 def _compute_hrv_from_beats(beats: list[dict[str, Any]]) -> dict[str, Any] | None:
-    """Extracts normal NN intervals (or falls back to physiological RR intervals) and computes HRV."""
-    nn_ms = [b["rr_sec"] * 1000.0 for b in beats if b.get("beat_class") == "N" and b.get("rr_sec", 0.0) > 0.2]
-    hrv_input = nn_ms if len(nn_ms) >= 4 else [b["rr_sec"] * 1000.0 for b in beats if b.get("rr_sec", 0.0) > 0.2]
+    """Extracts non-paced normal NN intervals (or falls back to physiological RR intervals) and computes HRV."""
+    nn_ms = [
+        b["rr_sec"] * 1000.0
+        for b in beats
+        if b.get("beat_class") == "N" and not b.get("is_paced", False) and b.get("rr_sec", 0.0) > 0.2
+    ]
+    hrv_input = (
+        nn_ms
+        if len(nn_ms) >= 4
+        else [b["rr_sec"] * 1000.0 for b in beats if not b.get("is_paced", False) and b.get("rr_sec", 0.0) > 0.2]
+    )
     return compute_comprehensive_hrv(hrv_input) if len(hrv_input) >= 2 else None
 
 
@@ -166,6 +184,7 @@ def analyze_ecg(
     progress_callback: Callable[[float, str], None] | None = None,
     multi_lead_signals: np.ndarray | dict[str, np.ndarray] | None = None,
     lead_names: list[str] | None = None,
+    metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Executes the master diagnostic analysis pipeline on a raw ECG signal."""
     if config is None:
@@ -192,8 +211,10 @@ def analyze_ecg(
     )
 
     if progress_callback:
-        progress_callback(0.40, "Detecting QRS complexes and R-peaks...")
+        progress_callback(0.40, "Detecting QRS complexes, R-peaks, and high-rate pacing spikes...")
     r_peaks = detect_r_peaks(clean_signal, fs, config.detection_cfg.refractory_period_ms)
+    pacemaker_report = detect_pacemaker_spikes(raw_signal, fs=fs, r_peaks=r_peaks, metadata=metadata)
+    paced_set = set(pacemaker_report.get("paced_beat_indices", []))
 
     beats: list[dict[str, Any]] = []
     n_peaks = len(r_peaks)
@@ -249,6 +270,7 @@ def analyze_ecg(
             "t_flatness_score": float(t_morph["flatness_score"]),
             "t_is_notched": bool(t_morph["is_notched"]),
             "t_is_biphasic": bool(t_morph["is_biphasic"]),
+            "is_paced": bool(i in paced_set),
             "qtc": compute_qtc(qt, rr) if rr > 0 else {},
         })
 
@@ -291,14 +313,37 @@ def analyze_ecg(
                 "template_correlation": cb.features.template_correlation,
             })
 
+    if progress_callback:
+        progress_callback(0.85, "Evaluating AF burden, P-waves, ST ischemia, and hourly trends...")
+    af_report = detect_atrial_fibrillation(r_peaks, fs=fs)
+    af_dict = af_report.to_dict()
+
+    st_metrics = analyze_st_segment(
+        clean_signal,
+        fs=fs,
+        beats=beats,
+        r_peaks=r_peaks,
+        sqi_passed=bool(sqi_metrics.get("passed_absolute_gate", True)),
+    )
+    p_wave_metrics = analyze_p_waves_and_av_block(
+        clean_signal,
+        fs=fs,
+        beats=beats,
+        r_peaks=r_peaks,
+        af_report=af_dict,
+    )
+    edr_metrics = compute_ecg_derived_respiration(
+        clean_signal,
+        fs=fs,
+        r_peaks=r_peaks,
+        beats=beats,
+    )
+
     annotation_mgr = _build_annotation_manager(classified_beats, author="AI_DETECTOR")
     summary = summarize_beats(beats)
     summary["ectopic_summary"] = ectopic_summary
     events = detect_clinical_events(beats, fs=fs)
 
-    if progress_callback:
-        progress_callback(0.85, "Evaluating AF/AFL episode burden and hourly trends...")
-    af_report = detect_atrial_fibrillation(r_peaks, fs=fs)
     rec_dur = float(len(clean_signal) / fs)
     trends_report = generate_hourly_trends(
         classified_beats,
@@ -308,11 +353,18 @@ def analyze_ecg(
     )
 
     if progress_callback:
-        progress_callback(0.92, "Assessing repolarization lability, T-wave PCA & autonomic metrics...")
-    rr_arr = np.array(rr_list, dtype=np.float64)
-    qt_arr = np.array(qt_list, dtype=np.float64)
+        progress_callback(0.92, "Assessing repolarization lability, T-wave PCA, PRSA & autonomic metrics...")
+    non_paced_beats = [b for b in beats if not b.get("is_paced", False)] or beats
+    rr_arr = np.array([float(b["rr_sec"]) for b in non_paced_beats], dtype=np.float64)
+    qt_arr = np.array([float(b["qt_sec"]) for b in non_paced_beats], dtype=np.float64)
+    non_paced_classes = [str(b.get("beat_class", "N")) for b in non_paced_beats]
+
     qtvi_score, qtrr_metrics, hysteresis_metrics = _compute_repolarization_dynamics(rr_arr, qt_arr, config)
-    stv_qt_metrics = compute_stv_qt([b["qt_ms"] for b in beats], beat_classes=beat_class_codes)
+    stv_qt_metrics = compute_stv_qt([float(b["qt_ms"]) for b in non_paced_beats], beat_classes=non_paced_classes)
+    prsa_metrics = compute_prsa_capacity(
+        [float(b["rr_sec"]) * 1000.0 for b in non_paced_beats],
+        beat_classes=non_paced_classes,
+    )
     t_morphology_metrics = compute_t_wave_morphology(
         clean_signal,
         fs=fs,
@@ -356,6 +408,11 @@ def analyze_ecg(
         "stv_qt": stv_qt_metrics,
         "t_morphology": t_morphology_metrics,
         "butterfly": t_morphology_metrics["butterfly"],
+        "prsa": prsa_metrics,
+        "st_segment": st_metrics,
+        "p_wave": p_wave_metrics,
+        "edr": edr_metrics,
+        "pacemaker": pacemaker_report,
         "qtrr": qtrr_metrics,
         "sqi": sqi_metrics,
         "lead_voting": lead_voting,
@@ -364,7 +421,7 @@ def analyze_ecg(
         "twa": twa_metrics,
         "hysteresis": hysteresis_metrics,
         "dispersion": dispersion_metrics,
-        "af_report": af_report.to_dict(),
+        "af_report": af_dict,
         "trends": trends_report.to_dict(),
     }
 
@@ -433,6 +490,9 @@ def analyze_ecg_stream(
     all_classified: list[ClassifiedBeat] = []
     sqi_list: list[dict[str, Any]] = []
     twa_list: list[dict[str, Any]] = []
+    edr_list: list[dict[str, Any]] = []
+    p_wave_list: list[dict[str, Any]] = []
+    pacemaker_spikes_global: list[int] = []
     first_t_morph: dict[str, Any] | None = None
     stream_meta: dict[str, Any] = {}
     preview_signal: np.ndarray | None = None
@@ -456,7 +516,7 @@ def analyze_ecg_stream(
                 f"Streaming chunk {ch['chunk_index'] + 1} ({core_end / actual_fs:.0f}s / {total_len / actual_fs:.0f}s)...",
             )
 
-        res_win = analyze_ecg(sig_win, fs=actual_fs, config=config)
+        res_win = analyze_ecg(sig_win, fs=actual_fs, config=config, metadata=stream_meta)
         if preview_signal is None:
             preview_signal = res_win["clean_signal"][: min(len(res_win["clean_signal"]), int(actual_fs * 30))]
         if first_t_morph is None and isinstance(res_win.get("t_morphology"), dict):
@@ -464,6 +524,15 @@ def analyze_ecg_stream(
         sqi_list.append(res_win["sqi"])
         if res_win.get("twa"):
             twa_list.append(res_win["twa"])
+        if res_win.get("edr") and res_win["edr"].get("valid"):
+            edr_list.append(res_win["edr"])
+        if res_win.get("p_wave"):
+            p_wave_list.append(res_win["p_wave"])
+        pm_win = res_win.get("pacemaker") or {}
+        for sp in pm_win.get("spike_samples", []):
+            g_sp = int(sp) + w_start
+            if core_start <= g_sp < core_end:
+                pacemaker_spikes_global.append(g_sp)
 
         for b, cb in zip(res_win["beats"], res_win["classified_beats"], strict=False):
             global_r = int(b["r_peak_sample"]) + w_start
@@ -547,15 +616,79 @@ def analyze_ecg_stream(
         af_episodes=af_report.episodes,
     )
 
-    stream_rr_arr = np.array([float(b.get("rr_sec", 0.0)) for b in all_beats], dtype=np.float64)
-    stream_qt_arr = np.array([float(b.get("qt_sec", 0.0)) for b in all_beats], dtype=np.float64)
+    non_paced = [b for b in all_beats if not b.get("is_paced", False)] or all_beats
+    non_paced_classes = [str(b.get("beat_class", "N")) for b in non_paced]
+    stream_rr_arr = np.array([float(b.get("rr_sec", 0.0)) for b in non_paced], dtype=np.float64)
+    stream_qt_arr = np.array([float(b.get("qt_sec", 0.0)) for b in non_paced], dtype=np.float64)
     qtvi_score, qtrr_metrics, hysteresis_metrics = _compute_repolarization_dynamics(
         stream_rr_arr, stream_qt_arr, config
     )
     stv_qt_metrics = compute_stv_qt(
-        [float(b.get("qt_ms", 0.0)) for b in all_beats],
-        beat_classes=[cb.beat_class.value for cb in all_classified],
+        [float(b.get("qt_ms", 0.0)) for b in non_paced],
+        beat_classes=non_paced_classes,
     )
+    prsa_metrics = compute_prsa_capacity(
+        [float(b.get("rr_sec", 0.0)) * 1000.0 for b in non_paced],
+        beat_classes=non_paced_classes,
+    )
+
+    # Aggregate ST-segment summary across all streamed beats
+    st_uvs = [float(b.get("st_level_uv", 0.0)) for b in all_beats if "st_level_uv" in b]
+    st_j60s = [float(b.get("st_j60_uv", 0.0)) for b in all_beats if "st_j60_uv" in b]
+    st_j80s = [float(b.get("st_j80_uv", 0.0)) for b in all_beats if "st_j80_uv" in b]
+    st_slopes = [float(b.get("st_slope_mv_per_sec", 0.0)) for b in all_beats if "st_slope_mv_per_sec" in b]
+    st_stream_summary = {
+        "mean_st_j60_uv": round(float(np.mean(st_j60s)), 2) if st_j60s else 0.0,
+        "mean_st_j80_uv": round(float(np.mean(st_j80s)), 2) if st_j80s else 0.0,
+        "mean_st_level_uv": round(float(np.mean(st_uvs)), 2) if st_uvs else 0.0,
+        "max_st_elevation_uv": round(max(0.0, float(np.max(st_uvs))), 2) if st_uvs else 0.0,
+        "max_st_depression_uv": round(min(0.0, float(np.min(st_uvs))), 2) if st_uvs else 0.0,
+        "mean_st_slope_mv_per_sec": round(float(np.mean(st_slopes)), 3) if st_slopes else 0.0,
+        "num_episodes": 0,
+        "episodes": [],
+        "ischemic_burden_pct": 0.0,
+        "hourly_st_trends": [],
+        "verdict": "NORMAL",
+    }
+
+    p_wave_agg = p_wave_list[0] if p_wave_list else {
+        "af_gated": False,
+        "p_wave_detection_rate_pct": 0.0,
+        "mean_pr_ms": 0.0,
+        "max_pr_ms": 0.0,
+        "mean_p_duration_ms": 0.0,
+        "first_degree_av_block": False,
+        "second_degree_av_block": "NONE",
+        "dropped_p_wave_count": 0,
+        "av_conduction_verdict": "NORMAL_AV_CONDUCTION",
+    }
+    edr_agg = edr_list[0] if edr_list else {
+        "valid": False,
+        "respiratory_rate_brpm": 0.0,
+        "respiratory_freq_hz": 0.0,
+        "edr_time_sec": [],
+        "edr_waveform": [],
+        "cvhr_power_ratio": 0.0,
+        "apnea_screening_verdict": "INSUFFICIENT_DURATION",
+    }
+    paced_indices = [b["beat_index"] for b in all_beats if b.get("is_paced", False)]
+    pm_meta = str(stream_meta.get("pacemaker", "NO")).strip().upper()
+    meta_paced = pm_meta not in ("", "NO", "NONE", "FALSE", "0", "ABSENT", "UNSPECIFIED")
+    pacemaker_agg = {
+        "raw_spike_detection_enabled": bool(actual_fs >= 1000.0),
+        "gating_reason": (
+            f"Active high-rate slew guard (fs={actual_fs:.0f} Hz >= 1000 Hz)"
+            if actual_fs >= 1000.0
+            else f"Sampling rate {actual_fs:.0f} Hz < 1000 Hz minimum Nyquist pacing spike guard"
+        ),
+        "metadata_pacemaker_flag": meta_paced,
+        "metadata_pacemaker_mode": pm_meta if meta_paced else "NO",
+        "spike_samples": pacemaker_spikes_global,
+        "spike_count": len(pacemaker_spikes_global),
+        "paced_beat_indices": paced_indices,
+        "paced_beat_count": len(paced_indices),
+        "pacing_detected": bool(meta_paced or len(pacemaker_spikes_global) > 0),
+    }
 
     hrv_metrics = _compute_hrv_from_beats(all_beats)
     hrt_metrics = compute_heart_rate_turbulence(all_classified, r_peaks_arr, fs=actual_fs)
@@ -594,6 +727,11 @@ def analyze_ecg_stream(
         "stv_qt": stv_qt_metrics,
         "t_morphology": first_t_morph,
         "butterfly": first_t_morph.get("butterfly") if first_t_morph else None,
+        "prsa": prsa_metrics,
+        "st_segment": st_stream_summary,
+        "p_wave": p_wave_agg,
+        "edr": edr_agg,
+        "pacemaker": pacemaker_agg,
         "qtrr": qtrr_metrics,
         "sqi": agg_sqi,
         "lead_voting": None,

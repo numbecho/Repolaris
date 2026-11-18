@@ -1,8 +1,9 @@
 """Clinical PDF Report Generator Module for Repolaris.
 
 Generates multi-page printable clinical ECG and Holter reports using matplotlib PdfPages:
-- Page 1: Patient Demographics & Study Metadata, Executive KPI Summary Table,
-  Calibrated ECG Rhythm Strip (with R-peak, Q-onset, and T-end markers), and Clinical Events Diary.
+- Page 1: Patient Demographics & Study Metadata, Executive KPI Summary Table (including FDA CiPA
+  J-Tpeakc, Tpe/QT, Poincaré STV_QT, and 3D SVD T2/T1), Calibrated ECG Rhythm Strip (with R-peak,
+  Q-onset, and T-end markers), and Clinical Events Diary.
 - Page 2: Hourly Holter Arrhythmia Trend Histogram & Summary Table,
   Poincaré Heart Rate Variability Plot (NN_i vs NN_{i+1}), and QT-RR Restitution & Hysteresis Curve.
 """
@@ -18,7 +19,6 @@ from typing import Any
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.figure import Figure
 import numpy as np
-
 
 
 def _style_grid_table(
@@ -58,6 +58,7 @@ def _render_page1_summary(
     qtrr = analysis_results.get("qtrr") or {}
     hrv = analysis_results.get("hrv") or {}
     af_report = analysis_results.get("af_report") or {}
+    t_morph = analysis_results.get("t_morphology") or {}
     events = analysis_results.get("events", [])
     beats = analysis_results.get("beats", [])
     clean_signal = analysis_results.get("clean_signal", np.zeros(int(fs * 5), dtype=np.float32))
@@ -115,7 +116,7 @@ def _render_page1_summary(
     )
     _style_grid_table(tbl_meta, 8.5, 1.35, label_cols=(0, 2), label_bg="#f1f5f9")
 
-    ax_kpi = fig1.add_axes([0.06, 0.60, 0.88, 0.16])
+    ax_kpi = fig1.add_axes([0.06, 0.59, 0.88, 0.17])
     ax_kpi.axis("off")
     ax_kpi.set_title(
         "Executive Repolarization & Arrhythmia Summary",
@@ -130,6 +131,9 @@ def _render_page1_summary(
     td_hrv = hrv.get("time_domain", {}) if isinstance(hrv, dict) else {}
     sdnn_str = f"{td_hrv.get('sdnn', 0.0):.1f} ms" if td_hrv else "N/A"
     rmssd_str = f"{td_hrv.get('rmssd', 0.0):.1f} ms" if td_hrv else "N/A"
+    svd_3d = t_morph.get("svd_3d", {}) if isinstance(t_morph, dict) else {}
+    t2t1_val = svd_3d.get("t2_t1_ratio")
+    t2t1_str = f"{t2t1_val:.3f}" if t2t1_val is not None else "Single-Lead"
 
     kpi_rows = [
         [
@@ -143,6 +147,12 @@ def _render_page1_summary(
             f"{summary.get('mean_qtc_bazett_ms', 0.0):.1f} / {summary.get('mean_qtc_fridericia_ms', 0.0):.1f} ms",
             "QTc Framingham / Hodges",
             f"{summary.get('mean_qtc_framingham_ms', 0.0):.1f} / {summary.get('mean_qtc_hodges_ms', 0.0):.1f} ms",
+        ],
+        [
+            "FDA CiPA (J-Tpeakc / Tpe:QT)",
+            f"{summary.get('mean_jt_peak_c_ms', 0.0):.1f} ms / {summary.get('mean_tpe_qt_ratio', 0.0):.3f}",
+            "Poincaré STV_QT / T2:T1 SVD",
+            f"{summary.get('stv_qt_ms', 0.0):.2f} ms / {t2t1_str}",
         ],
         [
             "Berger QTVI Score",
@@ -169,12 +179,12 @@ def _render_page1_summary(
         loc="center",
         cellLoc="left",
     )
-    _style_grid_table(tbl_kpi, 8.0, 1.30, label_cols=(0, 2), label_bg="#f8fafc")
+    _style_grid_table(tbl_kpi, 7.8, 1.18, label_cols=(0, 2), label_bg="#f8fafc")
 
     if progress_callback:
         progress_callback(0.45, "Rendering calibrated ECG rhythm strip...")
 
-    ax_strip = fig1.add_axes([0.06, 0.34, 0.88, 0.21])
+    ax_strip = fig1.add_axes([0.06, 0.34, 0.88, 0.20])
     strip_samples = min(len(clean_signal), int(10.0 * fs))
     if strip_samples > 0:
         t_vec = np.arange(strip_samples) / fs

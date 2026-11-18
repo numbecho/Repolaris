@@ -78,7 +78,7 @@ All new code must include static type annotations:
 
 ## 5. Automated Testing
 
-All pull requests must pass the complete 99-test unit test suite:
+All pull requests must pass the complete 104-test unit test suite:
 
 ```bash
 # Run with Python unittest (headless-safe)

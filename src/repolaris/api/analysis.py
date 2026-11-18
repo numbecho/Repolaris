@@ -1,8 +1,9 @@
 """Repolaris In-Process Analysis Service API.
 
-Orchestrates beat classification, repolarization interval calculations, spatial QT dispersion,
-microvolt T-wave alternans, heart rate turbulence, HRV, hysteresis, AF burden, hourly trends,
-and autonomic risk triage.
+Orchestrates beat classification, repolarization interval calculations, FDA CiPA sub-intervals,
+Poincaré STV_QT/LTV_QT, 3D SVD T-wave morphology, Butterfly median beat synthesis, spatial QT
+dispersion, microvolt T-wave alternans, heart rate turbulence, HRV, hysteresis, AF burden,
+hourly trends, and autonomic risk triage.
 """
 
 from __future__ import annotations
@@ -23,9 +24,17 @@ from repolaris.detection.hysteresis import (
     optimize_hysteresis_parameter,
 )
 from repolaris.detection.pipeline import analyze_ecg, analyze_ecg_stream
-from repolaris.detection.pulse_metrics import compute_qtc
+from repolaris.detection.pulse_metrics import (
+    compute_cipa_metrics,
+    compute_qtc,
+    compute_stv_qt,
+)
 from repolaris.detection.qtrr import fit_all_qtrr_models
 from repolaris.detection.sqi import rank_leads_two_stage
+from repolaris.detection.t_morphology import (
+    compute_superimposed_median_beat,
+    compute_t_wave_morphology,
+)
 from repolaris.detection.trends import generate_hourly_trends
 from repolaris.detection.twa import compute_mma_twa, compute_spectral_twa
 
@@ -56,6 +65,71 @@ class AnalysisAPI:
     def calculate_qtc(raw_qt_sec: float, rr_sec: float) -> dict[str, float]:
         """Calculates Bazett, Fridericia, Framingham, and Hodges rate-corrected QTc intervals in ms."""
         return compute_qtc(raw_qt_sec, rr_sec)
+
+    @staticmethod
+    def calculate_cipa_subintervals(
+        q_onset_sample: int,
+        j_point_sample: int,
+        t_peak_sample: int,
+        t_end_sample: int,
+        fs: float,
+        rr_sec: float,
+    ) -> dict[str, float]:
+        """Calculates FDA CiPA J-Tpeak, J-Tpeakc (Johannesen 0.58), Tpe, and Tpe/QT ratio."""
+        return compute_cipa_metrics(
+            q_onset_sample,
+            j_point_sample,
+            t_peak_sample,
+            t_end_sample,
+            fs,
+            rr_sec,
+        )
+
+    @staticmethod
+    def analyze_stv_qt(
+        qt_intervals_ms: np.ndarray | list[float],
+        beat_classes: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Computes Poincaré Short-Term (STV_QT) and Long-Term (LTV_QT) QT variability metrics."""
+        return compute_stv_qt(qt_intervals_ms, beat_classes=beat_classes)
+
+    @staticmethod
+    def analyze_t_morphology(
+        signal: np.ndarray,
+        fs: float = 500.0,
+        r_peaks: np.ndarray | None = None,
+        beats: list[dict[str, Any]] | None = None,
+        multi_lead_signals: np.ndarray | dict[str, np.ndarray] | None = None,
+        lead_names: list[str] | None = None,
+        config: DetectionConfig | None = None,
+    ) -> dict[str, Any]:
+        """Computes T-wave morphology, 3D SVD/PCA loop descriptors (T2/T1, TCRT), and Butterfly median beat."""
+        return compute_t_wave_morphology(
+            signal,
+            fs=fs,
+            r_peaks=r_peaks,
+            beats=beats,
+            multi_lead_signals=multi_lead_signals,
+            lead_names=lead_names,
+            config=config,
+        )
+
+    @staticmethod
+    def compute_butterfly_median_beat(
+        lead_signals: np.ndarray | dict[str, np.ndarray],
+        fs: float = 500.0,
+        r_peaks: np.ndarray | None = None,
+        lead_names: list[str] | None = None,
+        config: DetectionConfig | None = None,
+    ) -> dict[str, Any]:
+        """Computes the R-peak aligned Superimposed Multi-Lead Butterfly Median Beat & global calipers."""
+        return compute_superimposed_median_beat(
+            lead_signals,
+            fs=fs,
+            r_peaks=r_peaks,
+            lead_names=lead_names,
+            config=config,
+        )
 
     @staticmethod
     def evaluate_qtrr_models(

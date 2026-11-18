@@ -913,6 +913,27 @@
                 <number>8</number>
                </property>
                <item>
+                <widget class="QLabel" name="lbl_adv_cipa">
+                 <property name="text">
+                  <string>FDA CiPA (J-Tpeakc / Tpe / Tpe:QT): --</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLabel" name="lbl_adv_stv">
+                 <property name="text">
+                  <string>Poincaré QT Variability (STV_QT / LTV_QT): --</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLabel" name="lbl_adv_tmorph">
+                 <property name="text">
+                  <string>T-Wave Morphology &amp; 3D SVD (T2/T1 / TCRT): --</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
                 <widget class="QLabel" name="lbl_adv_qtvi">
                  <property name="text">
                   <string>QT Variability Index (QTVI): --</string>
@@ -1131,6 +1152,26 @@
             </item>
             <item>
              <widget class="QTableWidget" name="holter_hourly_table"/>
+            </item>
+           </layout>
+          </widget>
+          <widget class="QWidget" name="tab_butterfly">
+           <attribute name="title">
+            <string>Butterfly &amp; T-PCA</string>
+           </attribute>
+           <layout class="QVBoxLayout" name="butterfly_layout">
+            <item>
+             <widget class="QLabel" name="lbl_butterfly_banner">
+              <property name="text">
+               <string>Superimposed Multi-Lead Butterfly Median Beat: Ready</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="PlotWidget" name="butterfly_plot_widget" native="true"/>
+            </item>
+            <item>
+             <widget class="QTableWidget" name="butterfly_table"/>
             </item>
            </layout>
           </widget>

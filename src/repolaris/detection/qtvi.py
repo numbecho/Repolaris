@@ -1,14 +1,21 @@
-"""QT Variability Index (QTVI) and Berger HRV Resampling module.
+"""QT Variability Index (QTVI), Poincaré STV_QT/LTV_QT, and Berger HRV Resampling module.
 
-Implements the classical algorithm for spectral heart rate variability resampling
-(Berger et al., IEEE TBME 1986) and the QT Variability Index (QTVI) measurement
-for non-invasive cardiac repolarization lability assessment (Berger et al.,
-Circulation 1997).
+Implements:
+1. Spectral heart rate variability resampling (Berger et al., IEEE TBME 1986).
+2. Classical QT Variability Index (QTVI) for non-invasive cardiac repolarization lability
+   assessment (Berger et al., Circulation 1997).
+3. Beat-to-beat Poincaré Short-Term Variability (STV_QT) and Long-Term Variability (LTV_QT)
+   of the QT interval for Torsades de Pointes proarrhythmic risk stratification
+   (Thomsen et al., Circulation 2004).
 """
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
+
+from repolaris.detection.pulse_metrics import compute_stv_qt
 
 
 def resample_berger(
@@ -74,7 +81,7 @@ def resample_berger(
     # Forward/backward fill zeros
     if np.any(valid):
         first_val = resampled[valid][0]
-        resampled[:np.argmax(valid)] = first_val
+        resampled[: np.argmax(valid)] = first_val
         for idx in range(len(resampled)):
             if resampled[idx] == 0:
                 resampled[idx] = resampled[idx - 1] if idx > 0 else first_val
@@ -137,6 +144,14 @@ def compute_qtvi(
         return -12.0
 
     return float(np.log10(ratio))
+
+
+def compute_qt_variability_poincare(
+    qt_intervals_ms: np.ndarray | list[float],
+    beat_classes: list[str] | None = None,
+) -> dict[str, Any]:
+    """Computes Poincaré Short-Term (STV_QT) and Long-Term (LTV_QT) QT variability metrics."""
+    return compute_stv_qt(qt_intervals_ms, beat_classes=beat_classes)
 
 
 def optimize_alpha(

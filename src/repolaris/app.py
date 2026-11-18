@@ -28,7 +28,10 @@ from repolaris.api import AnalysisAPI, ExportAPI, StudyAPI
 from repolaris.config import DetectionConfig, ECGConfig, FilterConfig
 from repolaris.detection.annotations import AnnotationManager
 from repolaris.detection.classifier import BeatClass, detect_rhythm_patterns
-from repolaris.detection.pulse_metrics import summarize_beats
+from repolaris.detection.pulse_metrics import compute_cipa_metrics, compute_stv_qt, summarize_beats
+from repolaris.detection.q_onset import detect_j_point, detect_q_onset
+from repolaris.detection.t_end import detect_t_end
+from repolaris.detection.t_morphology import evaluate_beat_t_morphology
 from repolaris.detection.qtrr import QTRR_MODEL_METADATA, SUPPORTED_QTRR_MODELS
 from repolaris.i18n import SUPPORTED_LANGUAGES, get_current_locale, set_locale, tr
 
@@ -1949,6 +1952,9 @@ class MainWindow(QMainWindow):
         self.adv_group = QGroupBox(tr("adv_group_title"))
         adv_layout = QVBoxLayout(self.adv_group)
         adv_layout.setSpacing(4)
+        self.lbl_adv_cipa = QLabel(tr("adv_cipa_na", val="--"))
+        self.lbl_adv_stv = QLabel(tr("adv_stv_na", val="--"))
+        self.lbl_adv_tmorph = QLabel(tr("adv_tmorph_na", val="--"))
         self.lbl_adv_qtvi = QLabel(tr("adv_qtvi", val="--"))
         self.lbl_adv_qtrr = QLabel(tr("adv_qtrr", val="--"))
         self.lbl_adv_hyst = QLabel(tr("adv_hyst_na", val="--"))
@@ -1957,6 +1963,9 @@ class MainWindow(QMainWindow):
         self.lbl_adv_twa = QLabel(tr("adv_twa_na", val="--"))
         self.lbl_adv_total = QLabel(tr("adv_total_cycles", count="--"))
         for lbl in (
+            self.lbl_adv_cipa,
+            self.lbl_adv_stv,
+            self.lbl_adv_tmorph,
             self.lbl_adv_qtvi,
             self.lbl_adv_qtrr,
             self.lbl_adv_hyst,
@@ -2166,7 +2175,81 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(holter_tab, tr("tab_holter"))
 
         # -----------------------------------------------------------------
-        # TAB 5: STUDY & PATIENT METADATA (Demographics & Clinical Context) - LAST TAB
+        # TAB 6: SUPERIMPOSED MULTI-LEAD "BUTTERFLY" MEDIAN BEAT & T-WAVE PCA
+        # -----------------------------------------------------------------
+        self.tab_butterfly = QWidget()
+        bf_layout = QVBoxLayout(self.tab_butterfly)
+        bf_layout.setContentsMargins(8, 8, 8, 8)
+        bf_layout.setSpacing(6)
+
+        self.lbl_butterfly_banner = QLabel(tr("butterfly_banner_ready"))
+        self.lbl_butterfly_banner.setWordWrap(True)
+        self.lbl_butterfly_banner.setStyleSheet(
+            "background-color: #1a1e2e; border: 1px solid #2e3650; border-radius: 6px; "
+            "padding: 6px 8px; font-size: 8.5pt; color: #e2e8f0;"
+        )
+        bf_layout.addWidget(self.lbl_butterfly_banner)
+
+        self.butterfly_plot_widget = pg.PlotWidget()
+        self.butterfly_plot_widget.setBackground("#13151f")
+        self.butterfly_plot_widget.showGrid(x=True, y=True, alpha=0.22)
+        self.butterfly_plot_widget.setLabel("bottom", tr("butterfly_axis_time"))
+        self.butterfly_plot_widget.setLabel("left", tr("butterfly_axis_volt"))
+        self.butterfly_plot_widget.setMinimumHeight(215)
+        self.butterfly_lead_curves: list[Any] = []
+        self.butterfly_rms_curve = self.butterfly_plot_widget.plot(
+            [], [], pen=pg.mkPen("#f8fafc", width=2.6), name="Spatial RMS"
+        )
+        self.bf_q_line = pg.InfiniteLine(
+            pos=-40.0, angle=90, movable=True,
+            pen=pg.mkPen(color="#fbbf24", width=2.0, style=Qt.PenStyle.DashLine),
+            label="Global Q: {value:.1f}ms",
+            labelOpts={"position": 0.90, "color": "#fbbf24", "fill": (26, 30, 44, 220)},
+        )
+        self.bf_j_line = pg.InfiniteLine(
+            pos=40.0, angle=90, movable=True,
+            pen=pg.mkPen(color="#34d399", width=1.8, style=Qt.PenStyle.DotLine),
+            label="Global J: {value:.1f}ms",
+            labelOpts={"position": 0.76, "color": "#34d399", "fill": (26, 30, 44, 220)},
+        )
+        self.bf_tp_line = pg.InfiniteLine(
+            pos=240.0, angle=90, movable=True,
+            pen=pg.mkPen(color="#38bdf8", width=1.8, style=Qt.PenStyle.DotLine),
+            label="T-Peak: {value:.1f}ms",
+            labelOpts={"position": 0.62, "color": "#38bdf8", "fill": (26, 30, 44, 220)},
+        )
+        self.bf_te_line = pg.InfiniteLine(
+            pos=360.0, angle=90, movable=True,
+            pen=pg.mkPen(color="#e879f9", width=2.0, style=Qt.PenStyle.DashLine),
+            label="Global T-End: {value:.1f}ms",
+            labelOpts={"position": 0.48, "color": "#e879f9", "fill": (26, 30, 44, 220)},
+        )
+        for bf_ln in (self.bf_q_line, self.bf_j_line, self.bf_tp_line, self.bf_te_line):
+            self.butterfly_plot_widget.addItem(bf_ln)
+            bf_ln.sigPositionChanged.connect(self._on_butterfly_caliper_moved)
+        bf_layout.addWidget(self.butterfly_plot_widget, stretch=1)
+
+        self.butterfly_table = QTableWidget(0, 8)
+        self.butterfly_table.setHorizontalHeaderLabels([
+            tr("butterfly_hdr_lead"),
+            tr("butterfly_hdr_q_ms"),
+            tr("butterfly_hdr_j_ms"),
+            tr("butterfly_hdr_tp_ms"),
+            tr("butterfly_hdr_te_ms"),
+            tr("butterfly_hdr_qt_ms"),
+            tr("butterfly_hdr_tpe_ms"),
+            tr("butterfly_hdr_morph"),
+        ])
+        self.butterfly_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.butterfly_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.butterfly_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.butterfly_table.setMinimumHeight(140)
+        bf_layout.addWidget(self.butterfly_table)
+
+        self.tabs.addTab(self.tab_butterfly, tr("tab_butterfly"))
+
+        # -----------------------------------------------------------------
+        # TAB 7: STUDY & PATIENT METADATA (Demographics & Clinical Context) - LAST TAB
         # -----------------------------------------------------------------
         metadata_tab = QWidget()
         meta_layout = QVBoxLayout(metadata_tab)
@@ -2333,6 +2416,15 @@ class MainWindow(QMainWindow):
             self.holter_trends_table.setRowCount(0)
         if hasattr(self, "holter_af_table"):
             self.holter_af_table.setRowCount(0)
+        if hasattr(self, "butterfly_table"):
+            self.butterfly_table.setRowCount(0)
+        if hasattr(self, "butterfly_rms_curve"):
+            self.butterfly_rms_curve.clear()
+        for lc in getattr(self, "butterfly_lead_curves", []):
+            with contextlib.suppress(Exception):
+                self.butterfly_plot_widget.removeItem(lc)
+        if hasattr(self, "butterfly_lead_curves"):
+            self.butterfly_lead_curves.clear()
 
         # Clear lead dropdown
         self.combo_leads.blockSignals(True)
@@ -2340,6 +2432,12 @@ class MainWindow(QMainWindow):
         self.combo_leads.blockSignals(False)
 
         # Reset advanced group
+        if hasattr(self, "lbl_adv_cipa"):
+            self.lbl_adv_cipa.setText(tr("adv_cipa_na", val="--"))
+        if hasattr(self, "lbl_adv_stv"):
+            self.lbl_adv_stv.setText(tr("adv_stv_na", val="--"))
+        if hasattr(self, "lbl_adv_tmorph"):
+            self.lbl_adv_tmorph.setText(tr("adv_tmorph_na", val="--"))
         self.lbl_adv_qtvi.setText(tr("adv_qtvi", val="--"))
         self.lbl_adv_qtrr.setText(tr("adv_qtrr", val="--"))
         self.lbl_adv_hyst.setText(tr("adv_hyst_na", val="--"))
@@ -2665,7 +2763,12 @@ class MainWindow(QMainWindow):
         self.tabs.setTabText(0, tr("tab_overview"))
         self.tabs.setTabText(1, tr("tab_events"))
         self.tabs.setTabText(2, tr("tab_beats"))
-        if self.tabs.count() >= 6:
+        if self.tabs.count() >= 7:
+            self.tabs.setTabText(3, tr("tab_qtrr"))
+            self.tabs.setTabText(4, tr("tab_holter"))
+            self.tabs.setTabText(5, tr("tab_butterfly"))
+            self.tabs.setTabText(6, tr("tab_metadata"))
+        elif self.tabs.count() >= 6:
             self.tabs.setTabText(3, tr("tab_qtrr"))
             self.tabs.setTabText(4, tr("tab_holter"))
             self.tabs.setTabText(5, tr("tab_metadata"))
@@ -2740,12 +2843,34 @@ class MainWindow(QMainWindow):
             tr("hdr_qtc"),
         ])
 
+        if hasattr(self, "butterfly_table"):
+            self.butterfly_plot_widget.setLabel("bottom", tr("butterfly_axis_time"))
+            self.butterfly_plot_widget.setLabel("left", tr("butterfly_axis_volt"))
+            self.butterfly_table.setHorizontalHeaderLabels([
+                tr("butterfly_hdr_lead"),
+                tr("butterfly_hdr_q_ms"),
+                tr("butterfly_hdr_j_ms"),
+                tr("butterfly_hdr_tp_ms"),
+                tr("butterfly_hdr_te_ms"),
+                tr("butterfly_hdr_qt_ms"),
+                tr("butterfly_hdr_tpe_ms"),
+                tr("butterfly_hdr_morph"),
+            ])
+
         # Re-render current metric evaluations or fallback placeholders
         if self.analysis_results:
             self._update_cards_and_tables()
         else:
             if hasattr(self, "card_qtd"):
                 self.card_qtd.sub_lbl.setText(tr("qtd_sub_single"))
+            if hasattr(self, "lbl_adv_cipa"):
+                self.lbl_adv_cipa.setText(tr("adv_cipa_na", val="--"))
+            if hasattr(self, "lbl_adv_stv"):
+                self.lbl_adv_stv.setText(tr("adv_stv_na", val="--"))
+            if hasattr(self, "lbl_adv_tmorph"):
+                self.lbl_adv_tmorph.setText(tr("adv_tmorph_na", val="--"))
+            if hasattr(self, "lbl_butterfly_banner"):
+                self.lbl_butterfly_banner.setText(tr("butterfly_banner_ready"))
             self.lbl_adv_qtvi.setText(tr("adv_qtvi", val="--"))
             self.lbl_adv_qtrr.setText(tr("adv_qtrr", val="--"))
             self.lbl_adv_hyst.setText(tr("adv_hyst_na", val="--"))
@@ -3198,7 +3323,51 @@ class MainWindow(QMainWindow):
             else:
                 self._evaluate_channel_capabilities()
 
-        # 5. Advanced Repolarization section
+        # 5. Advanced Repolarization section (FDA CiPA, Poincaré STV_QT, 3D SVD T-Morphology, QTVI, Restitution)
+        if hasattr(self, "lbl_adv_cipa"):
+            jtpc_mean = float(summary.get("mean_jt_peak_c_ms", 0.0))
+            tpe_mean = float(summary.get("mean_tpe_ms", 0.0))
+            tpe_ratio_mean = float(summary.get("mean_tpe_qt_ratio", 0.0))
+            if jtpc_mean > 0 or tpe_mean > 0:
+                self.lbl_adv_cipa.setText(
+                    tr("adv_cipa", jtpc=jtpc_mean, tpe=tpe_mean, ratio=tpe_ratio_mean)
+                )
+            else:
+                self.lbl_adv_cipa.setText(tr("adv_cipa_na", val="N/A"))
+
+        stv_res = self.analysis_results.get("stv_qt") or {}
+        if hasattr(self, "lbl_adv_stv"):
+            stv_val = float(stv_res.get("stv_qt_ms", summary.get("stv_qt_ms", 0.0)))
+            ltv_val = float(stv_res.get("ltv_qt_ms", summary.get("ltv_qt_ms", 0.0)))
+            stv_risk = str(stv_res.get("risk_category", summary.get("stv_risk_category", "NORMAL")))
+            if stv_res.get("beats_used", len(beats)) >= 2:
+                self.lbl_adv_stv.setText(
+                    tr("adv_stv", stv=stv_val, ltv=ltv_val, risk=stv_risk)
+                )
+            else:
+                self.lbl_adv_stv.setText(tr("adv_stv_na", val="N/A"))
+
+        tmorph_res = self.analysis_results.get("t_morphology") or {}
+        if hasattr(self, "lbl_adv_tmorph"):
+            if tmorph_res:
+                svd_3d = tmorph_res.get("svd_3d") or {}
+                t2t1_v = svd_3d.get("t2_t1_ratio")
+                tcrt_v = svd_3d.get("tcrt")
+                t2t1_s = f"{t2t1_v:.3f}" if t2t1_v is not None else "1L"
+                tcrt_s = f"{tcrt_v:.2f}" if tcrt_v is not None else "1L"
+                self.lbl_adv_tmorph.setText(
+                    tr(
+                        "adv_tmorph",
+                        asym=float(tmorph_res.get("mean_asymmetry_ratio", 1.0)),
+                        flat=float(tmorph_res.get("mean_flatness_score", 0.0)),
+                        t2t1=t2t1_s,
+                        tcrt=tcrt_s,
+                        verdict=str(tmorph_res.get("verdict", "NORMAL")),
+                    )
+                )
+            else:
+                self.lbl_adv_tmorph.setText(tr("adv_tmorph_na", val="N/A"))
+
         if qtvi is not None:
             self.lbl_adv_qtvi.setText(tr("adv_qtvi", val=f"{qtvi:.2f}"))
         else:
@@ -3321,6 +3490,9 @@ class MainWindow(QMainWindow):
 
         # Populate Holter Triage Tab (Hourly Trends & AF Episodes)
         self._update_holter_triage_tab()
+
+        # Populate Superimposed Multi-Lead Butterfly Median Beat & T-PCA Tab
+        self._update_butterfly_visualization()
 
         # Populate Study & Patient Metadata Tab (meta_table_a & meta_table_b)
         self._populate_metadata_tables()
@@ -3671,10 +3843,40 @@ class MainWindow(QMainWindow):
                 beat["qt_ms"] = float(qt_ms)
                 beat["qtc"] = qtc
 
+                j_samp = int(beat.get("j_point_sample", beat["r_peak_sample"] + int(0.04 * self.fs)))
+                tp_samp = int(beat.get("t_peak_sample", (j_samp + t_samp) // 2))
+                cipa = compute_cipa_metrics(q_samp, j_samp, tp_samp, t_samp, self.fs, rr_val)
+                beat["jt_peak_ms"] = float(cipa["jt_peak_ms"])
+                beat["jt_peak_c_ms"] = float(cipa["jt_peak_c_ms"])
+                beat["tpe_ms"] = float(cipa["tpe_ms"])
+                beat["tpe_qt_ratio"] = float(cipa["tpe_qt_ratio"])
+
                 ect_keep = self.analysis_results.get("ectopic_summary", {})
                 new_sum = summarize_beats(beats)
                 new_sum["ectopic_summary"] = ect_keep
                 self.analysis_results["summary"] = new_sum
+                self.analysis_results["stv_qt"] = compute_stv_qt(
+                    [float(b.get("qt_ms", 0.0)) for b in beats],
+                    beat_classes=[str(b.get("beat_class", "N")) for b in beats],
+                )
+                if hasattr(self, "lbl_adv_cipa"):
+                    self.lbl_adv_cipa.setText(
+                        tr(
+                            "adv_cipa",
+                            jtpc=new_sum.get("mean_jt_peak_c_ms", 0.0),
+                            tpe=new_sum.get("mean_tpe_ms", 0.0),
+                            ratio=new_sum.get("mean_tpe_qt_ratio", 0.0),
+                        )
+                    )
+                if hasattr(self, "lbl_adv_stv"):
+                    self.lbl_adv_stv.setText(
+                        tr(
+                            "adv_stv",
+                            stv=new_sum.get("stv_qt_ms", 0.0),
+                            ltv=new_sum.get("ltv_qt_ms", 0.0),
+                            risk=new_sum.get("stv_risk_category", "NORMAL"),
+                        )
+                    )
 
                 self.beat_table.setItem(self.current_beat_index, 6, QTableWidgetItem(f"{qt_ms:.0f}"))
                 self.beat_table.setItem(self.current_beat_index, 7, QTableWidgetItem(f"{qtc['bazett_ms']:.0f}"))
@@ -3881,6 +4083,181 @@ class MainWindow(QMainWindow):
         if 0 <= row < len(episodes):
             t_start = float(episodes[row].get("start_time_sec", 0.0))
             self.ecg_plot.plot_widget.setXRange(t_start, t_start + 10.0, padding=0)
+
+    def _update_butterfly_visualization(self) -> None:
+        """Renders the Superimposed Multi-Lead Butterfly Median Beat, RMS vector curve, and global calipers."""
+        if not self.analysis_results or not hasattr(self, "butterfly_plot_widget"):
+            return
+
+        tmorph = self.analysis_results.get("t_morphology") or {}
+        bf = self.analysis_results.get("butterfly") or tmorph.get("butterfly")
+        if not bf and self.signal_data is not None:
+            leads_in = self.multi_lead_signals if self.multi_lead_signals else {self.current_lead_name: self.signal_data}
+            bf = AnalysisAPI.compute_butterfly_median_beat(
+                leads_in,
+                fs=self.fs,
+                r_peaks=self.analysis_results.get("r_peaks"),
+            )
+            self.analysis_results["butterfly"] = bf
+
+        if not bf:
+            return
+
+        time_ms = np.asarray(bf.get("time_rel_ms", []), dtype=np.float64)
+        lead_medians: dict[str, np.ndarray] = bf.get("lead_medians", {})
+        rms_sig = np.asarray(bf.get("rms_signal", []), dtype=np.float64)
+
+        for lc in getattr(self, "butterfly_lead_curves", []):
+            with contextlib.suppress(Exception):
+                self.butterfly_plot_widget.removeItem(lc)
+        self.butterfly_lead_curves.clear()
+
+        palette = ["#38bdf8", "#34d399", "#fbbf24", "#f87171", "#c084fc", "#fb923c", "#a3e635", "#2dd4bf"]
+        for idx, (_lname, ltrace) in enumerate(lead_medians.items()):
+            col = palette[idx % len(palette)]
+            curve = self.butterfly_plot_widget.plot(
+                time_ms,
+                np.asarray(ltrace, dtype=np.float64),
+                pen=pg.mkPen(color=col, width=1.4),
+            )
+            self.butterfly_lead_curves.append(curve)
+
+        if len(time_ms) == len(rms_sig) and len(time_ms) > 0:
+            self.butterfly_rms_curve.setData(time_ms, rms_sig)
+
+        q_ms = float(bf.get("global_q_onset_ms", -40.0))
+        j_ms = float(bf.get("global_j_point_ms", 40.0))
+        tp_ms = float(bf.get("global_t_peak_ms", 240.0))
+        te_ms = float(bf.get("global_t_end_ms", 360.0))
+
+        for ln, val in (
+            (self.bf_q_line, q_ms),
+            (self.bf_j_line, j_ms),
+            (self.bf_tp_line, tp_ms),
+            (self.bf_te_line, te_ms),
+        ):
+            ln.blockSignals(True)
+            ln.setValue(val)
+            ln.blockSignals(False)
+
+        self._refresh_butterfly_banner_and_table(q_ms, j_ms, tp_ms, te_ms)
+
+    def _on_butterfly_caliper_moved(self) -> None:
+        """Recalculates global QT, J-Tpeak, Tpe, and Tpe/QT when Butterfly median calipers are dragged."""
+        if not self.analysis_results or not hasattr(self, "bf_q_line"):
+            return
+        q_ms = float(self.bf_q_line.value())
+        j_ms = float(self.bf_j_line.value())
+        tp_ms = float(self.bf_tp_line.value())
+        te_ms = float(self.bf_te_line.value())
+
+        bf = self.analysis_results.get("butterfly")
+        if isinstance(bf, dict):
+            bf["global_q_onset_ms"] = round(q_ms, 2)
+            bf["global_j_point_ms"] = round(j_ms, 2)
+            bf["global_t_peak_ms"] = round(tp_ms, 2)
+            bf["global_t_end_ms"] = round(te_ms, 2)
+            bf["global_qt_ms"] = round(max(0.0, te_ms - q_ms), 2)
+            bf["global_jt_peak_ms"] = round(max(0.0, tp_ms - j_ms), 2)
+            bf["global_tpe_ms"] = round(max(0.0, te_ms - tp_ms), 2)
+            bf["global_tpe_qt_ratio"] = round(
+                bf["global_tpe_ms"] / bf["global_qt_ms"] if bf["global_qt_ms"] > 1e-6 else 0.0,
+                4,
+            )
+
+        self._refresh_butterfly_banner_and_table(q_ms, j_ms, tp_ms, te_ms)
+
+    def _refresh_butterfly_banner_and_table(
+        self,
+        q_ms: float,
+        j_ms: float,
+        tp_ms: float,
+        te_ms: float,
+    ) -> None:
+        """Updates the Butterfly summary banner and 8-column lead/global fiducial table."""
+        if not self.analysis_results or not hasattr(self, "butterfly_table"):
+            return
+        tmorph = self.analysis_results.get("t_morphology") or {}
+        bf = self.analysis_results.get("butterfly") or tmorph.get("butterfly") or {}
+        svd_3d = tmorph.get("svd_3d") or {}
+
+        lead_medians: dict[str, np.ndarray] = bf.get("lead_medians", {})
+        n_leads = len(lead_medians)
+        n_beats = int(bf.get("beats_averaged", len(self.analysis_results.get("beats", []))))
+
+        qt_ms = max(0.0, te_ms - q_ms)
+        jtp_ms = max(0.0, tp_ms - j_ms)
+        tpe_ms = max(0.0, te_ms - tp_ms)
+        ratio = tpe_ms / qt_ms if qt_ms > 1e-6 else 0.0
+
+        t2t1_v = svd_3d.get("t2_t1_ratio")
+        tcrt_v = svd_3d.get("tcrt")
+        t2t1_s = f"{t2t1_v:.3f}" if t2t1_v is not None else "1L"
+        tcrt_s = f"{tcrt_v:.2f}" if tcrt_v is not None else "1L"
+
+        self.lbl_butterfly_banner.setText(
+            tr(
+                "butterfly_banner_fmt",
+                leads=n_leads,
+                beats=n_beats,
+                qt=qt_ms,
+                jtp=jtp_ms,
+                tpe=tpe_ms,
+                ratio=ratio,
+                t2t1=t2t1_s,
+                tcrt=tcrt_s,
+            )
+        )
+
+        rows_data: list[tuple[str, str, str, str, str, str, str, str]] = [
+            (
+                "GLOBAL BUTTERFLY",
+                f"{q_ms:.1f}",
+                f"{j_ms:.1f}",
+                f"{tp_ms:.1f}",
+                f"{te_ms:.1f}",
+                f"{qt_ms:.1f}",
+                f"{tpe_ms:.1f}",
+                f"T2/T1={t2t1_s} | TCRT={tcrt_s}",
+            )
+        ]
+
+        pre_samp = int(bf.get("r_anchor_sample", int(0.200 * self.fs)))
+        for lname, ltrace in lead_medians.items():
+            arr = np.asarray(ltrace, dtype=np.float64)
+            if len(arr) > pre_samp + 5 and float(np.std(arr)) > 1e-5:
+                lq = detect_q_onset(arr, pre_samp, self.fs)
+                lj = detect_j_point(arr, pre_samp, self.fs)
+                ltp, lte = detect_t_end(arr, pre_samp, self.fs, method=self.current_t_end_method)
+                lm = evaluate_beat_t_morphology(arr, lj, ltp, lte, self.fs)
+
+                lq_ms = (lq - pre_samp) / self.fs * 1000.0
+                lj_ms = (lj - pre_samp) / self.fs * 1000.0
+                ltp_ms = (ltp - pre_samp) / self.fs * 1000.0
+                lte_ms = (lte - pre_samp) / self.fs * 1000.0
+                lqt_ms = max(0.0, lte_ms - lq_ms)
+                ltpe_ms = max(0.0, lte_ms - ltp_ms)
+                m_tag = f"Asym={lm['asymmetry_ratio']:.2f}, Flat={lm['flatness_score']:.2f}"
+                if lm["is_notched"]:
+                    m_tag += " [NOTCH]"
+                rows_data.append((
+                    lname,
+                    f"{lq_ms:.1f}",
+                    f"{lj_ms:.1f}",
+                    f"{ltp_ms:.1f}",
+                    f"{lte_ms:.1f}",
+                    f"{lqt_ms:.1f}",
+                    f"{ltpe_ms:.1f}",
+                    m_tag,
+                ))
+
+        self.butterfly_table.setRowCount(len(rows_data))
+        for r_idx, r_vals in enumerate(rows_data):
+            row_col = QColor("#38bdf8") if r_idx == 0 else QColor("#cbd5e1")
+            for c_idx, cell_txt in enumerate(r_vals):
+                it = QTableWidgetItem(cell_txt)
+                it.setForeground(row_col)
+                self.butterfly_table.setItem(r_idx, c_idx, it)
 
     def _export_pdf_dialog(self) -> None:
         """Exports a printable multi-page clinical PDF report of the active study."""

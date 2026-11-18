@@ -4,15 +4,15 @@ Coordinates end-to-end processing of electrocardiogram recordings:
 1. Signal conditioning (IIR Q=30 notch filter, 0.05-45 Hz Butterworth bandpass & two-stage median baseline removal).
 2. Two-Stage Signal Quality Index (SQI) evaluation (Stage 1 Li et al. 2014 absolute gates + Stage 2 6-index pairwise voting).
 3. QRS complex identification and R-peak localization.
-4. Ventricular repolarization segmentation (Q-onset and hybrid/tangent/Zhang-2006-area/threshold T-end fiducials).
-5. Rate-corrected QT computation (Bazett, Fridericia, Framingham, Hodges formulas).
+4. Ventricular repolarization segmentation (Q-onset, J-point, and hybrid/tangent/Zhang-2006-area/threshold T-end fiducials).
+5. Rate-corrected QT computation (Bazett, Fridericia, Framingham, Hodges formulas) & FDA CiPA sub-intervals (J-Tpeakc, Tpe, Tpe/QT).
 6. AAMI EC57 & Patrick Hamilton (2002) OSEA abnormal beat classification (Normal, PVC, PAC, Fusion, Unknown).
 7. Repetitive ectopic rhythm sequence detection (Bigeminy, Trigeminy, Couplets, VT runs).
 8. Clinical events diary auto-detection (Critical QTc, Pauses, Tachycardia, Bradycardia, PVCs).
-9. Berger QT Variability Index (QTVI) repolarization lability assessment.
+9. Berger QT Variability Index (QTVI) & Poincaré Short-Term/Long-Term QT Variability (STV_QT / LTV_QT).
 10. Domain-guarded 10-model QT-RR restitution curve modeling (Pueyo et al., 2004) with EW/LW hysteresis compensation.
 11. Unified annotation manager integration.
-12. Autonomic & Spatial Repolarization Suite (HRV, HRT, TWA, Hysteresis, Multi-Lead QTd).
+12. Autonomic & Spatial Repolarization Suite (HRV, HRT, TWA, Hysteresis, Multi-Lead QTd, 3D SVD T-Wave Morphology & Butterfly Median Beat).
 13. Atrial Fibrillation / Flutter burden & episode detection (repolaris.detection.af_detector).
 14. Hourly Arrhythmia Trend Histograms & Holter Summary (repolaris.detection.trends).
 15. Out-of-Core Streaming Holter Engine (analyze_ecg_stream).
@@ -39,18 +39,26 @@ from repolaris.detection.hysteresis import (
     compute_effective_rr_linear,
     optimize_hysteresis_parameter,
 )
-from repolaris.detection.pulse_metrics import compute_qtc, summarize_beats
-from repolaris.detection.q_onset import detect_q_onset
+from repolaris.detection.pulse_metrics import (
+    compute_cipa_metrics,
+    compute_qtc,
+    compute_stv_qt,
+    summarize_beats,
+)
+from repolaris.detection.q_onset import detect_j_point, detect_q_onset
 from repolaris.detection.qrs import detect_r_peaks
 from repolaris.detection.qtrr import fit_all_qtrr_models
 from repolaris.detection.qtvi import compute_qtvi
 from repolaris.detection.sqi import evaluate_lead_quality, rank_leads_two_stage
 from repolaris.detection.t_end import detect_t_end
+from repolaris.detection.t_morphology import (
+    compute_t_wave_morphology,
+    evaluate_beat_t_morphology,
+)
 from repolaris.detection.trends import generate_hourly_trends
 from repolaris.detection.twa import compute_mma_twa, compute_spectral_twa
 from repolaris.preprocessing.baseline import remove_baseline_wander
 from repolaris.preprocessing.filter import bandpass_filter, notch_filter
-
 
 
 def _compute_repolarization_dynamics(
@@ -200,6 +208,7 @@ def analyze_ecg(
 
     for i, r_idx in enumerate(r_peaks):
         q_idx = detect_q_onset(clean_signal, r_idx, fs, config.detection_cfg.q_search_window_ms)
+        j_idx = detect_j_point(clean_signal, r_idx, fs, config.detection_cfg.q_search_window_ms)
         t_peak_idx, t_end_idx = detect_t_end(
             clean_signal,
             r_idx,
@@ -214,6 +223,9 @@ def analyze_ecg(
         qt = (t_end_idx - q_idx) / fs
         hr = 60.0 / rr if rr > 0 else np.nan
 
+        cipa = compute_cipa_metrics(q_idx, j_idx, t_peak_idx, t_end_idx, fs, rr)
+        t_morph = evaluate_beat_t_morphology(clean_signal, j_idx, t_peak_idx, t_end_idx, fs)
+
         rr_list.append(rr)
         qt_list.append(qt)
 
@@ -222,12 +234,21 @@ def analyze_ecg(
             "r_peak_sample": int(r_idx),
             "time_sec": float(r_idx / fs),
             "q_onset_sample": int(q_idx),
+            "j_point_sample": int(j_idx),
             "t_peak_sample": int(t_peak_idx),
             "t_end_sample": int(t_end_idx),
             "rr_sec": float(rr),
             "hr_bpm": float(hr),
             "qt_sec": float(qt),
             "qt_ms": float(qt * 1000.0),
+            "jt_peak_ms": float(cipa["jt_peak_ms"]),
+            "jt_peak_c_ms": float(cipa["jt_peak_c_ms"]),
+            "tpe_ms": float(cipa["tpe_ms"]),
+            "tpe_qt_ratio": float(cipa["tpe_qt_ratio"]),
+            "t_asymmetry_ratio": float(t_morph["asymmetry_ratio"]),
+            "t_flatness_score": float(t_morph["flatness_score"]),
+            "t_is_notched": bool(t_morph["is_notched"]),
+            "t_is_biphasic": bool(t_morph["is_biphasic"]),
             "qtc": compute_qtc(qt, rr) if rr > 0 else {},
         })
 
@@ -287,10 +308,20 @@ def analyze_ecg(
     )
 
     if progress_callback:
-        progress_callback(0.92, "Assessing repolarization lability & autonomic metrics...")
+        progress_callback(0.92, "Assessing repolarization lability, T-wave PCA & autonomic metrics...")
     rr_arr = np.array(rr_list, dtype=np.float64)
     qt_arr = np.array(qt_list, dtype=np.float64)
     qtvi_score, qtrr_metrics, hysteresis_metrics = _compute_repolarization_dynamics(rr_arr, qt_arr, config)
+    stv_qt_metrics = compute_stv_qt([b["qt_ms"] for b in beats], beat_classes=beat_class_codes)
+    t_morphology_metrics = compute_t_wave_morphology(
+        clean_signal,
+        fs=fs,
+        r_peaks=r_peaks,
+        beats=beats,
+        multi_lead_signals=multi_lead_signals,
+        lead_names=lead_names,
+        config=config.detection_cfg,
+    )
 
     hrv_metrics = _compute_hrv_from_beats(beats)
     hrt_metrics = compute_heart_rate_turbulence(classified_beats, r_peaks, fs=fs)
@@ -322,6 +353,9 @@ def analyze_ecg(
         "events": [ev.to_dict() for ev in events],
         "summary": summary,
         "qtvi": qtvi_score,
+        "stv_qt": stv_qt_metrics,
+        "t_morphology": t_morphology_metrics,
+        "butterfly": t_morphology_metrics["butterfly"],
         "qtrr": qtrr_metrics,
         "sqi": sqi_metrics,
         "lead_voting": lead_voting,
@@ -399,6 +433,7 @@ def analyze_ecg_stream(
     all_classified: list[ClassifiedBeat] = []
     sqi_list: list[dict[str, Any]] = []
     twa_list: list[dict[str, Any]] = []
+    first_t_morph: dict[str, Any] | None = None
     stream_meta: dict[str, Any] = {}
     preview_signal: np.ndarray | None = None
     actual_fs = fs
@@ -424,6 +459,8 @@ def analyze_ecg_stream(
         res_win = analyze_ecg(sig_win, fs=actual_fs, config=config)
         if preview_signal is None:
             preview_signal = res_win["clean_signal"][: min(len(res_win["clean_signal"]), int(actual_fs * 30))]
+        if first_t_morph is None and isinstance(res_win.get("t_morphology"), dict):
+            first_t_morph = dict(res_win["t_morphology"])
         sqi_list.append(res_win["sqi"])
         if res_win.get("twa"):
             twa_list.append(res_win["twa"])
@@ -438,16 +475,27 @@ def analyze_ecg_stream(
                 hr_bpm = 60.0 / rr_sec if rr_sec > 0 else np.nan
                 qt_sec = float(b["qt_sec"])
 
+                q_global = int(b["q_onset_sample"]) + w_start
+                j_global = int(b.get("j_point_sample", b["r_peak_sample"] + int(0.04 * actual_fs))) + w_start
+                tp_global = int(b["t_peak_sample"]) + w_start
+                te_global = int(b["t_end_sample"]) + w_start
+                cipa = compute_cipa_metrics(q_global, j_global, tp_global, te_global, actual_fs, rr_sec)
+
                 b_copy = dict(b)
                 b_copy.update({
                     "beat_index": beat_idx,
                     "r_peak_sample": global_r,
                     "time_sec": float(global_r / actual_fs),
-                    "q_onset_sample": int(b["q_onset_sample"]) + w_start,
-                    "t_peak_sample": int(b["t_peak_sample"]) + w_start,
-                    "t_end_sample": int(b["t_end_sample"]) + w_start,
+                    "q_onset_sample": q_global,
+                    "j_point_sample": j_global,
+                    "t_peak_sample": tp_global,
+                    "t_end_sample": te_global,
                     "rr_sec": float(rr_sec),
                     "hr_bpm": float(hr_bpm),
+                    "jt_peak_ms": float(cipa["jt_peak_ms"]),
+                    "jt_peak_c_ms": float(cipa["jt_peak_c_ms"]),
+                    "tpe_ms": float(cipa["tpe_ms"]),
+                    "tpe_qt_ratio": float(cipa["tpe_qt_ratio"]),
                     "qtc": compute_qtc(qt_sec, rr_sec) if rr_sec > 0 else {},
                 })
                 cb_copy = ClassifiedBeat(
@@ -504,6 +552,10 @@ def analyze_ecg_stream(
     qtvi_score, qtrr_metrics, hysteresis_metrics = _compute_repolarization_dynamics(
         stream_rr_arr, stream_qt_arr, config
     )
+    stv_qt_metrics = compute_stv_qt(
+        [float(b.get("qt_ms", 0.0)) for b in all_beats],
+        beat_classes=[cb.beat_class.value for cb in all_classified],
+    )
 
     hrv_metrics = _compute_hrv_from_beats(all_beats)
     hrt_metrics = compute_heart_rate_turbulence(all_classified, r_peaks_arr, fs=actual_fs)
@@ -539,6 +591,9 @@ def analyze_ecg_stream(
         "events": [ev.to_dict() for ev in events],
         "summary": summary,
         "qtvi": qtvi_score,
+        "stv_qt": stv_qt_metrics,
+        "t_morphology": first_t_morph,
+        "butterfly": first_t_morph.get("butterfly") if first_t_morph else None,
         "qtrr": qtrr_metrics,
         "sqi": agg_sqi,
         "lead_voting": None,

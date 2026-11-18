@@ -10,7 +10,7 @@ This document tracks architectural milestones, clinical electrophysiology module
 - **Workstation UX & Documentation Parity (`app.py`, `i18n.py`, `app.ui`, `ui_app.py`)**:
   - Keyboard beat-by-beat navigation (`Left`/`Right` arrows & `◀`/`▶`), single-key AAMI reclassification hotkeys (`N`, `V`, `S`, `F`, `Q`), color-coded ectopic R-peak markers with on-canvas text tags, persistent manual caliper drag calibration, live `RR` HUD readout, 8-column clinical tables, and 100% 5-language (`en`, `es`, `fr`, `de`, `pt`) translation parity.
 - **Python 3.14 Refactoring & Additive `uv` / `ruff` Suite (`pyproject.toml`, `tests/test_tooling_uv_ruff.py`)**:
-  - Modernized all modules to native `X | Y` unions, built-in generics, `StrEnum`, `match`/`case`, and `contextlib.suppress`, and added `uv` + `ruff` (`target-version = "py314"`) tests alongside the standard `unittest` suite (99 passing unit tests).
+  - Modernized all modules to native `X | Y` unions, built-in generics, `StrEnum`, `match`/`case`, and `contextlib.suppress`, and added `uv` + `ruff` (`target-version = "py314"`) tests alongside the standard `unittest` suite (104 passing unit tests).
 - **Signal Engine & I/O Hardening (`ecg_loader.py`, `pipeline.py`, `sqi.py`, `hysteresis.py`, `qtrr.py`)**:
   - `SignalBuffer` context-manager cleanup, raw-signal `basSQI`/`snr_db` evaluation with Stage 1 `kSQI`/`snr_db` gating, `HamiltonBeatClassifier` pipeline integration, and Tikhonov ridge stabilization for constant-rate QT-RR regression.
 
@@ -79,7 +79,11 @@ This document tracks architectural milestones, clinical electrophysiology module
 
 ## Upcoming Milestones
 
-### v0.9.0 — Extended Clinical Diagnostics (Ischemia, PRSA, P-Wave & EDR)
+### v0.9.0 — Advanced Repolarization Sub-Intervals, T-Wave Morphology & Extended Clinical Diagnostics
+- **[IMPLEMENTED] FDA CiPA Sub-Interval Decomposition ($J\text{–}T_{\text{peak}}c$, $T_{pe}$, & $T_{pe}/QT$ Ratio in `pulse_metrics.py`)**: Beat-to-beat and summary quantification of $T_{\text{peak}}\text{–}T_{\text{end}}$ ($T_{pe}$), arrhythmogenic $T_{pe}/QT$ ratio (Gupta et al., 2008), and rate-corrected $J\text{–}T_{\text{peak}}c$ ($J\text{–}T_{\text{peak}} / RR^{0.58}$; Johannesen et al., 2014) to differentiate pure hERG potassium block from late sodium current block.
+- **[IMPLEMENTED] Short-Term Variability of QT ($STV_{QT}$ in `pulse_metrics.py` & `qtvi.py`)**: Beat-to-beat Poincaré QT variability ($STV_{QT} = \sum |QT_{n+1} - QT_n| / (N\sqrt{2})$; Thomsen et al., 2004) alongside long-term variability ($LTV_{QT}$) for Torsades de Pointes (TdP) proarrhythmic risk stratification.
+- **[IMPLEMENTED] T-Wave Morphology & 3D PCA Loop Descriptors (`t_morphology.py`)**: T-wave symmetry/asymmetry area ratio, flatness and notched/biphasic T-wave scoring, and multi-lead Singular Value Decomposition (SVD/PCA) T-wave loop complexity ($T_2/T_1$ dipolarity ratio and Total Cosine R-to-T / $TCRT$).
+- **[IMPLEMENTED] Superimposed Multi-Lead "Butterfly" Median Beat View (`app.py`)**: High-magnification ensemble median beat overlay across all leads with synchronized global earliest-$Q_{\text{onset}}$, global $J$-point, and global latest-$T_{\text{end}}$ calipers.
 - **Deceleration & Acceleration Capacity (`prsa.py`)**: Phase-Rectified Signal Averaging (Bauer et al., 2006) on `NN` intervals with post-MI mortality risk stratification ($\le 2.5\text{ ms}$ high risk, $2.6\text{–}4.5\text{ ms}$ intermediate).
 - **ST-Segment Level & Transient Ischemia (`st_segment.py`)**: Automated J-point + $60/80\text{ ms}$ elevation/depression tracking relative to local PQ baseline, SQI-gated $\ge 60\text{ s}$ ischemic episode detection, and hourly ST trends.
 - **P-Wave Delineation & AV Block Screening (`p_wave.py`)**: AF-gated P-wave onset/peak search, beat-to-beat $PR$ intervals, and 1st/2nd-degree AV block detection.

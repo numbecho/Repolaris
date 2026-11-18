@@ -27,6 +27,7 @@ for _sub in (
     "hamilton_classifier",
     "af_detector",
     "trends",
+    "t_morphology",
     "pipeline",
 ):
     _mod_name = f"repolaris.detection.{_sub}"

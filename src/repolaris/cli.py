@@ -133,8 +133,15 @@ def _run_analyze(args: argparse.Namespace) -> dict[str, Any]:
         else:
             sig = next(iter(signals_dict.values()))
         fs = float(args.fs) if args.fs is not None else float(detected_fs)
+        multi_sigs = signals_dict if len(signals_dict) >= 2 else None
         print("Executing diagnostic analysis pipeline...")
-        results = AnalysisAPI.analyze_signal(sig, fs=fs, progress_callback=print_cli_progress)
+        results = AnalysisAPI.analyze_signal(
+            sig,
+            fs=fs,
+            progress_callback=print_cli_progress,
+            multi_lead_signals=multi_sigs,
+            lead_names=lead_keys if multi_sigs is not None else None,
+        )
 
     if args.export and sig is not None:
         print(f"Exporting study container to {args.export}...")
@@ -186,6 +193,8 @@ def _print_report(results: dict[str, Any]) -> None:
     summary = results["summary"]
     ectopic = results.get("ectopic_summary", {})
     qtvi = results.get("qtvi")
+    stv_qt = results.get("stv_qt") or {}
+    t_morph = results.get("t_morphology") or {}
     qtrr = results.get("qtrr")
     sqi = results.get("sqi", {})
     hrv = results.get("hrv")
@@ -207,6 +216,26 @@ def _print_report(results: dict[str, Any]) -> None:
         print(f"Mean QTc Framingham: {summary['mean_qtc_framingham_ms']:.1f} ms")
     if "mean_qtc_hodges_ms" in summary:
         print(f"Mean QTc Hodges:     {summary['mean_qtc_hodges_ms']:.1f} ms")
+    if summary.get("mean_jt_peak_c_ms", 0.0) > 0:
+        print(f"FDA CiPA J-Tpeakc:   {summary['mean_jt_peak_c_ms']:.1f} ms")
+        print(
+            f"Transmural Tpe:      {summary.get('mean_tpe_ms', 0.0):.1f} ms "
+            f"(Tpe/QT: {summary.get('mean_tpe_qt_ratio', 0.0):.3f})"
+        )
+    if stv_qt:
+        print(
+            f"Poincaré STV_QT:     {stv_qt.get('stv_qt_ms', 0.0):.2f} ms "
+            f"(LTV_QT: {stv_qt.get('ltv_qt_ms', 0.0):.2f} ms, {stv_qt.get('risk_category', 'NORMAL')})"
+        )
+    if t_morph:
+        svd_3d = t_morph.get("svd_3d") or {}
+        t2t1 = svd_3d.get("t2_t1_ratio")
+        tcrt = svd_3d.get("tcrt")
+        svd_str = f" | T2/T1: {t2t1:.3f}, TCRT: {tcrt:.2f}" if (t2t1 is not None and tcrt is not None) else ""
+        print(
+            f"T-Wave Morphology:   Asym={t_morph.get('mean_asymmetry_ratio', 1.0):.2f}, "
+            f"Flat={t_morph.get('mean_flatness_score', 0.0):.2f}{svd_str} ({t_morph.get('verdict', 'NORMAL')})"
+        )
     if ectopic:
         print(f"PVC Count:           {ectopic.get('pvc_count', 0)} ({ectopic.get('pvc_percentage', 0.0):.1f}%)")
         print(f"PAC Count:           {ectopic.get('pac_count', 0)}")
@@ -248,22 +277,20 @@ def _print_report(results: dict[str, Any]) -> None:
 
 
 def main(argv: list[str] | None = None) -> None:
-    """Entrypoint for the Repolaris command-line tool."""
+    """Entry point for the Repolaris command-line interface."""
     parser = _build_parser()
     args = parser.parse_args(argv)
 
-    match args.command:
-        case "demo":
-            results = _run_demo(args)
-            _print_report(results)
-        case "analyze":
-            results = _run_analyze(args)
-            _print_report(results)
-        case "export":
-            _run_export(args)
-        case _:
-            parser.print_help()
-            sys.exit(0)
+    if args.command == "demo":
+        results = _run_demo(args)
+        _print_report(results)
+    elif args.command == "analyze":
+        results = _run_analyze(args)
+        _print_report(results)
+    elif args.command == "export":
+        _run_export(args)
+    else:
+        parser.print_help()
 
 
 if __name__ == "__main__":

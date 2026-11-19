@@ -56,10 +56,10 @@ pip install -e ".[dev]"
 
 ## 3. Verify Installation
 
-Run the 90-test automated verification suite to confirm that all signal decoders, QTc formulas, autonomic modules, streaming buffers, and PDF report generators function properly:
+Run the 130-test automated verification suite to confirm that all signal decoders, QTc formulas, autonomic modules, streaming buffers, and PDF report generators function properly:
 
 ```bash
-# Option A: Standard Python unittest discovery (99 tests)
+# Option A: Standard Python unittest discovery (130 tests)
 QT_QPA_PLATFORM=offscreen PYTHONPATH=src python3 -m unittest discover tests -v
 
 # Option B: Using Astral uv & Ruff (Python 3.14)
@@ -69,7 +69,7 @@ QT_QPA_PLATFORM=offscreen uv run pytest -v
 
 Expected output:
 ```text
-Ran 99 tests in 2.150s
+Ran 130 tests in 9.850s
 
 OK
 ```
@@ -129,6 +129,12 @@ repolaris analyze clinical_12lead.dcm --lead "Lead II" --pdf dicom_report.pdf
 
 # Export and de-identify a recording into a portable .pecg container
 repolaris export patient_record.ecg anonymized_case.pecg --compression zstd
+
+# Batch-analyze a cohort folder of mixed ECG/Holter files to CSV/JSON
+repolaris batch ./cohort_records --csv cohort.csv --json cohort.json
+
+# Run ANSI/AAMI EC57 beat-by-beat benchmarking on a real record + .atr/.ann file
+repolaris benchmark --input 100.hea --reference 100.atr
 ```
 
 ---

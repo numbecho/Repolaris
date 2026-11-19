@@ -26,20 +26,20 @@ Originally introduced as **PyECG** (*Suárez-León et al., 2018; Universidad de 
 
 | Section | Description |
 | :--- | :--- |
-| **[Getting Started](Getting-Started)** | Installation via `pip` or `uv`, CLI commands (`demo`, `analyze --stream --pdf`, `export`), and starting the desktop GUI. |
+| **[Getting Started](Getting-Started)** | Installation via `pip` or `uv`, CLI commands (`demo`, `analyze --stream --pdf`, `export`, `batch`, `benchmark`), and starting the desktop GUI. |
 | **[Architecture Overview](Architecture-Overview)** | Decoupled subpackage structure (`repolaris.io`, `detection`, `preprocessing`, `api`, `resources`, `utils`) and streaming pipeline. |
 | **[File Formats & I/O](File-Formats-and-IO)** | Specifications for DICOM Waveform, HL7 aECG XML, SCP-ECG, `.pecg` container, ISHNE 1.0, Excorde 3C, EDF, WFDB, and `SignalBuffer`. |
 | **[Electrophysiology & Algorithms](Electrophysiology-and-Algorithms)** | Mathematical formulations for $QT_c$, AF burden engine, Berger QTVI, QT dispersion, TWA, HRT, HRV, hysteresis, 10 restitution models, and 2-stage SQI. |
 | **[Arrhythmia & AAMI EC57](Arrhythmia-and-AAMI-EC57)** | ANSI/AAMI EC57 beat classification (`N`, `V`, `S`, `F`, `Q`), Patrick Hamilton (2002) OSEA template matching, hourly Holter trends, and audit logging. |
-| **[Workstation GUI Guide](Workstation-GUI-Guide)** | Interactive PyQtGraph desktop viewer, draggable calipers, 6 clinical inspector tabs (`🕒 Holter Triage`, `📈 QT-RR Dynamics`), and PDF report export. |
-| **[Developer Guide](Developer-Guide)** | Setting up virtual environments with Astral `uv`, linting with `ruff`, running the 90-test suite, and contributing. |
+| **[Workstation GUI Guide](Workstation-GUI-Guide)** | Interactive PyQtGraph desktop viewer, draggable calipers, 7 clinical inspector tabs (`🕒 Holter Triage`, `🦋 Butterfly & T-PCA`, `📈 QT-RR Dynamics`), and PDF report export. |
+| **[Developer Guide](Developer-Guide)** | Setting up virtual environments with Astral `uv`, linting with `ruff`, running the 130-test suite, and contributing. |
 | **[i18n & Translation Guide](Internationalization-and-Translation-Guide)** | Contributor guide for adding UI languages (English, Spanish, French, German, Portuguese) and translating wiki docs. |
 | **[Packaging & CI/CD Guide](Packaging-and-CI-CD-Guide)** | Building distribution installers (`.msi`, `.dmg`, `.AppImage`) with Briefcase under PEP 639 metadata. |
 | **[FAQ & Troubleshooting](FAQ-and-Troubleshooting)** | Frequently asked questions, hardware requirements, and formal academic citations. |
 
 ---
 
-## Primary Highlights of Repolaris 0.8.1
+## Primary Highlights of Repolaris 0.9.9
 
 * **Universal Open Format Ingestion:** Zero external proprietary software required to ingest DICOM Waveform (SOP `1.2.840.10008.5.1.4.1.1.9.1.1/9.1.2`), HL7 Annotated ECG XML (FDA TQT standard), SCP-ECG (CEN EN 1064 / ISO 13713), ISHNE 1.0 `.ecg`, Excorde 3C `.e3c`, European Data Format `.edf`, PhysioNet WFDB `.hea`/`.dat`, or delimited `.csv`/`.npy`.
 * **Out-of-Core Long-Term Holter Streaming:** `SignalBuffer`, `stream_ecg_chunks()`, and `analyze_ecg_stream()` process continuous 24h–48h recordings via `np.memmap`-backed disk buffers and overlapping windows with boundary R-peak deduplication.
@@ -52,4 +52,8 @@ Originally introduced as **PyECG** (*Suárez-León et al., 2018; Universidad de 
 * **Complete 10-Model QT-RR Restitution & Hysteresis:** All 10 Pueyo (2004) biparametric curves with Vandermonde domain guards, state-space exponential (EW) and linear (LW) lag-weighted memory modeling, and interactive PyQtGraph cloud visualization.
 * **Spatial Repolarization Heterogeneity & Autonomic Suite:** Synchronous multi-lead QT Dispersion ($QT_d$, $T_{pe,d}$) across qualified diagnostic leads ($\ge 3$ channels), biphasic Heart Rate Turbulence ($TO$, $TS$, Categories 0/1/2), and full HRV (time, Welch PSD, Poincaré/entropy/DFA).
 * **Portable Clinical Exchange (`.pecg`):** De-identified single-file container supporting Zstandard (`zstd`) compression, CBOR/JSON metadata, and zero-copy memory mapping (`np.memmap`).
-* **Modern Developer Stack:** Python $\ge 3.12$, 100% strict static typing, PEP 639 licensing metadata, Briefcase packaging, Astral `ruff`/`uv` workflows, and 90 passing automated unit tests.
+* **Modern Developer Stack:** Python $\ge 3.14$, 100% strict static typing, PEP 639 licensing metadata, Briefcase packaging, Astral `ruff`/`uv` workflows, `PluginRegistry` extensibility, and **130 passing automated unit tests**.
+* **FDA CiPA Sub-Intervals, STV-QT & 3D T-Wave Morphology:** Beat-to-beat $J\text{–}T_{\text{peak}}c$, transmural $T_{pe}$ and $T_{pe}/QT$, Poincaré $STV_{QT}/LTV_{QT}$, 3D SVD T-wave loop descriptors ($T_2/T_1$, $TCRT$), and the interactive **`🦋 Butterfly & T-PCA`** median beat view.
+* **Extended Holter & Autonomic Diagnostics:** PRSA Deceleration/Acceleration Capacity ($DC/AC$), rate-adaptive ST-segment ischemia detection, AF-gated P-wave/AV block screening, ECG-Derived Respiration (`EDR`/`CVHR`), circadian day/night stratification, and a strict `fs >= 1000 Hz` pacemaker spike guard.
+* **Cohort Batch Runner & Native ANSI/AAMI EC57 Benchmarking:** Headless multi-file `repolaris batch` CSV/JSON cohort runner and `repolaris benchmark --input <record> --reference <atr|ann>` certification directly against PhysioNet `.atr` and ISHNE `.ann` annotations.
+* **Expanded Format & Delineation Support:** CEN EN 1064 Default Huffman `19999` + Section 5 SCP-ECG decoding, derived 12-lead reconstruction (`III, aVR, aVL, aVF`), Martínez et al. (2010) Phasor Transform delineator plugin, WFDB `16+offset` `.mat`, and Shimmer3 wearable CSVs.

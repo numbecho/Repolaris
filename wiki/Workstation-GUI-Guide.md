@@ -21,7 +21,7 @@ repolaris-gui
 | [📂 Open] [⚡ Demo] [📤 Export (.pecg)] [📄 PDF Report] [Channel: Lead II v] [⚙️ Settings]       |
 +--------------------------------------------------------------------------------------------------+
 | [ECG Waveform — Lead II] [Canvas: Dark v] [⊞ Lines] [⁚ Dots] [⊘ Off] [📏 Calipers] [📐 25 mm/s]   |
-| [Main Waveform Canvas - 60fps PyQtGraph]                  | [Clinical Inspector Tabs (6 Tabs)]   |
+| [Main Waveform Canvas - 60fps PyQtGraph]                  | [Clinical Inspector Tabs (7 Tabs)]   |
 |                                                           | ------------------------------------ |
 |   /\          /\          /\          /\                  | 1. 📊 Clinical Overview              |
 |  /  \  _/\   /  \  _/\   /  \  _/\   /  \  _/\            | 2. 🚨 Events Diary                   |
@@ -55,7 +55,7 @@ The workstation incorporates a native desktop menu bar organized into three dedi
 * **Help:**
   * **Documentation & Wiki (`F1`):** Opens the Repolaris documentation wiki and clinical user guide.
   * **License:** Displays the open-source Apache-2.0 software license terms and conditions.
-  * **About Repolaris:** Displays the About dialog featuring brand identity, electrophysiology credits (AHA/ACC/HRS, FDA E14, AAMI EC57), and release version (v0.8.1).
+  * **About Repolaris:** Displays the About dialog featuring brand identity, electrophysiology credits (AHA/ACC/HRS, FDA E14, AAMI EC57), and release version (v0.9.9).
 
 ### 3.1 Dynamic Multi-Lead Dropdown & Lead Switching
 * Located in the top toolbar next to the file action buttons.
@@ -80,7 +80,7 @@ Click **`⚙️ Settings`** in the top navigation bar to configure both visual s
 * **Electrophysiology Algorithm Selectors:**
   * **QT-RR Restitution Model:** Select any of the **10 Pueyo (2004) biparametric models** (`linear`, `hyperbolic`, `parabolic_log`, `logarithmic`, `shifted_log`, `exponential`, `arctan`, `tanh`, `arcsinh`, `arccosh`) or `Auto-Select Best Model (Min AIC)`.
   * **Hysteresis Memory Kernel:** Toggle multi-beat hysteresis compensation between **Exponential Weighting (`EW`)**, **Linear Weighting (`LW`)**, or **Uncompensated (`Raw RR`)**.
-  * **T-End Delineation Mode:** Switch between **Hybrid Steepest Descent (`hybrid`)**, **ICH E14 Tangent (`tangent`)**, **Zhang 2006 Sliding-Window Area (`zhang_area`)**, and **Amplitude Threshold (`threshold`)**.
+  * **T-End Delineation Mode:** Switch between **Hybrid Steepest Descent (`hybrid`)**, **ICH E14 Tangent (`tangent`)**, **Zhang 2006 Sliding-Window Area (`zhang_area`)**, **Amplitude Threshold (`threshold`)**, and **Phasor Transform (`phasor`, Martínez et al., 2010)**.
 
 ### 3.5 Waveform Canvas Controls, Clinical Grid, Calipers & Zoom
 * **Segmented Grid Toggle Buttons (`⊞ Lines`, `⁚ Dots`, `⊘ Off`):** Switch between solid millimeter calibration lines, dotted intersections, or an unobstructed canvas.
@@ -96,9 +96,9 @@ Click **`⚙️ Settings`** in the top navigation bar to configure both visual s
 
 ---
 
-## 4. The Six Clinical Inspector Tabs
+## 4. The Seven Clinical Inspector Tabs
 
-The right-hand dock (`self.tabs`) organizes all diagnostic metrics, interactive plots, and tables into six dedicated tabs:
+The right-hand dock (`self.tabs`) organizes all diagnostic metrics, interactive plots, and tables into seven dedicated tabs:
 
 ### 4.1 `📊 Clinical Overview`
 * Displays executive KPI cards for **Mean Heart Rate**, **Ventricular Repolarization ($QT_c$ Bazett / Fridericia / Framingham / Hodges)**, **Ectopic Beat Burden (PVC / PAC counts & AAMI classes)**, and **Lead Signal Quality (SQI Status, SNR, $p\text{SQI}$, $bas\text{SQI}$)**.
@@ -121,7 +121,10 @@ The right-hand dock (`self.tabs`) organizes all diagnostic metrics, interactive 
 * **Hourly Holter Distribution Table (`holter_trends_table`):** Breaks multi-hour recordings into 1-hour epochs showing `Hour`, `Beats`, `Mean HR`, `Min/Max HR`, `PVCs`, `PACs`, `Couplets/VT`, `Pauses`, and `AF %`. Clicking any hour row seeks the main waveform canvas to the start of that hour.
 * **Sustained AF / Flutter Episodes Table (`holter_af_table`):** Lists every detected AF episode ($\ge 30\text{ s}$) with onset time, duration, mean/max HR, Shannon entropy, and MAD irregularity score. Clicking any episode seeks the main canvas directly to the episode onset.
 
-### 4.6 `📋 Study & Patient`
+### 4.6 `🦋 Butterfly & T-PCA`
+* Overlays R-peak-aligned ensemble median beats across all active leads with a spatial RMS magnitude curve, synchronized global calipers ($Q_{\text{onset}}, J, T_{\text{peak}}, T_{\text{end}}$), FDA CiPA sub-intervals ($J\text{–}T_{\text{peak}}c$, $T_{pe}$), and 3D SVD T-wave loop complexity metrics ($T_2/T_1$, $TCRT$).
+
+### 4.7 `📋 Study & Patient`
 * Displays **Core Patient Demographics & Timing** (Patient ID, Biological Sex, Age, Acquisition Date) and **Clinical Context & Study Specifications** (Pacemaker Status, Clinical Indication, Race/Ethnicity, De-identification Status, Source Format, Sampling Frequency $f_s$, Lead Count, Total Duration, and Review Notes).
 
 ---

@@ -9,14 +9,14 @@ A cornerstone of Repolaris is its **universal, zero-dependency ingestion and rep
 | Format | Extension | Origin / Hardware | Parser Details |
 | :--- | :--- | :--- | :--- |
 | **DICOM Waveform** | `.dcm`, `.dicom` | Hospital PACS & 12-Lead Carts | SOP Classes `1.2.840.10008.5.1.4.1.1.9.1.1` and `9.1.2`, tag `(5400, 1010)` multiplexed extraction to calibrated physical mV. |
-| **HL7 Annotated ECG** | `.xml`, `.aecg` | FDA Clinical Drug Trials (TQT) | ANSI/HL7 aECG XML standard, MDC_ECG lead mappings, and comma/period European decimal normalization. |
-| **SCP-ECG Standard** | `.scp` | Hospital & Holter Devices | CEN EN 1064 / ISO 13713 Sections 0, 3, and 6 uncompressed rhythm decoding with safety guards. |
+| **HL7 Annotated ECG** | `.xml`, `.aecg` | FDA Clinical Drug Trials (TQT) | ANSI/HL7 aECG XML (including nested `SLIST_PQ` & rhythm-vs-template filtering), MDC_ECG leads, and European decimal normalization. |
+| **SCP-ECG Standard** | `.scp` | Hospital & Holter Devices | CEN EN 1064 / ISO 13713 uncompressed, 1st/2nd-difference, Default Huffman `19999`, Section 5 residual addition, Table 8 lead IDs, and derived 12-lead reconstruction. |
 | **Portable Clinical ECG** | `.pecg` | Repolaris Native Exchange | 12-byte binary magic, CBOR/JSON metadata, Zstandard/Deflate compression, zero-copy `np.memmap`. |
-| **ISHNE 1.0 Standard** | `.ecg` | Commercial Holters (Mortara, GE, Rozinn) | Full 1998 standard, 522-byte header, nV integer scaling, demographic parsing, demultiplexing. |
-| **Excorde 3C** | `.e3c` | Fukuda Denshi Holter Monitors | In-memory ZIP extractor, 2-channel int16 binary stream, 25-byte QRS records (`<6IB`). |
+| **ISHNE 1.0 Standard** | `.ecg`, `.ann` | Commercial Holters (Mortara, GE, Rozinn) | Full 1998 standard, 522-byte header, nV integer scaling, and binary `.ann` reference beat annotations (`read_ishne_ann`). |
+| **EXCORDE 3C** | `.e3c` | ICID (Cuba) Ambulatory Holter Monitors | In-memory ZIP extractor, 2-channel int16 binary stream, 25-byte QRS records (`<6IB`). |
 | **European Data Format** | `.edf`, `.edf+` | Wearable Patches & Polysomnography | Official EDF/EDF+ specification, 256-byte header, per-channel physical dimension scaling. |
-| **PhysioNet WFDB** | `.hea`, `.dat` | Clinical Research Benchmarks | Dual-file ASCII header parser, Format 16 bit-packed, Format 212 12-bit nibble packed. |
-| **Delimited Text / NumPy** | `.csv`, `.txt`, `.npy` | Community Sensors & Raw Dumps | Direct matrix ingestion and memory-mapped streaming with arbitrary delimiters. |
+| **PhysioNet WFDB** | `.hea`, `.dat`, `.mat`, `.atr` | Clinical Research Benchmarks | ASCII header parser, Format 16, `16+offset` `.mat` (QTDB), Format 212 nibble-packed, and binary `.atr` annotations (`read_wfdb_annotations`). |
+| **Delimited Text / NumPy** | `.csv`, `.txt`, `.npy` | Community Sensors & Wearables (Shimmer3) | Direct matrix ingestion, headered `"sep="` timestamped wearable CSV parsing, and memory-mapped streaming. |
 
 ---
 
@@ -93,7 +93,7 @@ $$\text{Signal (mV)} = (\text{ADC} - \text{Baseline}) \times \text{Sensitivity}$
 Conforming to the ANSI/HL7 aECG standard utilized in FDA ICH E14 Thorough QT clinical trials, `read_hl7_aecg()` maps IEEE 11073-10102 `MDC_ECG_LEAD_*` codes to standard clinical names and normalizes European comma decimals (`0,005 mV`) to IEEE floats.
 
 ### SCP-ECG Standard (`.scp`)
-Conforming to CEN EN 1064:2005+A1:2007 and ISO 13713, `read_scp_ecg()` decodes Section 0 pointer tables, Section 3 lead configurations, and Section 6 difference-encoded rhythm waveforms, while guarding against unsupported Section 2 Huffman or Section 5 residual files with a clean `NotImplementedError`.
+Conforming to CEN EN 1064:2005+A1:2007 and ISO 13713, `read_scp_ecg()` decodes Section 0 pointer tables, Section 2 CEN Default Huffman Table (`19999`), Section 3 Table 8 lead definitions, Section 4/5 reference-beat residual addition, and Section 6 1st/2nd-difference rhythm waveforms. `reconstruct_derived_leads()` computes `III`, `aVR`, `aVL`, and `aVF` from independent leads `I` and `II` for 8-lead ECGs.
 
 ### Portable Clinical ECG (`.pecg`)
 Designed for de-identified peer consultation (`save_pecg`, `load_pecg`), preserving Age, Sex, Race, Pacemaker Status, and Clinical Indication with Zstandard (`zstd`), Deflate, or raw zero-copy `np.memmap` storage.

@@ -10,7 +10,7 @@ All source code resides in `src/repolaris/`:
 
 ```
 src/repolaris/
-├── __init__.py               # Package metadata (__version__ = "0.8.1") and public API exports
+├── __init__.py               # Package metadata (__version__ = "0.9.9") and public API exports
 ├── __main__.py               # Module execution entry point (python -m repolaris)
 ├── config.py                 # FilterConfig, DetectionConfig, and top-level ECGConfig dataclasses
 ├── i18n.py                   # Multi-language localization dictionary (en, es, fr, de, pt)

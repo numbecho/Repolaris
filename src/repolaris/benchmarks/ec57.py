@@ -120,7 +120,7 @@ def evaluate_qrs_and_classification_ec57(
 
     # 5x5 AAMI EC57 Confusion Matrix
     confusion: dict[str, dict[str, int]] = {
-        rc: {tc: 0 for tc in AAMI_CLASSES} for rc in AAMI_CLASSES
+        rc: dict.fromkeys(AAMI_CLASSES, 0) for rc in AAMI_CLASSES
     }
     for r_idx, t_idx in matched_pairs:
         r_label = ref_cls_valid[r_idx] if ref_cls_valid[r_idx] in AAMI_CLASSES else "Q"

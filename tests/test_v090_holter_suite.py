@@ -128,7 +128,6 @@ class TestV090HolterSuite(unittest.TestCase):
             t_axis = np.arange(len(sig), dtype=np.float64) / fs
             beats_out: list[dict] = []
             curr_t = 1.0
-            b_idx = 0
             for cycle_i, pr_ms in enumerate(pr_list_ms):
                 r_samp = int(round(curr_t * fs))
                 q_samp = r_samp - int(round(0.030 * fs))
@@ -143,14 +142,13 @@ class TestV090HolterSuite(unittest.TestCase):
 
                 rr_s = (curr_t - beats_out[-1]["time_sec"]) if beats_out else 0.85
                 beats_out.append({
-                    "beat_index": b_idx,
+                    "beat_index": cycle_i,
                     "r_peak_sample": r_samp,
                     "time_sec": curr_t,
                     "q_onset_sample": q_samp,
                     "rr_sec": rr_s,
                     "beat_class": "N",
                 })
-                b_idx += 1
 
                 if drop_after_idx is not None and cycle_i == drop_after_idx:
                     # Insert a non-conducted P-wave in the middle of a 1.70 s dropped-beat pause

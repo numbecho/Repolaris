@@ -211,7 +211,7 @@ class BatchAPI:
                 rows.append(row)
                 succeeded += 1
             except Exception as exc:
-                err_row: dict[str, Any] = {col: "" for col in BATCH_BIOMARKER_COLUMNS}
+                err_row: dict[str, Any] = dict.fromkeys(BATCH_BIOMARKER_COLUMNS, "")
                 err_row.update({
                     "file_name": f_path.name,
                     "file_path": str(f_path),

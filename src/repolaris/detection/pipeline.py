@@ -34,7 +34,9 @@ from repolaris.detection.af_detector import detect_atrial_fibrillation
 from repolaris.detection.annotations import AnnotationManager
 from repolaris.detection.classifier import ClassifiedBeat, classify_all_beats, detect_rhythm_patterns
 from repolaris.detection.dispersion import calculate_qt_dispersion
+from repolaris.detection.circadian import analyze_circadian_repolarization
 from repolaris.detection.edr import compute_ecg_derived_respiration
+from repolaris.plugins import GLOBAL_PLUGIN_REGISTRY
 from repolaris.detection.events import detect_clinical_events
 from repolaris.detection.hamilton_classifier import HamiltonBeatClassifier
 from repolaris.detection.hrt import compute_heart_rate_turbulence
@@ -345,6 +347,12 @@ def analyze_ecg(
     events = detect_clinical_events(beats, fs=fs)
 
     rec_dur = float(len(clean_signal) / fs)
+    circadian_metrics = analyze_circadian_repolarization(
+        beats,
+        metadata=metadata,
+        total_duration_sec=rec_dur,
+    )
+    custom_biomarkers = GLOBAL_PLUGIN_REGISTRY.execute_biomarkers(clean_signal, fs, beats, summary)
     trends_report = generate_hourly_trends(
         classified_beats,
         events=[ev.to_dict() for ev in events],
@@ -413,6 +421,8 @@ def analyze_ecg(
         "p_wave": p_wave_metrics,
         "edr": edr_metrics,
         "pacemaker": pacemaker_report,
+        "circadian": circadian_metrics,
+        "custom_biomarkers": custom_biomarkers,
         "qtrr": qtrr_metrics,
         "sqi": sqi_metrics,
         "lead_voting": lead_voting,
@@ -690,6 +700,18 @@ def analyze_ecg_stream(
         "pacing_detected": bool(meta_paced or len(pacemaker_spikes_global) > 0),
     }
 
+    circadian_stream = analyze_circadian_repolarization(
+        all_beats,
+        metadata=stream_meta,
+        total_duration_sec=rec_dur,
+    )
+    preview_sig_arr = preview_signal if preview_signal is not None else np.zeros(0, dtype=np.float32)
+    custom_biomarkers_stream = GLOBAL_PLUGIN_REGISTRY.execute_biomarkers(
+        preview_sig_arr,
+        actual_fs,
+        all_beats,
+        summary,
+    )
     hrv_metrics = _compute_hrv_from_beats(all_beats)
     hrt_metrics = compute_heart_rate_turbulence(all_classified, r_peaks_arr, fs=actual_fs)
     annotation_mgr = _build_annotation_manager(all_classified, author="AI_STREAM_DETECTOR")
@@ -732,6 +754,8 @@ def analyze_ecg_stream(
         "p_wave": p_wave_agg,
         "edr": edr_agg,
         "pacemaker": pacemaker_agg,
+        "circadian": circadian_stream,
+        "custom_biomarkers": custom_biomarkers_stream,
         "qtrr": qtrr_metrics,
         "sqi": agg_sqi,
         "lead_voting": None,

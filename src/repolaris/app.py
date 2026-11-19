@@ -1965,6 +1965,7 @@ class MainWindow(QMainWindow):
         self.lbl_adv_st = QLabel(tr("adv_st_na", val="--"))
         self.lbl_adv_pwave = QLabel(tr("adv_pwave_na", val="--"))
         self.lbl_adv_edr = QLabel(tr("adv_edr_na", val="--"))
+        self.lbl_adv_circadian = QLabel(tr("adv_circadian_na", val="--"))
         self.lbl_adv_total = QLabel(tr("adv_total_cycles", count="--"))
         for lbl in (
             self.lbl_adv_cipa,
@@ -1980,6 +1981,7 @@ class MainWindow(QMainWindow):
             self.lbl_adv_st,
             self.lbl_adv_pwave,
             self.lbl_adv_edr,
+            self.lbl_adv_circadian,
             self.lbl_adv_total,
         ):
             lbl.setStyleSheet("font-size: 9pt; color: #94a3b8;")
@@ -2460,6 +2462,8 @@ class MainWindow(QMainWindow):
             self.lbl_adv_pwave.setText(tr("adv_pwave_na", val="--"))
         if hasattr(self, "lbl_adv_edr"):
             self.lbl_adv_edr.setText(tr("adv_edr_na", val="--"))
+        if hasattr(self, "lbl_adv_circadian"):
+            self.lbl_adv_circadian.setText(tr("adv_circadian_na", val="--"))
         self.lbl_adv_total.setText(tr("adv_total_cycles", count="--"))
 
     def _open_wiki(self) -> None:
@@ -3518,6 +3522,22 @@ class MainWindow(QMainWindow):
                 )
             else:
                 self.lbl_adv_edr.setText(tr("adv_edr_na", val="N/A"))
+
+        circ_res = self.analysis_results.get("circadian") or {}
+        if hasattr(self, "lbl_adv_circadian"):
+            if circ_res and circ_res.get("status") == "DUAL_EPOCH":
+                self.lbl_adv_circadian.setText(
+                    tr(
+                        "adv_circadian",
+                        dip=float(circ_res.get("hr_dip_pct", 0.0)),
+                        dqtcf=float(circ_res.get("delta_qtcf_night_minus_day_ms", 0.0)),
+                        verdict=str(circ_res.get("verdict", "NORMAL_CIRCADIAN_DYNAMICS")),
+                    )
+                )
+            else:
+                self.lbl_adv_circadian.setText(
+                    tr("adv_circadian_na", val=str(circ_res.get("verdict", "SINGLE_EPOCH_RECORDING")))
+                )
 
         self._update_qtrr_visualization()
 

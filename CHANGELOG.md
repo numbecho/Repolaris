@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.6] - 2026-11-18 — Pre-1.0 Regulatory Validation, Circadian Stratification, Cohort Batch Runner & Plugin Registry
+
+### Added
+- **ANSI/AAMI EC57 & CSE Fiducial Benchmark Certification Engine (`benchmarks/ec57.py`, `repolaris benchmark` CLI)**:
+  - 1-to-1 monotonic bipartite beat matching (`bxb`) within the AAMI EC57 $\pm 150\text{ ms}$ tolerance window, computing $TP, FP, FN$, Sensitivity ($Se$), Positive Predictivity ($+P$), Detection Error Rate ($DER$), $F_1$, and the $5 \times 5$ AAMI classification confusion matrix (`N`, `S`, `V`, `F`, `Q`).
+  - Common Standards for Quantitative Electrocardiography (CSE) / PhysioNet QTDB fiducial boundary verification ($P_{\text{onset}}, P_{\text{peak}}, P_{\text{end}}, Q_{\text{onset}}, R_{\text{peak}}, J, T_{\text{peak}}, T_{\text{end}}$) against statutory referee standard deviation limits, plus episode overlap (`epi`) evaluation and automated synthetic self-certification (`run_synthetic_self_certification`).
+- **Circadian Day/Night (Diurnal vs. Nocturnal) Repolarization & Autonomic Stratification (`detection/circadian.py`)**:
+  - Wall-clock (`07:00–22:00` Awake vs. `22:00–07:00` Asleep) and multi-hour two-epoch partitioning quantifying nocturnal heart rate dipping ($\text{HR Dip}_{\%}$: `NORMAL_DIPPER`, `BLUNTED_NON_DIPPER`, `REVERSE_DIPPER`), diurnal vs. nocturnal $QTcF, J\text{–}T_{\text{peak}}c, T_{pe}, STV_{QT}$, nocturnal $QTcF$ lengthening ($\Delta QTcF \ge +15.0\text{ ms}$ for LQT2/LQT3 vs. LQT1 differentiation), and diurnal vs. nocturnal $QT\text{–}RR$ regression slopes ($\beta_{\text{day}} \ge 0.211$ discriminator).
+- **Headless Multi-File Cohort Batch Runner (`api/batch.py`, `repolaris batch` CLI)**:
+  - Zero-database folder processor across all supported ECG/Holter formats with automatic out-of-core `analyze_ecg_stream()` routing for large recordings, per-file fault isolation (`status="ERROR"` on corrupted inputs), and 51-column clinical trial `CSV` and `JSON` matrix export.
+- **Extensible Research Algorithm & Biomarker Plugin Registry (`plugins.py`)**:
+  - Thread-safe `PluginRegistry` supporting `@register_qrs_detector`, `@register_t_end_delineator`, and fault-isolated `@register_biomarker` hooks executed automatically inside `analyze_ecg()` and `analyze_ecg_stream()`.
+- **Expanded Automated Verification Suite (`tests/test_v096_validation_suite.py`)**:
+  - Added 6 comprehensive unit tests bringing the total test suite to **116 passing unit tests** across 22 test modules (`0` warnings, `100%` Ruff `py314` clean).
+
 ## [0.9.0] - 2026-11-18 — Clinical Repolarization & Ambulatory Holter Suite
 
 ### Added
@@ -17,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **AF-Gated P-Wave Delineation, PR Interval & AV Block Screening (`p_wave.py`)**: Diastolic $P_{\text{onset}}, P_{\text{peak}}, P_{\text{end}}$ localization (automatically suppressed during active AF episodes), beat-to-beat $PR$ interval tracking, 1st-degree AV block ($PR > 200\text{ ms}$), and 2nd-degree Mobitz Type I (Wenckebach) vs. Mobitz Type II conduction block screening.
 - **ECG-Derived Respiration (`edr.py`)**: Moody & Mark (1985) beat-to-beat QRS area/amplitude modulation resampling ($4\text{ Hz}$), $0.12\text{–}0.45\text{ Hz}$ Welch PSD respiratory rate ($\text{breaths/min}$), and Cyclic Variation of Heart Rate (`CVHR`, $0.01\text{–}0.04\text{ Hz}$) sleep-apnea screening.
 - **High-Rate Pacemaker Spike Guard (`p_wave.py`)**: Strict Nyquist sampling-rate guard (`fs >= 1000 Hz`) combining first-derivative slew rate ($|dV/dt|$) and second-difference narrow-impulse energy ($\le 3\text{ ms}$) to flag paced beats at high sampling rates while falling back to container metadata at standard $250\text{–}500\text{ Hz}$ Holter rates.
-- **Comprehensive v0.9.0 Verification Suite (`tests/test_v090_repolarization_core.py`, `tests/test_v090_holter_suite.py`)**: Expanded automated test suite from 99 to **110 unit tests** across 21 test modules (`0` warnings, `100%` Ruff `py314` clean).
+- **Comprehensive v0.9.0 Verification Suite (`tests/test_v090_repolarization_core.py`, `tests/test_v090_holter_suite.py`)**: Expanded automated test suite from 99 to **116 unit tests** across 21 test modules (`0` warnings, `100%` Ruff `py314` clean).
 
 ## [0.8.1] - 2026-11-16
 
@@ -30,7 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Expanded 8-Column Clinical Tables & 100% 5-Language Parity**: Expanded `beat_table` (adding `Pattern`, `RR (ms)`, `HR (BPM)`), `holter_af_table` (adding `Max HR`, `Shannon Ent.`, `Irregularity`), and `qtrr_models_table` (adding `Slope (α)`, `Pearson r`, `AIC`) to 8 columns each, and localized all remaining banners, labels, and tooltips across `en`, `es`, `fr`, `de`, and `pt`.
 - **Python 3.14 Syntax Modernization & Additive `uv` / `ruff` Tooling Suite (`tests/test_tooling_uv_ruff.py`, `.github/workflows/build-artifacts.yml`)**:
   - Modernized all 56 Python modules across `src/repolaris/` and `tests/` to native `X | Y` unions, built-in generics (`list`, `dict`, `tuple`, `set`), `StrEnum`, `match`/`case` structural pattern matching, and `contextlib.suppress`, eliminating duplicated dispatch ladders and dead code.
-  - Added `.python-version` (`3.14`), `[tool.uv]`, `[tool.ruff]` (`target-version = "py314"`), PEP 735 `[dependency-groups]`, the `uv-ruff-test` CI job, and `tests/test_tooling_uv_ruff.py` alongside the existing `pip` + `unittest` suite (**110 passing unit tests**).
+  - Added `.python-version` (`3.14`), `[tool.uv]`, `[tool.ruff]` (`target-version = "py314"`), PEP 735 `[dependency-groups]`, the `uv-ruff-test` CI job, and `tests/test_tooling_uv_ruff.py` alongside the existing `pip` + `unittest` suite (**116 passing unit tests**).
 
 ### Fixed
 - **Hostile Audit Signal & I/O Hardening (`ecg_loader.py`, `pipeline.py`, `hysteresis.py`, `sqi.py`, `hamilton_classifier.py`, `events.py`, `qtrr.py`, `qtvi.py`)**:

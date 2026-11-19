@@ -99,7 +99,7 @@ Repolaris includes an automated multi-platform GitHub Actions workflow located a
 * **Manual Dispatch**: Can be triggered on-demand from the GitHub Actions tab.
 
 ### Matrix Pipeline Stages
-1. **`test` Job**: Runs the standard `pip` + `python -m unittest discover tests` verification suite across all 110 unit tests.
+1. **`test` Job**: Runs the standard `pip` + `python -m unittest discover tests` verification suite across all 116 unit tests.
 2. **`uv-ruff-test` Job**: Uses `astral-sh/setup-uv@v5` with Python 3.14 to run `uv sync --all-extras --dev`, `uv run ruff check src tests`, `uv run ruff format --check src tests`, and `uv run pytest -v`. across all I/O readers, streaming buffers, restitution algorithms, Berger QTVI, PDF report generation, and i18n translation parity.
 3. **`briefcase-release` Job**: Parallel matrix generating Windows MSI, macOS DMG, and Linux AppImage/DEB installers. Uploads `repolaris-distribution-<OS>` artifacts (30-day retention).
 

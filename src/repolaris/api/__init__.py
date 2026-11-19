@@ -25,9 +25,11 @@ def _load_submodule(sub_name: str):
 _study_mod = _load_submodule("study")
 _analysis_mod = _load_submodule("analysis")
 _export_mod = _load_submodule("export")
+_batch_mod = _load_submodule("batch")
 
 StudyAPI = _study_mod.StudyAPI
 AnalysisAPI = _analysis_mod.AnalysisAPI
+BatchAPI = _batch_mod.BatchAPI
 ExportAPI = _export_mod.ExportAPI
 
-__all__ = ["StudyAPI", "AnalysisAPI", "ExportAPI"]
+__all__ = ["StudyAPI", "AnalysisAPI", "BatchAPI", "ExportAPI"]

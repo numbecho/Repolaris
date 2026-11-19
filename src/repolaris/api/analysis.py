@@ -18,6 +18,13 @@ import numpy as np
 from repolaris.config import DetectionConfig, ECGConfig
 from repolaris.detection.af_detector import detect_atrial_fibrillation
 from repolaris.detection.dispersion import calculate_qt_dispersion
+from repolaris.benchmarks.ec57 import (
+    evaluate_episode_overlap_ec57,
+    evaluate_fiducial_delineation_cse,
+    evaluate_qrs_and_classification_ec57,
+    run_synthetic_self_certification,
+)
+from repolaris.detection.circadian import analyze_circadian_repolarization
 from repolaris.detection.edr import compute_ecg_derived_respiration
 from repolaris.detection.hrt import compute_heart_rate_turbulence
 from repolaris.detection.hrv import compute_comprehensive_hrv
@@ -363,4 +370,83 @@ class AnalysisAPI:
             overlap_sec=overlap_sec,
             config=config,
             progress_callback=progress_callback,
+        )
+
+    @staticmethod
+    def analyze_circadian(
+        beats: list[dict[str, Any]],
+        metadata: dict[str, Any] | None = None,
+        total_duration_sec: float = 0.0,
+        day_window_hours: tuple[int, int] = (7, 22),
+        allow_two_epoch_split: bool = False,
+    ) -> dict[str, Any]:
+        """Stratifies Holter repolarization, QT-RR slope, and HR dipping across Day and Night epochs."""
+        return analyze_circadian_repolarization(
+            beats=beats,
+            metadata=metadata,
+            total_duration_sec=total_duration_sec,
+            day_window_hours=day_window_hours,
+            allow_two_epoch_split=allow_two_epoch_split,
+        )
+
+    @staticmethod
+    def evaluate_ec57_benchmark(
+        ref_samples: np.ndarray | list[int],
+        test_samples: np.ndarray | list[int],
+        fs: float,
+        ref_classes: list[str] | None = None,
+        test_classes: list[str] | None = None,
+        match_window_ms: float = 150.0,
+        learning_period_sec: float = 0.0,
+    ) -> dict[str, Any]:
+        """Evaluates beat detection and 5-class AAMI EC57 classification via 1-to-1 `bxb` matching."""
+        return evaluate_qrs_and_classification_ec57(
+            ref_samples=ref_samples,
+            test_samples=test_samples,
+            fs=fs,
+            ref_classes=ref_classes,
+            test_classes=test_classes,
+            match_window_ms=match_window_ms,
+            learning_period_sec=learning_period_sec,
+        )
+
+    @staticmethod
+    def evaluate_cse_fiducials(
+        ref_fiducials: dict[str, np.ndarray | list[int]],
+        test_fiducials: dict[str, np.ndarray | list[int]],
+        fs: float,
+        max_error_ms: float = 150.0,
+    ) -> dict[str, Any]:
+        """Evaluates fiducial wave delineation errors against CSE Working Party / QTDB tolerances."""
+        return evaluate_fiducial_delineation_cse(
+            ref_fiducials=ref_fiducials,
+            test_fiducials=test_fiducials,
+            fs=fs,
+            max_error_ms=max_error_ms,
+        )
+
+    @staticmethod
+    def evaluate_ec57_episodes(
+        ref_episodes: list[tuple[float, float]],
+        test_episodes: list[tuple[float, float]],
+        total_duration_sec: float,
+    ) -> dict[str, Any]:
+        """Evaluates episode-level and duration-weighted overlap sensitivity and +P (`epi`)."""
+        return evaluate_episode_overlap_ec57(
+            ref_episodes=ref_episodes,
+            test_episodes=test_episodes,
+            total_duration_sec=total_duration_sec,
+        )
+
+    @staticmethod
+    def run_self_certification(
+        fs: float = 500.0,
+        duration_sec: float = 25.0,
+        heart_rate_bpm: float = 72.0,
+    ) -> dict[str, Any]:
+        """Executes an automated AAMI EC57 + CSE self-certification benchmark on synthetic reference ECG."""
+        return run_synthetic_self_certification(
+            fs=fs,
+            duration_sec=duration_sec,
+            heart_rate_bpm=heart_rate_bpm,
         )

@@ -81,7 +81,7 @@ def _render_page1_summary(
     ax_hdr.text(
         0.0,
         0.15,
-        f"Lead: {lead_name}  |  Sampling Rate: {fs:.0f} Hz  |  Generated: {gen_ts}  |  Engine: Repolaris v0.9.0",
+        f"Lead: {lead_name}  |  Sampling Rate: {fs:.0f} Hz  |  Generated: {gen_ts}  |  Engine: Repolaris v0.9.6",
         fontsize=8.5,
         color="#475569",
     )

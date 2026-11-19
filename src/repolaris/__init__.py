@@ -118,7 +118,7 @@ from repolaris.io.pdf_report import generate_clinical_pdf_report  # noqa: E402
 from repolaris.io.pecg_format import load_pecg, save_pecg  # noqa: E402
 from repolaris.io.scp_reader import is_scp_file, read_scp_ecg  # noqa: E402
 
-__version__ = "0.9.0"
+__version__ = "0.9.6"
 __all__ = [
     "AFBurdenReport",
     "AFEpisode",

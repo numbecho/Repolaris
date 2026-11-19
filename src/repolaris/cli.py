@@ -8,7 +8,7 @@ from typing import Any
 
 import numpy as np
 
-from repolaris.api import AnalysisAPI, ExportAPI, StudyAPI
+from repolaris.api import AnalysisAPI, BatchAPI, ExportAPI, StudyAPI
 
 
 def print_cli_progress(fraction: float, message: str) -> None:
@@ -60,6 +60,18 @@ def _build_parser() -> argparse.ArgumentParser:
     exp_p.add_argument("file", help="Path to input ECG recording")
     exp_p.add_argument("output", help="Target .pecg output path")
     exp_p.add_argument("--compression", default="zstd", choices=["zstd", "deflate", "none"], help="Compression mode")
+
+    batch_p = subparsers.add_parser("batch", help="Batch-analyze a directory of ECG/Holter files to CSV/JSON")
+    batch_p.add_argument("directory", help="Input directory containing ECG/Holter files")
+    batch_p.add_argument("--csv", help="Optional output CSV path for trial summary table")
+    batch_p.add_argument("--json", help="Optional output JSON path for cohort summary")
+    batch_p.add_argument("--recursive", action="store_true", help="Recursively scan subdirectories")
+    batch_p.add_argument("--stream-threshold-mb", type=float, default=25.0, help="File size threshold (MB) for out-of-core streaming")
+
+    bench_p = subparsers.add_parser("benchmark", help="Run ANSI/AAMI EC57 & CSE fiducial self-certification suite")
+    bench_p.add_argument("--fs", type=float, default=500.0, help="Sampling frequency (Hz)")
+    bench_p.add_argument("--duration", type=float, default=25.0, help="Synthetic reference duration (sec)")
+    bench_p.add_argument("--hr", type=float, default=72.0, help="Reference heart rate (BPM)")
 
     return parser
 
@@ -269,6 +281,12 @@ def _print_report(results: dict[str, Any]) -> None:
         print(f"Respiration (EDR):   {edr.get('respiratory_rate_brpm', 0.0):.1f} br/min ({edr.get('apnea_screening_verdict', 'NORMAL_RESPIRATION')})")
     if pm:
         print(f"Pacemaker Guard:     {'ACTIVE (>=1000Hz)' if pm.get('raw_spike_detection_enabled') else 'METADATA-ONLY (<1000Hz)'} (Spikes: {pm.get('spike_count', 0)})")
+    circ = results.get("circadian") or {}
+    if circ:
+        print(
+            f"Circadian Day/Night: Dip={circ.get('hr_dip_pct', 0.0):.1f}% | "
+            f"dQTcF={circ.get('delta_qtcf_night_minus_day_ms', 0.0):+.1f} ms ({circ.get('verdict', 'SINGLE_EPOCH_RECORDING')})"
+        )
     if af_report:
         print(f"AF Burden:           {af_report.get('af_burden_pct', 0.0):.2f}% ({af_report.get('num_episodes', 0)} episodes)")
     if trends:
@@ -304,6 +322,42 @@ def main(argv: list[str] | None = None) -> None:
         _print_report(results)
     elif args.command == "export":
         _run_export(args)
+    elif args.command == "batch":
+        report = BatchAPI.analyze_directory(
+            input_dir=args.directory,
+            output_csv_path=args.csv,
+            output_json_path=args.json,
+            recursive=args.recursive,
+            stream_threshold_mb=args.stream_threshold_mb,
+            progress_callback=print_cli_progress,
+        )
+        print(
+            f"Batch Cohort Summary: {report['succeeded_count']}/{report['total_files']} succeeded "
+            f"({report['failed_count']} errors)."
+        )
+    elif args.command == "benchmark":
+        cert = AnalysisAPI.run_self_certification(
+            fs=args.fs,
+            duration_sec=args.duration,
+            heart_rate_bpm=args.hr,
+        )
+        qrs_b = cert["ec57_qrs"]
+        cse_b = cert["cse_fiducials"]
+        print("========================================")
+        print("  ANSI/AAMI EC57 & CSE Benchmark Report ")
+        print("========================================")
+        print(f"Certification Status: {cert['status']}")
+        print(
+            f"QRS Detection (bxb):  Se={qrs_b['sensitivity_pct']:.2f}% | "
+            f"+P={qrs_b['positive_predictivity_pct']:.2f}% | F1={qrs_b['f1_score_pct']:.2f}%"
+        )
+        print(f"CSE Fiducial Limits:  {'ALL PASSED' if cse_b['all_within_cse_limits'] else 'EXCEEDED'}")
+        for fid_k, fid_v in cse_b["fiducials"].items():
+            print(
+                f"  - {fid_k:<10}: m={fid_v['mean_error_ms']:+.2f} ms, "
+                f"SD={fid_v['sd_error_ms']:.2f} ms (CSE limit <= {fid_v['cse_tolerance_sd_ms']:.1f} ms)"
+            )
+        print("========================================")
     else:
         parser.print_help()
 

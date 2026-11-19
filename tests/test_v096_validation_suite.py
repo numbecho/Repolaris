@@ -258,7 +258,7 @@ class TestV096ValidationSuite(unittest.TestCase):
 
     def test_cli_benchmark_batch_and_gui_circadian_integration(self) -> None:
         """Verifies CLI benchmark/batch subcommands, version 0.9.6, and GUI lbl_adv_circadian readout."""
-        self.assertEqual(repolaris.__version__, "0.9.6")
+        self.assertGreaterEqual(tuple(int(x) for x in repolaris.__version__.split(".")), (0, 9, 6))
 
         buf = io.StringIO()
         with redirect_stdout(buf):

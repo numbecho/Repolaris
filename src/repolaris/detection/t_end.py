@@ -59,6 +59,41 @@ def _detect_t_end_zhang_area(
     return int(np.clip(best_k, t_peak_rel + 1, n_seg - 1))
 
 
+
+
+def _detect_t_end_phasor(
+    segment: np.ndarray,
+    t_peak_rel: int,
+    fs: float,
+    baseline_level: float,
+    r_v: float = 0.05,
+) -> int:
+    """Implements Martínez, Alcaraz & Rieta (2010, CinC) Phasor Transform T-wave offset locator.
+
+    Maps ECG amplitude relative to baseline into phase angle phi(t) = arctan((x(t) - b) / R_V),
+    magnifying low-amplitude and flat T-wave tails while bounding high-amplitude spikes.
+    """
+    n_seg = len(segment)
+    if t_peak_rel >= n_seg - 3:
+        return min(n_seg - 1, t_peak_rel + 1)
+
+    dev = segment - baseline_level
+    scale_rv = max(float(r_v), 0.05 * float(np.max(np.abs(dev))))
+    phi = np.arctan(dev / max(scale_rv, 1e-6))
+    phi_peak = abs(float(phi[t_peak_rel]))
+    if phi_peak < 1e-6:
+        return min(n_seg - 1, t_peak_rel + max(2, int(0.08 * fs)))
+
+    descending_phi = np.abs(phi[t_peak_rel:])
+    # T-end occurs where phase magnitude drops to <= 15% of peak phase or phase slope flattens
+    below = np.where(descending_phi <= 0.15 * phi_peak)[0]
+    if len(below) > 0:
+        return int(np.clip(t_peak_rel + int(below[0]), t_peak_rel + 1, n_seg - 1))
+
+    dphi = np.abs(np.gradient(descending_phi))
+    return int(np.clip(t_peak_rel + int(np.argmin(dphi)), t_peak_rel + 1, n_seg - 1))
+
+
 def detect_t_end(
     signal: np.ndarray,
     r_peak: int,
@@ -90,6 +125,11 @@ def detect_t_end(
         return t_peak_idx, min(len(signal) - 1, t_peak_idx + int(0.08 * fs))
 
     method_lower = method.lower()
+
+    # Martínez et al. (2010) Phasor Transform delineation
+    if method_lower in ("phasor", "phasor_transform"):
+        phasor_rel = _detect_t_end_phasor(segment, t_peak_rel, fs, baseline_level)
+        return t_peak_idx, min(len(signal) - 1, start_idx + phasor_rel)
 
     # Zhang et al. (2006) sliding-window area delineation
     if method_lower in ("zhang_area", "area", "swa"):

@@ -369,6 +369,10 @@ def analyze_ecg(
 
     annotation_mgr = _build_annotation_manager(classified_beats, author="AI_DETECTOR")
     summary = summarize_beats(beats)
+    if "pvc_percentage" not in ectopic_summary:
+        _tot = int(ectopic_summary.get("total_beats", 0))
+        _pvc = int(ectopic_summary.get("pvc_count", 0))
+        ectopic_summary["pvc_percentage"] = round(_pvc / _tot * 100.0, 2) if _tot > 0 else 0.0
     summary["ectopic_summary"] = ectopic_summary
     events = detect_clinical_events(beats, fs=fs)
 
@@ -632,6 +636,10 @@ def analyze_ecg_stream(
     pvc_cnt = counts.get("V", 0)
     pac_cnt = counts.get("S", 0)
     tot_b = len(all_classified)
+    rhythm_counts: dict[str, int] = {}
+    for cb in all_classified:
+        rp = cb.rhythm_pattern.value
+        rhythm_counts[rp] = rhythm_counts.get(rp, 0) + 1
     ectopic_summary = {
         "total_beats": tot_b,
         "counts": counts,
@@ -639,6 +647,12 @@ def analyze_ecg_stream(
         "pac_count": pac_cnt,
         "pvc_percentage": round(pvc_cnt / tot_b * 100.0, 2) if tot_b > 0 else 0.0,
         "ectopic_burden_pct": round((pvc_cnt + pac_cnt) / tot_b * 100.0, 2) if tot_b > 0 else 0.0,
+        "algorithm": "Hamilton_OSEA_2002_Stream",
+        "rhythm_patterns": rhythm_counts,
+        "vt_runs": rhythm_counts.get("VT_RUN", 0),
+        "couplet_episodes": rhythm_counts.get("COUPLET", 0),
+        "af_stabilized": False,
+        "template_cluster_count": len(counts),
     }
     summary["ectopic_summary"] = ectopic_summary
 

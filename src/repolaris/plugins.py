@@ -64,11 +64,12 @@ class PluginRegistry:
             return self._biomarkers.pop(key, None) is not None
 
     def clear_all(self) -> None:
-        """Clears all custom registered plugins (useful for test isolation)."""
+        """Clears all custom registered plugins while preserving built-in delineators."""
         with self._lock:
             self._qrs_detectors.clear()
             self._t_end_delineators.clear()
             self._biomarkers.clear()
+            self._t_end_delineators["phasor"] = _phasor_t_end_plugin
 
     def get_qrs_detector(self, name: str) -> QRSDetectorHook | None:
         with self._lock:
@@ -147,3 +148,14 @@ def get_registered_plugins() -> dict[str, list[str]]:
 def clear_registered_plugins() -> None:
     """Clears all registered plugins from the global registry."""
     GLOBAL_PLUGIN_REGISTRY.clear_all()
+
+
+def _phasor_t_end_plugin(signal: np.ndarray, r_peak: int, fs: float) -> int:
+    """Built-in Martínez et al. (2010) Phasor Transform T-end delineator plugin."""
+    from repolaris.detection.t_end import detect_t_end
+
+    _, t_end_idx = detect_t_end(signal, r_peak, fs, method="phasor")
+    return int(t_end_idx)
+
+
+GLOBAL_PLUGIN_REGISTRY.register_t_end_delineator("phasor", _phasor_t_end_plugin)

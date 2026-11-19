@@ -558,3 +558,35 @@ def stream_ecg_chunks(
             }
             core_start = core_end
             chunk_idx += 1
+
+
+def reconstruct_derived_leads(signals: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
+    """Computes derived limb leads (III, aVR, aVL, aVF) from independent leads I and II if absent.
+
+    Follows Einthoven and Goldberger augmented limb-lead equations used in 8-lead clinical ECGs:
+    - III = II - I
+    - aVR = -(I + II) / 2
+    - aVL = I - II / 2
+    - aVF = II - I / 2
+    """
+    out = dict(signals)
+    norm_keys = {k.strip().upper().replace("LEAD ", "").replace("LEAD_", ""): k for k in out}
+    if "I" not in norm_keys or "II" not in norm_keys:
+        return out
+
+    lead_i = np.asarray(out[norm_keys["I"]], dtype=np.float64)
+    lead_ii = np.asarray(out[norm_keys["II"]], dtype=np.float64)
+    n = min(len(lead_i), len(lead_ii))
+    if n == 0:
+        return out
+    li, lii = lead_i[:n], lead_ii[:n]
+
+    if "III" not in norm_keys:
+        out["III"] = (lii - li).astype(lead_i.dtype)
+    if "AVR" not in norm_keys:
+        out["aVR"] = (-0.5 * (li + lii)).astype(lead_i.dtype)
+    if "AVL" not in norm_keys:
+        out["aVL"] = (li - 0.5 * lii).astype(lead_i.dtype)
+    if "AVF" not in norm_keys:
+        out["aVF"] = (lii - 0.5 * li).astype(lead_i.dtype)
+    return out

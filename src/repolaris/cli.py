@@ -69,6 +69,9 @@ def _build_parser() -> argparse.ArgumentParser:
     batch_p.add_argument("--stream-threshold-mb", type=float, default=25.0, help="File size threshold (MB) for out-of-core streaming")
 
     bench_p = subparsers.add_parser("benchmark", help="Run ANSI/AAMI EC57 & CSE fiducial self-certification suite")
+    bench_p.add_argument("--input", dest="input_file", help="Optional real ECG file (.hea, .ecg, .pecg) to benchmark")
+    bench_p.add_argument("--reference", dest="reference_file", help="Optional ground-truth annotation file (.atr or .ann)")
+    bench_p.add_argument("--lead", default=0, help="Lead index or name when using --input")
     bench_p.add_argument("--fs", type=float, default=500.0, help="Sampling frequency (Hz)")
     bench_p.add_argument("--duration", type=float, default=25.0, help="Synthetic reference duration (sec)")
     bench_p.add_argument("--hr", type=float, default=72.0, help="Reference heart rate (BPM)")
@@ -336,6 +339,36 @@ def main(argv: list[str] | None = None) -> None:
             f"({report['failed_count']} errors)."
         )
     elif args.command == "benchmark":
+        if getattr(args, "input_file", None) and getattr(args, "reference_file", None):
+            from pathlib import Path as _Path
+            from repolaris.benchmarks.ec57 import evaluate_qrs_and_classification_ec57
+            from repolaris.io.ishne_reader import read_ishne_ann
+            from repolaris.io.wfdb_reader import read_wfdb_annotations
+
+            sigs, det_fs, _ = StudyAPI.load_study_dataset(args.input_file)
+            lkeys = list(sigs.keys())
+            lparam = int(args.lead) if str(args.lead).isdigit() else str(args.lead)
+            sig = sigs[lkeys[min(max(0, lparam), len(lkeys) - 1)]] if isinstance(lparam, int) else sigs.get(lparam, sigs[lkeys[0]])
+            res = AnalysisAPI.analyze_signal(sig, fs=det_fs)
+            ref_path = _Path(args.reference_file)
+            ref_data = read_ishne_ann(ref_path) if ref_path.suffix.lower() == ".ann" else read_wfdb_annotations(ref_path)
+            pred_peaks = [int(b["r_peak_sample"]) for b in res["beats"]]
+            pred_cls = [str(b.get("beat_class", "N")) for b in res["beats"]]
+            ev = evaluate_qrs_and_classification_ec57(
+                ref_samples=ref_data["r_peaks"],
+                test_samples=pred_peaks,
+                fs=det_fs,
+                ref_classes=ref_data["aami_classes"],
+                test_classes=pred_cls,
+            )
+            print("========================================")
+            print("  ANSI/AAMI EC57 Real-Record Benchmark  ")
+            print("========================================")
+            print(f"Record:               {ref_path.stem} ({det_fs:.1f} Hz)")
+            print(f"Matched Beats (bxb):  TP={ev['tp']}, FP={ev['fp']}, FN={ev['fn']}")
+            print(f"QRS Detection:        Se={ev['sensitivity_pct']:.2f}% | +P={ev['positive_predictivity_pct']:.2f}% | F1={ev['f1_score_pct']:.2f}%")
+            print("========================================")
+            return
         cert = AnalysisAPI.run_self_certification(
             fs=args.fs,
             duration_sec=args.duration,

@@ -29,7 +29,7 @@ Repolaris computes five rate-correction formulations simultaneously:
 ```bash
 pip install -e ".[gui]"
 ```
-Ensure `PyQt6` and `pyqtgraph` are installed in your active virtual environment.
+Ensure `PySide6` and `pyqtgraph` are installed in your active virtual environment.
 
 ### Issue: Corrupted or missing T-waves in noisy Holter recordings
 **Solution:** Evaluate the Two-Stage Signal Quality Index (SQI) via `evaluate_lead_quality` (or multi-lead `rank_leads_two_stage`) before running delineation:

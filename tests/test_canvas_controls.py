@@ -18,10 +18,10 @@ class TestCanvasControls(unittest.TestCase):
 
     def test_button_translations(self):
         set_locale("en")
-        self.assertEqual(tr("grid_btn_lines"), "⊞ Lines")
-        self.assertEqual(tr("grid_btn_dots"), "⁚ Dots")
-        self.assertEqual(tr("grid_btn_off"), "⊘ Off")
-        self.assertEqual(tr("calipers_btn_toggle"), "📏 Calipers")
-        self.assertEqual(tr("calipers_btn_center"), "⟲ Center")
-        self.assertEqual(tr("calipers_btn_add"), "➕ Line")
+        self.assertEqual(tr("grid_btn_lines"), "Lines")
+        self.assertEqual(tr("grid_btn_dots"), "Dots")
+        self.assertEqual(tr("grid_btn_off"), "Off")
+        self.assertEqual(tr("calipers_btn_toggle"), "Calipers")
+        self.assertEqual(tr("calipers_btn_center"), "Center")
+        self.assertEqual(tr("calipers_btn_add"), "Line")
         self.assertEqual(tr("zoom_label"), "Zoom:")

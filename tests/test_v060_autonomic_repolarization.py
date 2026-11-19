@@ -288,7 +288,7 @@ class TestV060AutonomicAndRepolarization(unittest.TestCase):
         os.environ["QT_QPA_PLATFORM"] = "offscreen"
         from repolaris.app import HAS_GUI, MainWindow, SettingsDialog
         if HAS_GUI:
-            from PyQt6.QtWidgets import QApplication
+            from PySide6.QtWidgets import QApplication
             _app = QApplication.instance() or QApplication(["pytest", "-platform", "offscreen"])
             win = MainWindow()
             try:

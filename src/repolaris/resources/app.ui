@@ -117,16 +117,6 @@
         </widget>
        </item>
        <item>
-        <widget class="QPushButton" name="btn_demo">
-         <property name="text">
-          <string>⚡ Demo Rhythm</string>
-         </property>
-         <property name="toolTip">
-          <string>Generate realistic synthetic ECG rhythm (72 bpm)</string>
-         </property>
-        </widget>
-       </item>
-       <item>
         <widget class="QPushButton" name="btn_export">
          <property name="text">
           <string>📤 Export Case (.pecg)</string>

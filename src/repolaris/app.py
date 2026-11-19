@@ -36,9 +36,9 @@ from repolaris.detection.qtrr import QTRR_MODEL_METADATA, SUPPORTED_QTRR_MODELS
 from repolaris.i18n import SUPPORTED_LANGUAGES, get_current_locale, set_locale, tr
 
 try:
-    from PyQt6.QtCore import Qt, QThread, QUrl, pyqtSignal
-    from PyQt6.QtGui import QAction, QActionGroup, QColor, QDesktopServices, QKeySequence
-    from PyQt6.QtWidgets import (
+    from PySide6.QtCore import Qt, QThread, QUrl, Signal
+    from PySide6.QtGui import QAction, QActionGroup, QColor, QDesktopServices, QKeySequence
+    from PySide6.QtWidgets import (
         QApplication,
         QButtonGroup,
         QComboBox,
@@ -80,7 +80,7 @@ except ImportError:
         def blockSignals(self, b: bool) -> None:
             pass
 
-    def pyqtSignal(*args: Any, **kwargs: Any) -> Any:
+    def Signal(*args: Any, **kwargs: Any) -> Any:
         return _SignalMock()
 
     class _QMockMeta(type):
@@ -362,9 +362,9 @@ except ImportError:
 
 class BackgroundTaskWorker(QThread):
     """Executes long-running API tasks in a dedicated background worker thread with cooperative cancellation."""
-    progress = pyqtSignal(float, str)
-    finished = pyqtSignal(object)
-    error = pyqtSignal(str)
+    progress = Signal(float, str)
+    finished = Signal(object)
+    error = Signal(str)
 
     def __init__(self, task_func: Callable[..., Any], *args: Any, **kwargs: Any) -> None:
         super().__init__()
@@ -1619,11 +1619,6 @@ class MainWindow(QMainWindow):
         self.btn_open.clicked.connect(self._open_file_dialog)
         top_layout.addWidget(self.btn_open)
 
-        self.btn_demo = QPushButton(tr("btn_demo"))
-        self.btn_demo.setToolTip(tr("btn_demo_tooltip"))
-        self.btn_demo.clicked.connect(self._load_synthetic_demo)
-        top_layout.addWidget(self.btn_demo)
-
         self.btn_export = QPushButton(tr("btn_export"))
         self.btn_export.setObjectName("btnSecondary")
         self.btn_export.setToolTip(tr("btn_export_tooltip"))
@@ -1706,7 +1701,7 @@ class MainWindow(QMainWindow):
         # Canvas Color Scheme Dropdown
         self.lbl_canvas_scheme = QLabel(tr("canvas_theme_label"))
         self.lbl_canvas_scheme.setStyleSheet("font-weight: 600; color: #94a3b8; font-size: 8.5pt;")
-        c_layout.addWidget(self.lbl_canvas_scheme)
+        self.lbl_canvas_scheme.setVisible(False)
 
         self.combo_canvas_theme = QComboBox()
         self.combo_canvas_theme.setToolTip(tr("canvas_theme_tooltip"))
@@ -1714,7 +1709,7 @@ class MainWindow(QMainWindow):
         for cid, ctheme in CANVAS_THEMES.items():
             self.combo_canvas_theme.addItem(tr(ctheme["name_key"]), cid)
         self.combo_canvas_theme.currentIndexChanged.connect(self._on_canvas_theme_dropdown_changed)
-        c_layout.addWidget(self.combo_canvas_theme)
+        self.combo_canvas_theme.setVisible(False)
 
         c_layout.addSpacing(4)
 
@@ -2027,7 +2022,7 @@ class MainWindow(QMainWindow):
         self.beat_table.cellClicked.connect(self._on_beat_selected)
         self.beat_table.cellDoubleClicked.connect(self._on_beat_double_clicked)
         b_layout.addWidget(self.beat_table)
-        self.tabs.addTab(beats_tab, tr("tab_beats"))
+        self._beats_tab_widget = beats_tab
 
         # -----------------------------------------------------------------
         # TAB 4: INTERACTIVE QT-RR RESTITUTION & HYSTERESIS VISUALIZATION
@@ -2130,7 +2125,7 @@ class MainWindow(QMainWindow):
         self.qtrr_models_table.cellClicked.connect(self._on_qtrr_table_row_clicked)
         qtrr_layout.addWidget(self.qtrr_models_table)
 
-        self.tabs.addTab(qtrr_tab, tr("tab_qtrr"))
+        self._qtrr_tab_widget = qtrr_tab
 
         # -----------------------------------------------------------------
         # TAB 5: HOLTER TRIAGE (Hourly Trends & AF Burden)
@@ -2183,6 +2178,7 @@ class MainWindow(QMainWindow):
         holter_layout.addWidget(self.holter_af_table, stretch=1)
 
         self.tabs.addTab(holter_tab, tr("tab_holter"))
+        self.tabs.addTab(self._beats_tab_widget, tr("tab_beats"))
 
         # -----------------------------------------------------------------
         # TAB 6: SUPERIMPOSED MULTI-LEAD "BUTTERFLY" MEDIAN BEAT & T-WAVE PCA
@@ -2257,6 +2253,7 @@ class MainWindow(QMainWindow):
         bf_layout.addWidget(self.butterfly_table)
 
         self.tabs.addTab(self.tab_butterfly, tr("tab_butterfly"))
+        self.tabs.addTab(self._qtrr_tab_widget, tr("tab_qtrr"))
 
         # -----------------------------------------------------------------
         # TAB 7: STUDY & PATIENT METADATA (Demographics & Clinical Context) - LAST TAB
@@ -2711,8 +2708,6 @@ class MainWindow(QMainWindow):
         self.lead_lbl.setText(tr("channel_label"))
         self.btn_open.setText(tr("btn_open"))
         self.btn_open.setToolTip(tr("btn_open_tooltip"))
-        self.btn_demo.setText(tr("btn_demo"))
-        self.btn_demo.setToolTip(tr("btn_demo_tooltip"))
         self.btn_export.setText(tr("btn_export"))
         self.btn_export.setToolTip(tr("btn_export_tooltip"))
         if hasattr(self, "btn_export_pdf"):

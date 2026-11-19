@@ -132,7 +132,7 @@ class TestAsyncTasksAndProgress(unittest.TestCase):
         if HAS_GUI:
             os.environ["QT_QPA_PLATFORM"] = "offscreen"
             try:
-                from PyQt6.QtWidgets import QApplication
+                from PySide6.QtWidgets import QApplication
                 _app = QApplication.instance()
                 if _app is None:
                     _app = QApplication(["pytest", "-platform", "offscreen"])

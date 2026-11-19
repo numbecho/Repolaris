@@ -1,7 +1,7 @@
 """Repolaris UI Precompilation Engine.
 
 Compiles Qt Designer XML layouts (.ui) into native, high-performance Python modules (.py).
-Supports pyuic6, PyQt6.uic, PySide6-uic, and a standalone zero-dependency fallback compiler.
+Supports pyside6-uic, PySide6, PySide6-uic, and a standalone zero-dependency fallback compiler.
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ def _generate_fallback_code(ui_path: Path) -> str:
         'from typing import Any',
         '',
         'try:',
-        '    from PyQt6 import QtCore, QtWidgets',
+        '    from PySide6 import QtCore, QtWidgets',
         '    import pyqtgraph as pg',
         '    HAS_GUI = True',
         'except ImportError:',
@@ -104,10 +104,6 @@ def _generate_fallback_code(ui_path: Path) -> str:
         '        self.btn_open = QtWidgets.QPushButton(self.topBar) if HAS_GUI else QtWidgets()',
         '        self.btn_open.setObjectName("btn_open")',
         '        self.top_layout.addWidget(self.btn_open)',
-        '',
-        '        self.btn_demo = QtWidgets.QPushButton(self.topBar) if HAS_GUI else QtWidgets()',
-        '        self.btn_demo.setObjectName("btn_demo")',
-        '        self.top_layout.addWidget(self.btn_demo)',
         '',
         '        self.btn_export = QtWidgets.QPushButton(self.topBar) if HAS_GUI else QtWidgets()',
         '        self.btn_export.setObjectName("btn_export")',
@@ -482,36 +478,35 @@ def _generate_fallback_code(ui_path: Path) -> str:
         f'        {cls_name}.setWindowTitle("Repolaris — Ventricular Repolarization & ECG Workstation")',
         '        self.title_lbl.setText("Repolaris")',
         '        self.lbl_file_badge.setText("Demo Synthetic Rhythm (72 bpm)")',
-        '        self.btn_settings.setText("⚙️ Settings")',
+        '        self.btn_settings.setText("Settings")',
         '        self.lead_lbl.setText("Lead:")',
-        '        self.btn_open.setText("📂 Open Study")',
-        '        self.btn_demo.setText("⚡ Demo Rhythm")',
-        '        self.btn_export.setText("📤 Export Study")',
-        '        self.btn_export_pdf.setText("📄 PDF Report")',
+        '        self.btn_open.setText("Open Study")',
+        '        self.btn_export.setText("Export Study")',
+        '        self.btn_export_pdf.setText("PDF Report")',
         '        self.btn_close.setText("✕ Close Study")',
         '        self.lbl_canvas_title.setText("ECG Waveform — Lead II")',
         '        self.lbl_canvas_scheme.setText("Theme:")',
         '        self.lbl_grid.setText("Grid:")',
-        '        self.btn_grid_lines.setText("⊞ Lines")',
-        '        self.btn_grid_dots.setText("⁚ Dots")',
-        '        self.btn_grid_off.setText("⊘ Off")',
-        '        self.btn_calipers_toggle.setText("📏 Calipers")',
-        '        self.btn_calipers_center.setText("⟲ Center")',
-        '        self.btn_add_line.setText("➕ Line")',
+        '        self.btn_grid_lines.setText("Lines")',
+        '        self.btn_grid_dots.setText("Dots")',
+        '        self.btn_grid_off.setText("Off")',
+        '        self.btn_calipers_toggle.setText("Calipers")',
+        '        self.btn_calipers_center.setText("Center")',
+        '        self.btn_add_line.setText("Line")',
         '        self.lbl_zoom.setText("Zoom:")',
-        '        self.lbl_scale_badge.setText("📐 Scale: 25 mm/s | 10 mm/mV")',
-        '        self.lbl_cal_cue.setText("🔍 Digital Calipers:")',
+        '        self.lbl_scale_badge.setText("Scale: 25 mm/s | 10 mm/mV")',
+        '        self.lbl_cal_cue.setText("Digital Calipers:")',
         '        self.lbl_tag_raw.setText("Raw QT:")',
         '        self.lbl_tag_bazett.setText("Bazett QTc:")',
         '        self.lbl_tag_fridericia.setText("Fridericia QTc:")',
-        '        self.help_cue.setText("💡 Drag calipers along the waveform to measure any cardiac cycle.")',
-        '        self.tabs.setTabText(self.tabs.indexOf(self.tab_overview), "📊 Overview")',
-        '        self.tabs.setTabText(self.tabs.indexOf(self.tab_events), "🚨 Events Diary")',
-        '        self.tabs.setTabText(self.tabs.indexOf(self.tab_beats), "📋 All Beats")',
-        '        self.tabs.setTabText(self.tabs.indexOf(self.tab_qtrr), "📈 QT-RR Dynamics")',
-        '        self.tabs.setTabText(self.tabs.indexOf(self.tab_holter), "🕒 Holter Triage")',
-        '        self.tabs.setTabText(self.tabs.indexOf(self.tab_butterfly), "🦋 Butterfly & T-PCA")',
-        '        self.tabs.setTabText(self.tabs.indexOf(self.tab_metadata), "📋 Study & Patient")',
+        '        self.help_cue.setText("Drag calipers along the waveform to measure any cardiac cycle.")',
+        '        self.tabs.setTabText(self.tabs.indexOf(self.tab_overview), "Overview")',
+        '        self.tabs.setTabText(self.tabs.indexOf(self.tab_events), "Events Diary")',
+        '        self.tabs.setTabText(self.tabs.indexOf(self.tab_beats), "All Beats")',
+        '        self.tabs.setTabText(self.tabs.indexOf(self.tab_qtrr), "QT-RR Dynamics")',
+        '        self.tabs.setTabText(self.tabs.indexOf(self.tab_holter), "Holter Triage")',
+        '        self.tabs.setTabText(self.tabs.indexOf(self.tab_butterfly), "Butterfly & T-PCA")',
+        '        self.tabs.setTabText(self.tabs.indexOf(self.tab_metadata), "Study & Patient")',
         '        self.grp_a_box.setTitle("Core Demographics & Identification")',
         '        self.grp_b_box.setTitle("Clinical Indications & Acquisition Parameters")',
         '',
@@ -531,23 +526,14 @@ def compile_ui(ui_path: Path | str | None = None, output_path: Path | str | None
     else:
         output_path = Path(output_path)
 
-    # 1. Attempt pyuic6 in PATH
-    pyuic_bin = shutil.which("pyuic6")
+    # 1. Attempt pyside6-uic in PATH
+    pyuic_bin = shutil.which("pyside6-uic")
     if pyuic_bin:
         with contextlib.suppress(Exception):
             subprocess.run([pyuic_bin, str(ui_path), "-o", str(output_path)], capture_output=True, text=True, check=True)
             txt = output_path.read_text(encoding="utf-8").replace("(object):", ":")
             output_path.write_text(txt, encoding="utf-8")
             return output_path
-
-    # 2. Attempt PyQt6.uic.compileUi
-    with contextlib.suppress(Exception):
-        from PyQt6 import uic  # type: ignore
-        with open(output_path, "w", encoding="utf-8") as f_out:
-            uic.compileUi(str(ui_path), f_out)
-        txt = output_path.read_text(encoding="utf-8").replace("(object):", ":")
-        output_path.write_text(txt, encoding="utf-8")
-        return output_path
 
     # 3. Fallback pure-Python compiler
     code = _generate_fallback_code(ui_path)

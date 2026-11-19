@@ -124,5 +124,23 @@ class TestV099UpgradesAndContract(unittest.TestCase):
             )
 
 
+
+    def test_pyside6_migration_and_distraction_free_gui(self) -> None:
+        """Verifies zero PyQt6 imports remain, Demo button is removed, and UI tabs/buttons have no emoji clutter."""
+        root = Path(__file__).resolve().parent.parent
+        for py_file in (root / "src").rglob("*.py"):
+            content = py_file.read_text(encoding="utf-8")
+            self.assertNotIn("from PyQt6", content, f"Legacy PyQt6 import found in {py_file}")
+            self.assertNotIn("import PyQt6", content, f"Legacy PyQt6 import found in {py_file}")
+
+        app_src = (root / "src" / "repolaris" / "app.py").read_text(encoding="utf-8")
+        self.assertIn("from PySide6.QtCore import", app_src)
+        self.assertNotIn("self.btn_demo", app_src)
+
+        for key in ("btn_open", "btn_export", "btn_export_pdf", "btn_settings", "tab_overview", "tab_events", "tab_holter", "tab_beats", "tab_butterfly"):
+            label = TRANSLATIONS["en"][key]
+            self.assertTrue(all(ord(ch) < 0x1F000 for ch in label), f"Emoji found in {key}: {label!r}")
+
+
 if __name__ == "__main__":
     unittest.main()

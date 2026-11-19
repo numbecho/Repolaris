@@ -83,11 +83,11 @@ class TestI18n(unittest.TestCase):
     def test_canvas_scale_and_grid_translations(self):
         """Verify scale badge formatting and toggle button labels across all languages."""
         for lang, expected_prefix, expected_lines in [
-            ("en", "Scale", "⊞ Lines"),
-            ("es", "Escala", "⊞ Líneas"),
-            ("fr", "Échelle", "⊞ Lignes"),
-            ("de", "Maßstab", "⊞ Linien"),
-            ("pt", "Escala", "⊞ Linhas"),
+            ("en", "Scale", "Lines"),
+            ("es", "Escala", "Líneas"),
+            ("fr", "Échelle", "Lignes"),
+            ("de", "Maßstab", "Linien"),
+            ("pt", "Escala", "Linhas"),
         ]:
             set_locale(lang)
             self.assertEqual(tr("canvas_scale_prefix"), expected_prefix)

@@ -179,6 +179,26 @@ def _compute_hrv_from_beats(beats: list[dict[str, Any]]) -> dict[str, Any] | Non
     return compute_comprehensive_hrv(hrv_input) if len(hrv_input) >= 2 else None
 
 
+def _sanitize_raw_signal(raw_signal: np.ndarray) -> tuple[np.ndarray, bool]:
+    """Interpolates non-finite ADC glitches (NaN/Inf) and detects constant flatline/lead-off inputs."""
+    arr = np.asarray(raw_signal, dtype=np.float64).ravel()
+    if arr.size == 0:
+        return arr, True
+    finite_mask = np.isfinite(arr)
+    if not np.all(finite_mask):
+        arr = arr.copy()
+        if not np.any(finite_mask):
+            return np.zeros_like(arr), True
+        idx = np.arange(arr.size)
+        arr[~finite_mask] = np.interp(idx[~finite_mask], idx[finite_mask], arr[finite_mask])
+    is_flatline = float(np.ptp(arr)) < 1e-9
+    if is_flatline:
+        arr = np.zeros_like(arr)
+    else:
+        arr = arr - float(np.median(arr))
+    return arr, is_flatline
+
+
 def analyze_ecg(
     raw_signal: np.ndarray,
     fs: float = 500.0,
@@ -191,6 +211,8 @@ def analyze_ecg(
     """Executes the master diagnostic analysis pipeline on a raw ECG signal."""
     if config is None:
         config = ECGConfig(sampling_rate=fs)
+
+    raw_signal, is_flatline = _sanitize_raw_signal(raw_signal)
 
     if progress_callback:
         progress_callback(0.10, "Preprocessing and baseline wander removal...")
@@ -214,7 +236,11 @@ def analyze_ecg(
 
     if progress_callback:
         progress_callback(0.40, "Detecting QRS complexes, R-peaks, and high-rate pacing spikes...")
-    r_peaks = detect_r_peaks(clean_signal, fs, config.detection_cfg.refractory_period_ms)
+    r_peaks = (
+        np.array([], dtype=int)
+        if is_flatline
+        else detect_r_peaks(clean_signal, fs, config.detection_cfg.refractory_period_ms)
+    )
     pacemaker_report = detect_pacemaker_spikes(raw_signal, fs=fs, r_peaks=r_peaks, metadata=metadata)
     paced_set = set(pacemaker_report.get("paced_beat_indices", []))
 

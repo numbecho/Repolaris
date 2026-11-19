@@ -6,11 +6,25 @@ This document tracks architectural milestones, clinical electrophysiology module
 
 ## Completed Milestones
 
-### v0.9.6 — Pre-1.0 Regulatory Validation, Circadian Stratification, Cohort Batch Runner & Plugin Registry (Current Release)
+### v0.9.9 — SCP-ECG Huffman 19999, Phasor Delineator, Derived 12-Lead & Native EC57 CLI (Current Release)
+- **[IMPLEMENTED] CEN EN 1064 Default Huffman Table `19999` & Section 5 Decoder (`io/scp_reader.py`)**: Decodes compressed SCP-ECG rhythm files, Section 5 reference-beat residuals, and standard CEN EN 1064 Table 8 lead IDs (`61–64`).
+- **[IMPLEMENTED] Derived 12-Lead Reconstruction (`io/ecg_loader.py`)**: Computes `III`, `aVR`, `aVL`, and `aVF` from independent leads `I` and `II` for 8-lead clinical resting ECGs.
+- **[IMPLEMENTED] Martínez et al. (2010) Phasor Transform Delineator (`detection/t_end.py`, `plugins.py`)**: Selectable via `method="phasor"` and registered as a built-in `GLOBAL_PLUGIN_REGISTRY` delineator (`"phasor"`).
+- **[IMPLEMENTED] Native `.atr`/`.ann` Benchmarking & Contract Audit (`cli.py`, `pipeline.py`, `tests/test_v099_upgrades_and_contract.py`)**: Direct `repolaris benchmark --input <record> --reference <atr|ann>`, unified `ectopic_summary` schema between `analyze_ecg()` and `analyze_ecg_stream()`, 100% 5-language `i18n` parity, and **130 passing unit tests** (`100%` Ruff `py314` clean).
+
+### v0.9.7 – v0.9.8 — Pathological Edge-Case Hardening & Streaming Equivalence Audit
+- **[IMPLEMENTED] Hostile Signal Sanitization (`detection/pipeline.py`, `tests/test_v097_v098_stress_audit.py`)**: Flatline/lead-off `0`-beat gating, mid-stream `NaN`/`Inf` linear interpolation (`0` warnings), and stress verification across `30–220 BPM`, AF, `6 s` pauses, inverted morphology, and `125–2000 Hz`.
+- **[IMPLEMENTED] Streaming Parity & Multi-Format Batch Stress**: Verified `0` beat drops/duplicates (`720/720` beats) between `analyze_ecg()` and `analyze_ecg_stream()`, plus mixed-format `BatchAPI` and `ExportAPI.export_clinical_pdf()` cohort stress tests.
+
+### v0.9.6 — Pre-1.0 Regulatory Validation, Circadian Stratification, Cohort Batch Runner & Plugin Registry
 - **[IMPLEMENTED] ANSI/AAMI EC57 & CSE Fiducial Benchmark Certification Engine (`benchmarks/ec57.py`, `repolaris benchmark` CLI)**: 1-to-1 monotonic `bxb` beat matching ($\pm 150\text{ ms}$), $5 \times 5$ AAMI confusion matrix, `epi` episode overlap, and CSE Working Party / PhysioNet QTDB fiducial boundary standard deviation verification.
 - **[IMPLEMENTED] Circadian Day/Night (Diurnal vs. Nocturnal) Repolarization & Autonomic Stratification (`detection/circadian.py`)**: Nocturnal HR dipping ($\%$), diurnal vs. nocturnal $QTcF / J\text{–}T_{\text{peak}}c / T_{pe} / STV_{QT}$, nocturnal $\Delta QTcF$ lengthening (LQT2/LQT3 vs. LQT1), and diurnal vs. nocturnal $QT\text{–}RR$ slope stratification.
 - **[IMPLEMENTED] Headless Multi-File Cohort Batch Runner (`api/batch.py`, `repolaris batch` CLI)**: Fault-isolated multi-file cohort processor exporting 51-column `CSV` and `JSON` biomarker tables without any database dependency.
 - **[IMPLEMENTED] Extensible Research Algorithm & Biomarker Plugin Registry (`plugins.py`)**: Thread-safe, fault-isolated `@register_qrs_detector`, `@register_t_end_delineator`, and `@register_biomarker` hooks (**116 passing unit tests**).
+
+### v0.9.0 — Clinical Repolarization Sub-Intervals, T-Wave Morphology & Ambulatory Holter Suite
+- **FDA CiPA & Repolarization Core (`pulse_metrics.py`, `qtvi.py`, `t_morphology.py`, `app.py`)**: Beat-to-beat $J\text{–}T_{\text{peak}}c$, $T_{pe}$, $T_{pe}/QT$, Poincaré $STV_{QT}/LTV_{QT}$, 3D SVD T-wave morphology ($T_2/T_1$, $TCRT$), and interactive `🦋 Butterfly & T-PCA` median-beat tab.
+- **Ambulatory Holter Suite (`prsa.py`, `st_segment.py`, `p_wave.py`, `edr.py`)**: PRSA Deceleration/Acceleration Capacity ($DC/AC$), rate-adaptive $J+60/80\text{ ms}$ ST-segment ischemia episodes, AF-gated P-wave/AV block screening, ECG-Derived Respiration (EDR/CVHR), and strict `fs >= 1000 Hz` pacemaker spike guard.
 
 ### v0.8.1 — Clinical UX Hotkeys, Ectopic Canvas Overlays, Python 3.14 Modernization & Hostile Audit Hardening
 - **Workstation UX & Documentation Parity (`app.py`, `i18n.py`, `app.ui`, `ui_app.py`)**:
@@ -85,17 +99,7 @@ This document tracks architectural milestones, clinical electrophysiology module
 
 ## Upcoming Milestones
 
-### v0.9.0 — Advanced Repolarization Sub-Intervals, T-Wave Morphology & Extended Clinical Diagnostics
-- **[IMPLEMENTED] FDA CiPA Sub-Interval Decomposition ($J\text{–}T_{\text{peak}}c$, $T_{pe}$, & $T_{pe}/QT$ Ratio in `pulse_metrics.py`)**: Beat-to-beat and summary quantification of $T_{\text{peak}}\text{–}T_{\text{end}}$ ($T_{pe}$), arrhythmogenic $T_{pe}/QT$ ratio (Gupta et al., 2008), and rate-corrected $J\text{–}T_{\text{peak}}c$ ($J\text{–}T_{\text{peak}} / RR^{0.58}$; Johannesen et al., 2014) to differentiate pure hERG potassium block from late sodium current block.
-- **[IMPLEMENTED] Short-Term Variability of QT ($STV_{QT}$ in `pulse_metrics.py` & `qtvi.py`)**: Beat-to-beat Poincaré QT variability ($STV_{QT} = \sum |QT_{n+1} - QT_n| / (N\sqrt{2})$; Thomsen et al., 2004) alongside long-term variability ($LTV_{QT}$) for Torsades de Pointes (TdP) proarrhythmic risk stratification.
-- **[IMPLEMENTED] T-Wave Morphology & 3D PCA Loop Descriptors (`t_morphology.py`)**: T-wave symmetry/asymmetry area ratio, flatness and notched/biphasic T-wave scoring, and multi-lead Singular Value Decomposition (SVD/PCA) T-wave loop complexity ($T_2/T_1$ dipolarity ratio and Total Cosine R-to-T / $TCRT$).
-- **[IMPLEMENTED] Superimposed Multi-Lead "Butterfly" Median Beat View (`app.py`)**: High-magnification ensemble median beat overlay across all leads with synchronized global earliest-$Q_{\text{onset}}$, global $J$-point, and global latest-$T_{\text{end}}$ calipers.
-- **Deceleration & Acceleration Capacity (`prsa.py`)**: Phase-Rectified Signal Averaging (Bauer et al., 2006) on `NN` intervals with post-MI mortality risk stratification ($\le 2.5\text{ ms}$ high risk, $2.6\text{–}4.5\text{ ms}$ intermediate).
-- **ST-Segment Level & Transient Ischemia (`st_segment.py`)**: Automated J-point + $60/80\text{ ms}$ elevation/depression tracking relative to local PQ baseline, SQI-gated $\ge 60\text{ s}$ ischemic episode detection, and hourly ST trends.
-- **P-Wave Delineation & AV Block Screening (`p_wave.py`)**: AF-gated P-wave onset/peak search, beat-to-beat $PR$ intervals, and 1st/2nd-degree AV block detection.
-- **ECG-Derived Respiration (`edr.py`)**: QRS-area respiratory modulation (Moody & Mark, 1986) and CVHR spectral power for overnight respiratory rate and sleep-disordered breathing screening.
-- **High-Rate Pacemaker Spike Guard**: Metadata/annotation pacing flag ingestion for standard 250–500 Hz Holters, with raw waveform spike detection gated strictly to `fs >= 1000 Hz`.
-
-### v1.0.0 — Regulatory Validation & Benchmark Certification
-- Full validation report against PhysioNet QT Database (QTDB), MIT-BIH Arrhythmia Database, MIT-BIH ST Change Database, and Telemetric Holter E-HOL-03-0202-003 (THEW).
-- Frozen long-term support (LTS) public API and plugin registry for custom research algorithms.
+### v1.0.0 — Physician-in-the-Loop Clinical Pilot, Regulatory Validation & Production LTS Freeze
+- **Physician-in-the-Loop Real-World Pilot**: Clinical workstation review with physician input on real de-identified patient recordings (`.pecg` audit logs, manual caliper overrides, arrhythmia reclassification, and printable PDF report evaluation).
+- **Multi-Database Validation Report**: Full ANSI/AAMI EC57 and CSE fiducial certification report across MIT-BIH Arrhythmia, PhysioNet QT Database (QTDB), MIT-BIH Noise Stress Test, and ISHNE Holter cohorts.
+- **Production LTS API Freeze**: Frozen long-term support public API (`StudyAPI`, `AnalysisAPI`, `ExportAPI`, `BatchAPI`, `PluginRegistry`) and finalized v1.0.0 release documentation.

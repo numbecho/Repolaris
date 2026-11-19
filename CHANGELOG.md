@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.9] - 2026-11-18 — SCP-ECG Huffman 19999, Phasor Delineator, Derived 12-Lead & Native EC57 CLI
+
+### Added
+- **SCP-ECG Compressed Waveform & Section 5 Decoder (`io/scp_reader.py`)**: Implemented the CEN EN 1064 Default Huffman Table (`n_tables == 19999`), 1st/2nd-order difference reconstruction, Section 5 reference-beat residual addition, and true CEN EN 1064 Table 8 lead IDs (`61–64` for `Lead III`, `aVR`, `aVL`, `aVF`).
+- **Derived 12-Lead Reconstruction (`io/ecg_loader.py`)**: Added `reconstruct_derived_leads()` computing Einthoven/Goldberger leads (`III`, `aVR`, `aVL`, `aVF`) from independent leads `I` and `II` for 8-lead clinical ECGs.
+- **Phasor Transform T-End Delineator (`detection/t_end.py`, `plugins.py`)**: Added Martínez, Alcaraz & Rieta (2010) nonlinear Phasor Transform ($\phi(t) = \arctan((x(t) - b) / R_V)$) as `method="phasor"` and registered it as a built-in `GLOBAL_PLUGIN_REGISTRY` delineator (`"phasor"`).
+- **Native `.atr` & `.ann` Benchmarking in CLI (`cli.py`)**: Added `--input`, `--reference`, and `--lead` options to `repolaris benchmark` to run ANSI/AAMI EC57 beat-by-beat evaluations directly on raw PhysioNet `.atr` and ISHNE `.ann` files (verified on 30-min MIT-BIH Record 100: `TP=2273, FP=0, FN=0 | Se=100.00% | +P=100.00% | F1=100.00%`).
+- **Contract, Schema Parity & 5-Language i18n Audit (`tests/test_v099_upgrades_and_contract.py`)**: Unified `ectopic_summary` schema keys between `analyze_ecg()` and `analyze_ecg_stream()`, verified 0 key drift across all 5 locales (`en`, `es`, `fr`, `de`, `pt`), and resolved final Ruff `C420`/`SIM113` checks (**130 passing unit tests**).
+
+## [0.9.8] - 2026-11-18 — Streaming Equivalence & Multi-Format Cohort Stress Verification
+
+### Verified
+- **In-Memory vs. Streaming Parity (`tests/test_v097_v098_stress_audit.py`)**: Verified `0` boundary beat drops/duplicates (`720/720` beats on a 10-minute recording across `120 s` chunks with `5 s` overlap) and full top-level key parity between `analyze_ecg()` and `analyze_ecg_stream()`.
+- **Multi-Format Cohort & PDF Stress**: Verified fault-isolated execution across mixed clinical formats (`.npy`, `.csv`, `.pecg`, WFDB `.hea/.dat`, HL7 `.xml`) through `BatchAPI.analyze_directory()` and clinical PDF export via `ExportAPI.export_clinical_pdf()`.
+
+## [0.9.7] - 2026-11-18 — Pathological Signal & Hostile Edge-Case Hardening
+
+### Fixed
+- **Flatline & Mid-Stream `NaN`/`Inf` Sanitization (`detection/pipeline.py`)**: Added `_sanitize_raw_signal()` to median-center raw inputs, gate constant flatline/lead-off signals to `0` beats, and linearly interpolate mid-stream `NaN`/`Inf` ADC glitches with `0` runtime warnings.
+- **Hostile Rhythm & Morphology Stress Suite (`tests/test_v097_v098_stress_audit.py`)**: Verified `30 BPM` bradycardia, `220 BPM` tachycardia, `>80%` irregular AF burden, `6.0 s` asystole pauses, deeply inverted QRS/T morphology, `1.5 s` clips, and `125–2000 Hz` sampling rates.
+
 ## [0.9.6] - 2026-11-18 — Pre-1.0 Regulatory Validation, Circadian Stratification, Cohort Batch Runner & Plugin Registry
 
 ### Added
@@ -17,8 +38,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Zero-database folder processor across all supported ECG/Holter formats with automatic out-of-core `analyze_ecg_stream()` routing for large recordings, per-file fault isolation (`status="ERROR"` on corrupted inputs), and 51-column clinical trial `CSV` and `JSON` matrix export.
 - **Extensible Research Algorithm & Biomarker Plugin Registry (`plugins.py`)**:
   - Thread-safe `PluginRegistry` supporting `@register_qrs_detector`, `@register_t_end_delineator`, and fault-isolated `@register_biomarker` hooks executed automatically inside `analyze_ecg()` and `analyze_ecg_stream()`.
+- **Real-World Clinical Parser Upgrades (`hl7_reader.py`, `wfdb_reader.py`, `ishne_reader.py`, `ecg_loader.py`)**: Added nested HL7 `SLIST_PQ` rhythm-vs-template filtering, WFDB `16+offset` (`16+192`) `.mat` parsing, binary `.atr`/`.ann` annotation readers (`read_wfdb_annotations`, `read_ishne_ann`), and Shimmer3 `"sep="` timestamped CSV ingestion.
 - **Expanded Automated Verification Suite (`tests/test_v096_validation_suite.py`)**:
-  - Added 6 comprehensive unit tests bringing the total test suite to **116 passing unit tests** across 22 test modules (`0` warnings, `100%` Ruff `py314` clean).
+  - Added 7 comprehensive unit tests bringing the total test suite to **117 passing unit tests** across 22 test modules (`0` warnings, `100%` Ruff `py314` clean).
 
 ## [0.9.0] - 2026-11-18 — Clinical Repolarization & Ambulatory Holter Suite
 

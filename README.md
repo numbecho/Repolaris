@@ -2,10 +2,10 @@
 
 **Modernized ECG Analysis, Ventricular Repolarization & Universal Holter Framework**
 
-[![Version](https://img.shields.io/badge/Version-v0.8.1-cyan.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-v0.9.9-cyan.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.14%2B-brightgreen.svg)](pyproject.toml)
-[![Tests](https://img.shields.io/badge/Tests-104%20Passed-success.svg)](tests/)
+[![Tests](https://img.shields.io/badge/Tests-130%20Passed-success.svg)](tests/)
 [![Coverage](https://img.shields.io/badge/Coverage-85%25%20Engine%20%7C%2074%25%20Total-indigo.svg)](tests/)
 [![GUI](https://img.shields.io/badge/GUI-PyQt6%20%2B%20PyQtGraph-purple.svg)](src/repolaris/app.py)
 [![Wiki](https://img.shields.io/badge/Documentation-Wiki-orange.svg)](wiki/Home.md)
@@ -54,14 +54,14 @@ Exhaustive guides, algorithmic specifications, format references, and GUI tutori
 | Format | Extension | Hardware / Clinical Origin | Processing Capabilities |
 | :--- | :--- | :--- | :--- |
 | **DICOM Waveform** | `.dcm`, `.dicom` | Hospital PACS / ECG Carts | SOP Classes 1.2.840.10008.5.1.4.1.1.9.1.1/9.1.2, 12-lead & rhythm scaling to physical mV. |
-| **HL7 Annotated ECG** | `.xml`, `.aecg` | FDA Clinical Trials (TQT) | ANSI/HL7 aECG XML standard, MDC_ECG lead mappings, and comma/period decimal normalization. |
-| **SCP-ECG Standard** | `.scp` | Hospital & Holter Devices | CEN EN 1064 / ISO 13713 Sections 0, 3, and 6 uncompressed rhythm decoding with safety guards. |
+| **HL7 Annotated ECG** | `.xml`, `.aecg` | FDA Clinical Trials (TQT) | ANSI/HL7 aECG XML (including nested `SLIST_PQ` & rhythm-vs-template filtering), MDC_ECG leads, and locale decimal normalization. |
+| **SCP-ECG Standard** | `.scp` | Hospital & Holter Devices | CEN EN 1064 / ISO 13713 uncompressed, 1st/2nd-difference, Default Huffman `19999`, and Section 5 residual decoding + Table 8 lead mapping. |
 | **Repolaris Study Bundle** | `.pecg` | Colleague Exchange | De-identified demographics (Age, Race, Sex), annotations, Zstd/Deflate/Raw `np.memmap` storage. |
-| **ISHNE Holter Standard** | `.ecg` | Commercial Holters (Mortara, GE, Rozinn) | Full ISHNE 1.0 specification (522-byte header, nV resolution scaling, demographics, notes). |
+| **ISHNE Holter Standard** | `.ecg`, `.ann` | Commercial Holters (Mortara, GE, Rozinn) | Full ISHNE 1.0 waveforms (522-byte header, nV scaling) and binary `.ann` beat annotation files. |
 | **Excorde 3C Holter** | `.e3c` | Fukuda Denshi Holter Monitors | In-memory ZIP archive reader decoding 2-channel int16 streams and 25-byte QRS records. |
-| **PhysioNet WFDB** | `.hea`, `.dat` | Clinical Research (MIT-BIH, QT Database, PTB-XL) | Native pure-Python reader supporting Format 16 and Format 212 bit-packed signals. |
+| **PhysioNet WFDB** | `.hea`, `.dat`, `.mat`, `.atr` | Clinical Research (MIT-BIH, QT Database, PTB-XL) | Native pure-Python reader for Format 16, `16+offset` `.mat`, Format 212 bit-packed signals, and binary `.atr` annotations. |
 | **European Data Format** | `.edf`, `.edf+` | Wearable Patches & Telemetry (Bittium Faros, SOMNOtouch) | Official EDF / EDF+ standard, epoch reconstruction, uV/mV calibration. |
-| **Delimited Text / NumPy** | `.csv`, `.txt`, `.npy` | Community Clinics & Raw Sensors | Direct matrix loading and memory-mapped streaming of raw voltage tracks. |
+| **Delimited Text / NumPy** | `.csv`, `.txt`, `.npy` | Community Clinics & Wearables (Shimmer3) | Direct matrix loading, headered `"sep="` timestamped wearable CSV parsing, and memory-mapped streaming. |
 
 ---
 
@@ -101,7 +101,13 @@ repolaris analyze patient_holter.ecg --lead 0 --stream --pdf holter_report.pdf
 # 3. Export and de-identify a recording into a compressed .pecg container
 repolaris export patient_holter.ecg case_01.pecg --compression zstd
 
-# 4. Launch the 60fps desktop workstation GUI
+# 4. Batch-analyze a folder of mixed ECG/Holter files into a 51-column CSV/JSON cohort table
+repolaris batch ./cohort_records --csv cohort_summary.csv --json cohort_summary.json
+
+# 5. Run ANSI/AAMI EC57 beat-by-beat benchmarking on a real record + .atr/.ann reference
+repolaris benchmark --input 100.hea --reference 100.atr
+
+# 6. Launch the 60fps desktop workstation GUI
 repolaris-gui
 ```
 
@@ -110,7 +116,7 @@ repolaris-gui
 ## Code Quality & Testing
 
 ```bash
-# Option A: Run the 104-test automated verification suite with standard Python unittest
+# Option A: Run the 130-test automated verification suite with standard Python unittest
 QT_QPA_PLATFORM=offscreen PYTHONPATH=src python3 -m unittest discover tests -v
 
 # Option B: Lint, format, and test with Astral uv & Ruff (Python 3.14)

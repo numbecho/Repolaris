@@ -325,12 +325,25 @@ class TestVersion080StreamingAndPDF(unittest.TestCase):
 
 
 
+    @staticmethod
+    def _create_ready_demo_window():
+        import time
+        from repolaris.app import HAS_GUI, MainWindow, QApplication
+
+        app = QApplication.instance() or (QApplication([]) if HAS_GUI else None)
+        win = MainWindow(auto_load_demo=True)
+        if HAS_GUI and app is not None:
+            deadline = time.monotonic() + 8.0
+            while win.analysis_results is None and time.monotonic() < deadline:
+                app.processEvents()
+                time.sleep(0.01)
+        return win
+
     def test_ui_ux_audit_all_7_fixes(self) -> None:
         """Verifies all 7 UI/UX vs. documentation fixes (caliper persistence, beat reclassification propagation, RR HUD, 8-column tables, and 5-language i18n)."""
-        from repolaris.app import MainWindow
         from repolaris.i18n import SUPPORTED_LANGUAGES
 
-        win = MainWindow()
+        win = self._create_ready_demo_window()
         self.assertIsNotNone(win.analysis_results)
 
         # 1. RR HUD readout present and populated on beat selection
@@ -386,7 +399,7 @@ class TestVersion080StreamingAndPDF(unittest.TestCase):
             def text(self) -> str:
                 return self._t
 
-        win = MainWindow()
+        win = self._create_ready_demo_window()
         win._select_beat(0)
         self.assertEqual(win.current_beat_index, 0)
 

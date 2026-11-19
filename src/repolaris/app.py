@@ -1334,7 +1334,7 @@ class SettingsDialog(QDialog):
 class MainWindow(QMainWindow):
     """Clinical Electrocardiogram Analysis & Colleague Exchange Workstation."""
 
-    def __init__(self) -> None:
+    def __init__(self, auto_load_demo: bool = False) -> None:
         super().__init__()
         self.setWindowTitle("Repolaris — Ventricular Repolarization & ECG Workstation")
         self.resize(1420, 880)
@@ -1362,7 +1362,8 @@ class MainWindow(QMainWindow):
         self._retired_workers: list[Any] = []
 
         self._setup_ui()
-        self._load_synthetic_demo()
+        if auto_load_demo:
+            self._load_synthetic_demo()
 
     def _setup_ui(self) -> None:
         # ---------------------------------------------------------------------

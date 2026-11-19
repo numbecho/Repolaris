@@ -388,7 +388,7 @@ class TestVersion080StreamingAndPDF(unittest.TestCase):
 
     def test_keyboard_navigation_aami_hotkeys_and_ectopic_markers(self) -> None:
         """Verifies Left/Right beat navigation, N/V/S/F/Q single-key hotkeys, and color-coded ectopic R-peak markers."""
-        from repolaris.app import MainWindow, Qt
+        from repolaris.app import Qt
 
         class _DummyKeyEvent:
             def __init__(self, key_code: int = 0, text_char: str = "") -> None:

@@ -68,10 +68,10 @@ def _read_format_212(raw_bytes: bytes, num_signals: int, num_samples: int) -> np
 def read_wfdb(record_path_or_header: str | Path) -> WFDBRecord:
     """Reads a PhysioNet WFDB record from .hea header and companion .dat binary file."""
     path = Path(record_path_or_header)
-    if path.suffix == ".dat":
+    if path.suffix.lower() in (".dat", ".mat"):
         header_path = path.with_suffix(".hea")
         dat_path = path
-    elif path.suffix == ".hea":
+    elif path.suffix.lower() == ".hea":
         header_path = path
         dat_path = path.with_suffix(".dat")
     else:
@@ -127,8 +127,10 @@ def read_wfdb(record_path_or_header: str | Path) -> WFDBRecord:
             break
         tokens = lines[i].split()
         dat_filenames.append(tokens[0])
-        fmt = int(tokens[1])
-        formats.append(fmt)
+        fmt_str, _, off_str = tokens[1].partition("+")
+        fmt = int(fmt_str)
+        byte_off = int(off_str) if off_str.isdigit() else 0
+        formats.append((fmt, byte_off))
 
         # Parse gain: e.g. "200.0(0)/mV" or "200.0"
         gain_str = tokens[2] if len(tokens) > 2 else "200.0"
@@ -153,15 +155,13 @@ def read_wfdb(record_path_or_header: str | Path) -> WFDBRecord:
         lead_name = tokens[8] if len(tokens) > 8 else f"Lead_{i}"
         lead_names.append(lead_name)
 
-    # Read binary .dat file
-    if not dat_path.exists():
-        # Check if header references a specific dat filename in the same folder (prevent directory traversal)
-        safe_dat_name = Path(dat_filenames[0]).name if dat_filenames else dat_path.name
-        candidate = header_path.parent / safe_dat_name
-        if candidate.exists():
-            dat_path = candidate
-        else:
-            raise FileNotFoundError(f"WFDB binary data file not found: {dat_path}")
+    # Resolve binary data file (.dat or .mat referenced by the WFDB header)
+    safe_dat_name = Path(dat_filenames[0]).name if dat_filenames else dat_path.name
+    candidate = header_path.parent / safe_dat_name
+    if candidate.exists():
+        dat_path = candidate
+    elif not dat_path.exists():
+        raise FileNotFoundError(f"WFDB binary data file not found: {dat_path}")
 
     with open(dat_path, "rb") as f:
         raw_bytes = f.read()
@@ -169,10 +169,13 @@ def read_wfdb(record_path_or_header: str | Path) -> WFDBRecord:
     if len(raw_bytes) == 0:
         raise ValueError(f"Corrupt WFDB record: Binary data file '{dat_path.name}' contains 0 bytes.")
 
-    main_format = formats[0] if formats else 16
+    main_format, byte_offset = formats[0] if formats else (16, 0)
+    if 0 < byte_offset < len(raw_bytes):
+        raw_bytes = raw_bytes[byte_offset:]
+
     if main_format == 16:
-        # Format 16: standard 16-bit signed integers interleaved
-        raw_arr = np.frombuffer(raw_bytes, dtype="<i2")
+        # Format 16: standard 16-bit signed integers (interleaved in .dat, or signal-major/interleaved in wfdb2mat .mat)
+        raw_arr = np.frombuffer(raw_bytes[: (len(raw_bytes) // 2) * 2], dtype="<i2")
         actual_samples = len(raw_arr) // num_signals
         matrix = raw_arr[: actual_samples * num_signals].reshape(actual_samples, num_signals).T
     elif main_format == 212:
@@ -196,3 +199,76 @@ def read_wfdb(record_path_or_header: str | Path) -> WFDBRecord:
         units=units,
         signals=physical_signals
     )
+
+
+# MIT-BIH / PhysioNet WFDB Annotation Code -> AAMI EC57 Class Mapping
+WFDB_ANN_TO_AAMI: dict[int, str] = {
+    1: "N",   # Normal beat
+    2: "N",   # LBBB
+    3: "N",   # RBBB
+    4: "S",   # Aberrated atrial premature
+    5: "V",   # Premature ventricular contraction (PVC)
+    6: "F",   # Fusion of ventricular and normal
+    7: "S",   # Nodal (junctional) premature
+    8: "S",   # Atrial premature (PAC)
+    9: "S",   # Supraventricular premature
+    10: "V",  # Ventricular escape
+    11: "N",  # Nodal (junctional) escape
+    12: "Q",  # Paced beat
+    13: "Q",  # Unclassifiable beat
+    34: "N",  # Atrial escape
+    38: "Q",  # Fusion of paced and normal
+}
+
+
+def read_wfdb_annotations(atr_path: str | Path) -> dict[str, list]:
+    """Parses a PhysioNet MIT-BIH binary annotation file (.atr, .q1c, .pu) into sample indices and AAMI classes."""
+    path = Path(atr_path)
+    if not path.is_file():
+        raise FileNotFoundError(f"WFDB annotation file not found: {path}")
+
+    data = path.read_bytes()
+    samples: list[int] = []
+    aami_classes: list[str] = []
+    raw_codes: list[int] = []
+
+    curr_time = 0
+    pos = 0
+    n_bytes = len(data)
+
+    while pos + 2 <= n_bytes:
+        word = int.from_bytes(data[pos : pos + 2], byteorder="little", signed=False)
+        pos += 2
+        ann_code = (word >> 10) & 0x3F
+        delta = word & 0x03FF
+
+        if ann_code == 0 and delta == 0:
+            break  # EOF marker
+        if ann_code == 59:  # SKIP: next 4 bytes are 32-bit signed PDP-11/mixed-endian interval
+            if pos + 4 > n_bytes:
+                break
+            hi = int.from_bytes(data[pos : pos + 2], byteorder="little", signed=True)
+            lo = int.from_bytes(data[pos + 2 : pos + 4], byteorder="little", signed=False)
+            skip_val = (hi << 16) | lo
+            curr_time += skip_val
+            pos += 4
+            continue
+        if ann_code in (60, 61, 62):  # NUM, SUB, CHN modifier
+            continue
+        if ann_code == 63:  # AUX string: delta is byte count of auxiliary string (even-padded)
+            skip_bytes = delta + (delta % 2)
+            pos += skip_bytes
+            continue
+
+        curr_time += delta
+        if ann_code in WFDB_ANN_TO_AAMI:
+            samples.append(int(curr_time))
+            aami_classes.append(WFDB_ANN_TO_AAMI[ann_code])
+            raw_codes.append(int(ann_code))
+
+    return {
+        "r_peaks": samples,
+        "aami_classes": aami_classes,
+        "raw_codes": raw_codes,
+        "total_beats": len(samples),
+    }

@@ -286,6 +286,97 @@ class TestV096ValidationSuite(unittest.TestCase):
         self.assertIn("SINGLE_EPOCH", win.lbl_adv_circadian.text())
         win.close()
 
+    def test_real_world_records_parsers(self) -> None:
+        """Verify nested HL7 SLIST_PQ, WFDB 16+offset .mat, Shimmer CSV, and .atr/.ann parsers."""
+        import struct
+        from repolaris.io.ecg_loader import load_ecg_dataset
+        from repolaris.io.ishne_reader import read_ishne_ann
+        from repolaris.io.wfdb_reader import read_wfdb_annotations
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tdir = Path(tmp)
+            # 1. Nested HL7 SLIST_PQ with rhythm (20 samples) + representative template (4 samples)
+            xml_path = tdir / "nested_slist.xml"
+            xml_path.write_text(
+                """<?xml version="1.0" encoding="UTF-8"?>
+                <AnnotatedECG xmlns="urn:hl7-org:v3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+                  <component><series><component><sequenceSet>
+                    <component><sequence>
+                      <code code="TIME_ABSOLUTE"/>
+                      <value xsi:type="GLIST_TS"><head value="20021122091000"/><increment value="0.002" unit="s"/></value>
+                    </sequence></component>
+                    <component><sequence>
+                      <code code="MDC_ECG_LEAD_I"/>
+                      <value xsi:type="SLIST_PQ">
+                        <origin value="0" unit="uV"/><scale value="2.5" unit="uV"/>
+                        <digits>0 10 20 30 40 50 60 70 80 90 100 90 80 70 60 50 40 30 20 10</digits>
+                      </value>
+                    </sequence></component>
+                    <component><sequence>
+                      <code code="MDC_ECG_LEAD_I"/>
+                      <value xsi:type="SLIST_PQ">
+                        <origin value="0" unit="uV"/><scale value="2.5" unit="uV"/>
+                        <digits>10 20 30 40</digits>
+                      </value>
+                    </sequence></component>
+                  </sequenceSet></component></series></component>
+                </AnnotatedECG>"""
+            )
+            sig_xml, fs_xml, _ = load_ecg_dataset(xml_path)
+            self.assertEqual(len(sig_xml), 1)
+            self.assertEqual(len(next(iter(sig_xml.values()))), 20)
+            self.assertAlmostEqual(fs_xml, 500.0, places=1)
+
+            # 2. WFDB Format 16+192 byte-offset .mat companion
+            hea_path = tdir / "sel_test.hea"
+            mat_path = tdir / "sel_test.mat"
+            hea_path.write_text(
+                "sel_test 2 250 10\n"
+                "sel_test.mat 16+192 200/mV 16 0 0 0 0 ECG1\n"
+                "sel_test.mat 16+192 200/mV 16 0 0 0 0 ECG2\n"
+            )
+            payload = bytearray(192)
+            for i in range(10):
+                payload += struct.pack("<hh", i * 20, -i * 20)
+            mat_path.write_bytes(bytes(payload))
+            sig_mat, fs_mat, _ = load_ecg_dataset(mat_path)
+            self.assertEqual(len(sig_mat), 2)
+            self.assertEqual(len(next(iter(sig_mat.values()))), 10)
+            self.assertAlmostEqual(fs_mat, 250.0, places=1)
+
+            # 3. Shimmer3 sep= clinical CSV with timestamp & units row
+            shimmer_csv = tdir / "shimmer.csv"
+            lines = [
+                "\"sep=\t\"",
+                "Shimmer_Timestamp_ms\tShimmer_LA_RA_mV\tShimmer_LL_RA_mV\t",
+                "ms\tmV\tmV\t",
+            ]
+            for i in range(50):
+                lines.append(f"2015/06/25 15:39:24.{500 + i:03d}\t{0.1 * (i % 5):.4f}\t{0.2 * (i % 5):.4f}\t")
+            shimmer_csv.write_text("\n".join(lines))
+            sig_shim, fs_shim, _ = load_ecg_dataset(shimmer_csv)
+            self.assertEqual(len(sig_shim), 2)
+            self.assertEqual(len(next(iter(sig_shim.values()))), 50)
+            self.assertAlmostEqual(fs_shim, 1000.0, delta=5.0)
+
+            # 4. Binary MIT-BIH .atr and ISHNE .ann annotation parsers
+            atr_path = tdir / "test.atr"
+            # Code 1 (N) at dt=100 -> word = (1 << 10) | 100; Code 5 (V) at dt=200 -> word = (5 << 10) | 200; EOF = 0
+            atr_bytes = struct.pack("<HHH", (1 << 10) | 100, (5 << 10) | 200, 0)
+            atr_path.write_bytes(atr_bytes)
+            wfdb_anns = read_wfdb_annotations(atr_path)
+            self.assertEqual(wfdb_anns["r_peaks"], [100, 300])
+            self.assertEqual(wfdb_anns["aami_classes"], ["N", "V"])
+
+            ann_path = tdir / "test.ann"
+            ann_header = bytearray(b"ANN  1.0  ") + struct.pack("<i", 0) + bytearray(508)
+            # Initial sample = 500, followed by N beat (+250) and V beat (+240)
+            ann_body = struct.pack("<I", 500) + struct.pack("<ccH", b"N", b" ", 250) + struct.pack("<ccH", b"V", b" ", 240)
+            ann_path.write_bytes(bytes(ann_header + ann_body))
+            ishne_anns = read_ishne_ann(ann_path)
+            self.assertEqual(ishne_anns["r_peaks"], [750, 990])
+            self.assertEqual(ishne_anns["aami_classes"], ["N", "V"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -361,3 +361,42 @@ def write_ishne(
         f.write(raw_int16.tobytes())
 
     return str(filepath)
+
+
+def read_ishne_ann(ann_path: str | Path) -> dict[str, list]:
+    """Parses an ISHNE 1.0 binary annotation file (.ann) into beat sample locations and AAMI classes."""
+    path = Path(ann_path)
+    if not path.is_file():
+        raise FileNotFoundError(f"ISHNE annotation file not found: {path}")
+
+    data = path.read_bytes()
+    if len(data) < 526 or not data[:3].startswith((b"ANN", b"ISH")):
+        raise ValueError(f"Invalid ISHNE .ann magic header in {path.name}")
+
+    var_block_size = int.from_bytes(data[10:14], byteorder="little", signed=True)
+    header_end = 522 + max(0, var_block_size)
+    if header_end + 4 > len(data):
+        return {"r_peaks": [], "aami_classes": [], "total_beats": 0}
+
+    first_loc = int.from_bytes(data[header_end : header_end + 4], byteorder="little", signed=True)
+    pos = header_end + 4
+
+    samples: list[int] = []
+    aami_classes: list[str] = []
+    valid_aami = {"N": "N", "V": "V", "S": "S", "F": "F", "Q": "Q", "A": "S", "J": "S", "E": "V", "L": "N", "R": "N"}
+
+    curr_loc = first_loc
+    while pos + 4 <= len(data):
+        ann_char = chr(data[pos])
+        rr_samples = int.from_bytes(data[pos + 2 : pos + 4], byteorder="little", signed=False)
+        pos += 4
+        curr_loc += rr_samples
+        if ann_char in valid_aami:
+            samples.append(int(curr_loc))
+            aami_classes.append(valid_aami[ann_char])
+
+    return {
+        "r_peaks": samples,
+        "aami_classes": aami_classes,
+        "total_beats": len(samples),
+    }

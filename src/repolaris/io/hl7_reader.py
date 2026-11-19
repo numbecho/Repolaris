@@ -122,36 +122,64 @@ def read_hl7_aecg(filepath: str | Path | os.PathLike[str]) -> HL7Record:
     lead_names: list[str] = []
     units: list[str] = []
 
-    # Find all sequence elements containing waveform digits
+    # First scan for any document-wide or sequence-level increment (sampling interval)
+    for elem in root.iter():
+        if strip_ns(elem.tag) == "increment":
+            with contextlib.suppress(ValueError):
+                inc_str = elem.get("value", "").strip().replace(",", ".")
+                if inc_str:
+                    inc_val = float(inc_str)
+                    inc_unit = elem.get("unit", "s").strip().lower()
+                    if inc_unit == "ms":
+                        inc_val /= 1000.0
+                    elif inc_unit in ("us", "µs"):
+                        inc_val /= 1_000_000.0
+                    if inc_val > 0:
+                        fs = 1.0 / inc_val
+                        break
+
+    # Find all sequence elements containing waveform digits (including nested SLIST_PQ children)
     for seq in root.iter():
         if strip_ns(seq.tag) != "sequence":
             continue
 
         raw_code = ""
         scale_val = 0.005
+        origin_mv = 0.0
         digits_text = ""
 
-        for child in seq:
-            tag = strip_ns(child.tag)
-            if tag == "code":
-                raw_code = child.get("code", "")
+        for sub in seq.iter():
+            tag = strip_ns(sub.tag)
+            if tag == "code" and not raw_code:
+                raw_code = sub.get("code", "")
+            elif tag == "origin":
+                with contextlib.suppress(ValueError):
+                    o_str = sub.get("value", "0").strip().replace(",", ".")
+                    o_val = float(o_str)
+                    o_unit = sub.get("unit", "mV").lower()
+                    origin_mv = (o_val / 1000.0) if o_unit in ("uv", "microvolt", "µv") else o_val
             elif tag == "scale":
                 try:
-                    s_str = child.get("value", "0.005").strip().replace(",", ".")
+                    s_str = sub.get("value", "0.005").strip().replace(",", ".")
                     scale_val = float(s_str)
-                    unit = child.get("unit", "mV").lower()
+                    unit = sub.get("unit", "mV").lower()
                     if unit in ("uv", "microvolt", "µv"):
                         scale_val /= 1000.0
                 except ValueError:
                     scale_val = 0.005
             elif tag == "increment":
                 with contextlib.suppress(ValueError):
-                    inc_str = child.get("value", "0.002").strip().replace(",", ".")
+                    inc_str = sub.get("value", "0.002").strip().replace(",", ".")
                     inc_val = float(inc_str)
+                    inc_unit = sub.get("unit", "s").strip().lower()
+                    if inc_unit == "ms":
+                        inc_val /= 1000.0
                     if inc_val > 0:
                         fs = 1.0 / inc_val
-            elif tag in ("digits", "value") and child.text:
-                digits_text = child.text.strip()
+            elif tag in ("digits", "value") and sub.text and sub.text.strip():
+                cand_txt = sub.text.strip()
+                if any(ch.isdigit() for ch in cand_txt):
+                    digits_text = cand_txt
 
         lead_name = HL7_LEAD_NAMES.get(raw_code, raw_code or f"Lead_{len(lead_names) + 1}")
 
@@ -161,16 +189,27 @@ def read_hl7_aecg(filepath: str | Path | os.PathLike[str]) -> HL7Record:
                 cleaned_text = digits_text.replace(",", ".") if "," in digits_text else digits_text
                 raw_ints = np.fromstring(cleaned_text, dtype=np.int32, sep=" ")
                 if len(raw_ints) > 0:
-                    sig_mv = raw_ints.astype(np.float32) * scale_val
-                    lead_signals.append(sig_mv)
-                    lead_names.append(lead_name)
-                    units.append("mV")
+                    sig_mv = raw_ints.astype(np.float32) * scale_val + float(origin_mv)
+                    if lead_name in lead_names:
+                        # If a longer rhythm sequence replaces a shorter median beat template, keep the longer rhythm sequence
+                        existing_idx = lead_names.index(lead_name)
+                        if len(sig_mv) > len(lead_signals[existing_idx]):
+                            lead_signals[existing_idx] = sig_mv
+                    else:
+                        lead_signals.append(sig_mv)
+                        lead_names.append(lead_name)
+                        units.append("mV")
             except Exception:
                 continue
 
     if not lead_signals:
         raise ValueError(f"HL7 aECG file '{path.name}' contains no valid waveform sequence digits.")
 
+    max_len = max(len(s) for s in lead_signals)
+    rhythm_indices = [idx for idx, s in enumerate(lead_signals) if len(s) >= max(1, int(0.5 * max_len))]
+    lead_signals = [lead_signals[idx] for idx in rhythm_indices]
+    lead_names = [lead_names[idx] for idx in rhythm_indices]
+    units = [units[idx] for idx in rhythm_indices]
     min_len = min(len(s) for s in lead_signals)
     matrix = np.array([s[:min_len] for s in lead_signals], dtype=np.float32)
 

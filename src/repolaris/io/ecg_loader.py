@@ -46,6 +46,7 @@ _EXT_FORMAT_MAP: dict[str, str] = {
     ".edf+": "edf",
     ".hea": "wfdb",
     ".dat": "wfdb",
+    ".mat": "wfdb",
     ".dcm": "dicom",
     ".dicom": "dicom",
     ".xml": "hl7",
@@ -83,6 +84,105 @@ def sniff_ecg_format(filepath: str | Path | os.PathLike[str]) -> str:
             return "hl7"
 
     return _EXT_FORMAT_MAP.get(ext, "unknown")
+
+
+
+
+def _parse_headered_clinical_csv(path: Path) -> tuple[dict[str, np.ndarray], float]:
+    """Parses headered clinical or wearable CSV/TSV files (such as Shimmer3 calibrated exports)."""
+    import re as _re
+    from datetime import datetime as _dt
+
+    with open(path, encoding="utf-8", errors="ignore") as f:
+        raw_lines = [line.strip() for line in f if line.strip()]
+
+    if not raw_lines:
+        raise ValueError(f"Empty CSV file: {path.name}")
+
+    idx = 0
+    sep: str | None = "," if path.suffix.lower() == ".csv" else None
+    if raw_lines[0].lower().startswith(('"sep=', "sep=")):
+        sep_line = raw_lines[0].strip('"')
+        sep_char = sep_line.partition("=")[2]
+        sep = sep_char if sep_char else None
+        idx += 1
+
+    def _split_row(row_str: str) -> list[str]:
+        if sep and sep in row_str:
+            return [tok.strip() for tok in row_str.split(sep) if tok.strip()]
+        if "\t" in row_str:
+            return [tok.strip() for tok in row_str.split("\t") if tok.strip()]
+        if "," in row_str:
+            return [tok.strip() for tok in row_str.split(",") if tok.strip()]
+        return row_str.split()
+
+    col_names: list[str] = []
+    # Skip non-numeric header/units lines while capturing column names
+    while idx < len(raw_lines):
+        tokens = _split_row(raw_lines[idx])
+        # Check if last token is a float
+        try:
+            float(tokens[-1].replace(",", "."))
+            break
+        except (ValueError, IndexError):
+            if not col_names and tokens:
+                col_names = tokens
+            idx += 1
+
+    data_lines = raw_lines[idx:]
+    if not data_lines:
+        raise ValueError(f"No numeric waveform rows found in {path.name}")
+
+    first_tokens = _split_row(data_lines[0])
+    # Detect if leading tokens form a date/time timestamp (e.g. "2015/06/25 15:39:24.532")
+    num_start_col = 0
+    for c_i, tok in enumerate(first_tokens):
+        if _re.match(r"^[+-]?\d+(?:[.,]\d+)?(?:[eE][+-]?\d+)?$", tok):
+            num_start_col = c_i
+            break
+
+    n_Data_cols = len(first_tokens) - num_start_col
+    if n_Data_cols <= 0:
+        raise ValueError(f"No numeric signal columns identified in {path.name}")
+
+    # Estimate sampling rate from first 20 timestamps if a timestamp prefix exists
+    est_fs = 250.0
+    if num_start_col > 0 and len(data_lines) >= 5:
+        ts_vals: list[float] = []
+        for d_line in data_lines[:25]:
+            toks = _split_row(d_line)
+            ts_str = " ".join(toks[:num_start_col])
+            for fmt_s in ("%Y/%m/%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S.%f", "%H:%M:%S.%f"):
+                with contextlib.suppress(ValueError):
+                    dt_obj = _dt.strptime(ts_str, fmt_s)
+                    ts_vals.append(dt_obj.timestamp())
+                    break
+        if len(ts_vals) >= 4:
+            diffs = [t2 - t1 for t1, t2 in zip(ts_vals[:-1], ts_vals[1:], strict=False) if (t2 - t1) > 0]
+            if diffs:
+                median_dt = float(np.median(diffs))
+                if median_dt > 0:
+                    est_fs = round(1.0 / median_dt, 1)
+
+    cols: list[list[float]] = [[] for _ in range(n_Data_cols)]
+    for d_line in data_lines:
+        toks = _split_row(d_line)
+        if len(toks) < num_start_col + n_Data_cols:
+            continue
+        try:
+            vals = [float(toks[num_start_col + k].replace(",", ".")) for k in range(n_Data_cols)]
+            for k in range(n_Data_cols):
+                cols[k].append(vals[k])
+        except ValueError:
+            continue
+
+    signals_out: dict[str, np.ndarray] = {}
+    name_offset = max(0, len(col_names) - n_Data_cols)
+    for k in range(n_Data_cols):
+        c_name = col_names[name_offset + k] if (name_offset + k) < len(col_names) else f"Lead_{k + 1}"
+        signals_out[c_name] = np.asarray(cols[k], dtype=np.float32)
+
+    return signals_out, est_fs
 
 
 def _select_lead(signals: dict[str, np.ndarray], lead_name_or_index: str | int) -> np.ndarray:
@@ -299,14 +399,19 @@ def load_ecg_dataset(
                 raise ValueError(
                     f"Security Alert: Delimited text file '{path.name}' exceeds the 250 MB ceiling."
                 )
-            arr = np.loadtxt(str(path), delimiter="," if path.suffix.lower() == ".csv" else None)
-            if arr.ndim == 1:
-                signals = {"Lead I": arr}
-            else:
-                signals = {f"Lead {i + 1}": arr[:, i] for i in range(arr.shape[1])}
+            try:
+                arr = np.loadtxt(str(path), delimiter="," if path.suffix.lower() == ".csv" else None)
+                if arr.ndim == 1:
+                    signals = {"Lead I": arr.astype(np.float32)}
+                else:
+                    signals = {f"Lead {i + 1}": arr[:, i].astype(np.float32) for i in range(arr.shape[1])}
+                detected_fs = 250.0
+            except ValueError:
+                # Fallback for clinical/wearable CSVs (e.g. Shimmer3 with "sep=\t", header/unit rows, and timestamp col)
+                signals, detected_fs = _parse_headered_clinical_csv(path)
             if progress_callback:
                 progress_callback(1.0, f"Successfully loaded {len(signals)} CSV leads.")
-            return signals, 250.0, {"format": f"Delimited Matrix ({path.suffix})"}
+            return signals, detected_fs, {"format": f"Delimited Matrix ({path.suffix})"}
 
         case _:
             raise ValueError(

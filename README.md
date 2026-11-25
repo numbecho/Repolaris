@@ -3,7 +3,7 @@
 **Clinical ECG Analysis, Ventricular Repolarization, and Ambulatory Holter Workstation**
 
 [![CI/CD](https://github.com/numbecho/Repolaris/actions/workflows/build-artifacts.yml/badge.svg)](https://github.com/numbecho/Repolaris/actions/workflows/build-artifacts.yml)
-[![Version](https://img.shields.io/badge/Version-v0.9.10-0f766e?style=flat-square)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-v0.9.11-0f766e?style=flat-square)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/License-Apache%202.0-334155?style=flat-square)](LICENSE)
 [![Documentation](https://img.shields.io/badge/Docs-Wiki-1d4ed8?style=flat-square)](wiki/Home.md)
 

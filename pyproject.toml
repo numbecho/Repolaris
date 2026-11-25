@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "repolaris"
-version = "0.9.10"
+version = "0.9.11"
 description = "Modern Python framework for continuous ECG waveform analysis, ventricular repolarization, and arrhythmia triage"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -154,7 +154,7 @@ check_untyped_defs = true
 [tool.briefcase]
 project_name = "Repolaris"
 bundle = "org.repolaris"
-version = "0.9.10"
+version = "0.9.11"
 url = "https://github.com/numbecho/repolaris"
 author = "Repolaris Contributors"
 author_email = "ssdnam7t@pm.me"

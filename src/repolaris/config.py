@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Literal
 
 
 @dataclass
@@ -23,7 +24,10 @@ class FilterConfig:
 class DetectionConfig:
     """Fiducial delineation and QT-RR restitution modeling configuration."""
 
-    refractory_period_ms: float = 250.0
+    refractory_period_ms: float = 200.0
+    qrs_backend: Literal["adaptive_derivative", "phasor_slope_adaptive"] = "adaptive_derivative"
+    t_wave_slope_ratio: float = 0.50
+    collect_diagnostics: bool = False
     qrs_integration_window_ms: float = 120.0
     q_search_window_ms: float = 100.0
     t_search_window_ms: float = 450.0

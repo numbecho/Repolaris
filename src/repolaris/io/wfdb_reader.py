@@ -279,7 +279,7 @@ def read_wfdb_annotations(atr_path: str | Path) -> dict[str, list]:
 
 def iter_wfdb_chunks_format16(
     record_path_or_header: str | Path,
-    lead_name_or_index: str | int = 0,
+    lead_name_or_index: str | int = 0,  # pass 'all' for (n_leads, n_win) float32
     chunk_duration_sec: float = 300.0,
     overlap_sec: float = 5.0,
 ) -> Iterator[dict[str, Any]] | None:
@@ -345,14 +345,21 @@ def iter_wfdb_chunks_format16(
     if total_samples <= 0:
         raise ValueError(f"Corrupt WFDB record: Binary data file '{dat_path.name}' contains 0 bytes.")
 
-    if isinstance(lead_name_or_index, int):
-        lead_idx = max(0, min(num_signals - 1, lead_name_or_index))
+    yield_all = isinstance(lead_name_or_index, str) and lead_name_or_index.strip().lower() == "all"
+    if yield_all:
+        lead_idx = 0
+        gains_arr = np.asarray([gains[i] if i < len(gains) else 200.0 for i in range(num_signals)], dtype=np.float32)
+        baselines_arr = np.asarray(
+            [baselines[i] if i < len(baselines) else 0 for i in range(num_signals)], dtype=np.float32
+        )
     else:
-        target = str(lead_name_or_index).strip().upper()
-        lead_idx = next((idx for idx, n in enumerate(lead_names) if n.strip().upper() == target), 0)
-
-    gain = gains[lead_idx] if lead_idx < len(gains) else 200.0
-    baseline = baselines[lead_idx] if lead_idx < len(baselines) else 0
+        if isinstance(lead_name_or_index, int):
+            lead_idx = max(0, min(num_signals - 1, lead_name_or_index))
+        else:
+            target = str(lead_name_or_index).strip().upper()
+            lead_idx = next((idx for idx, n in enumerate(lead_names) if n.strip().upper() == target), 0)
+        gain = gains[lead_idx] if lead_idx < len(gains) else 200.0
+        baseline = baselines[lead_idx] if lead_idx < len(baselines) else 0
     meta = {
         "source_format": "wfdb",
         "record_name": record_name,
@@ -375,7 +382,10 @@ def iter_wfdb_chunks_format16(
                 fh.seek(win_start * frame_bytes)
                 raw = fh.read(n_win * frame_bytes)
                 arr = np.frombuffer(raw, dtype="<i2").reshape(-1, num_signals)
-                sig_chunk = (arr[:, lead_idx].astype(np.float32) - baseline) / gain
+                if yield_all:
+                    sig_chunk = ((arr.astype(np.float32) - baselines_arr) / gains_arr).T
+                else:
+                    sig_chunk = (arr[:, lead_idx].astype(np.float32) - baseline) / gain
                 yield {
                     "chunk_index": chunk_idx,
                     "start_sample": win_start,

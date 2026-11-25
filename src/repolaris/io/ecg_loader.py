@@ -563,7 +563,11 @@ def stream_ecg_chunks(
                 "end_sample": win_end,
                 "core_start_sample": core_start,
                 "core_end_sample": core_end,
-                "signal": buf.get_slice(lead_name_or_index, win_start, win_end),
+                "signal": (
+                    np.stack([buf.get_slice(i, win_start, win_end) for i in range(buf.num_leads)], axis=0)
+                    if isinstance(lead_name_or_index, str) and lead_name_or_index.strip().lower() == "all"
+                    else buf.get_slice(lead_name_or_index, win_start, win_end)
+                ),
                 "fs": fs,
                 "total_samples": total_samples,
                 "metadata": buf.metadata,

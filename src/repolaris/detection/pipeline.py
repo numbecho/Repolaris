@@ -24,15 +24,21 @@ Coordinates end-to-end processing of electrocardiogram recordings:
 from __future__ import annotations
 
 import contextlib
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from typing import Any
 
 import numpy as np
 
-from repolaris.config import ECGConfig
+from repolaris.config import ECGConfig, FilterConfig
 from repolaris.detection.af_detector import detect_atrial_fibrillation
 from repolaris.detection.annotations import AnnotationManager
-from repolaris.detection.classifier import ClassifiedBeat, classify_all_beats, detect_rhythm_patterns
+from repolaris.detection.classifier import (
+    BeatClass,
+    BeatFeatures,
+    ClassifiedBeat,
+    RhythmPattern,
+    classify_all_beats,
+)
 from repolaris.detection.dispersion import calculate_qt_dispersion
 from repolaris.detection.circadian import analyze_circadian_repolarization
 from repolaris.detection.edr import compute_ecg_derived_respiration
@@ -57,7 +63,7 @@ from repolaris.detection.pulse_metrics import (
     summarize_beats,
 )
 from repolaris.detection.q_onset import detect_j_point, detect_q_onset
-from repolaris.detection.qrs import detect_r_peaks
+from repolaris.detection.qrs import _refine_r_peaks_polarity_locked, detect_r_peaks
 from repolaris.detection.qtrr import fit_all_qtrr_models
 from repolaris.detection.qtvi import compute_qtvi
 from repolaris.detection.sqi import evaluate_lead_quality, rank_leads_two_stage
@@ -71,6 +77,236 @@ from repolaris.detection.trends import generate_hourly_trends
 from repolaris.detection.twa import compute_mma_twa, compute_spectral_twa
 from repolaris.preprocessing.baseline import remove_baseline_wander
 from repolaris.preprocessing.filter import bandpass_filter, notch_filter
+
+
+
+BEAT_FLAG_PACED = 1 << 0
+BEAT_FLAG_T_NOTCHED = 1 << 1
+BEAT_FLAG_T_BIPHASIC = 1 << 2
+BEAT_FLAG_LOW_QUALITY_EPOCH = 1 << 3
+
+_BEAT_CLASSES = (
+    BeatClass.NORMAL,
+    BeatClass.PVC,
+    BeatClass.PAC,
+    BeatClass.FUSION,
+    BeatClass.UNKNOWN,
+)
+_BEAT_CLASS_TO_CODE = {bc.value: idx for idx, bc in enumerate(_BEAT_CLASSES)}
+
+_RHYTHM_PATTERNS = (
+    RhythmPattern.NORMAL_SINUS,
+    RhythmPattern.BIGEMINY,
+    RhythmPattern.TRIGEMINY,
+    RhythmPattern.COUPLET,
+    RhythmPattern.VT_RUN,
+    RhythmPattern.TACHYCARDIA,
+    RhythmPattern.BRADYCARDIA,
+    RhythmPattern.PAUSE,
+    RhythmPattern.ISOLATED_ECTOPIC,
+)
+_RHYTHM_TO_CODE = {rp.value: idx for idx, rp in enumerate(_RHYTHM_PATTERNS)}
+
+BEAT_DTYPE = np.dtype([
+    ("r_peak_sample", np.int64),
+    ("q_onset_sample", np.int64),
+    ("j_point_sample", np.int64),
+    ("t_peak_sample", np.int64),
+    ("t_end_sample", np.int64),
+    ("rr_sec", np.float32),
+    ("qt_sec", np.float32),
+    ("st_level_uv", np.float32),
+    ("st_j60_uv", np.float32),
+    ("st_j80_uv", np.float32),
+    ("st_slope_mv_per_sec", np.float32),
+    ("t_asymmetry_ratio", np.float32),
+    ("t_flatness_score", np.float32),
+    ("classification_confidence", np.float32),
+    ("qrs_duration_ms", np.float32),
+    ("template_correlation", np.float32),
+    ("beat_class_code", np.uint8),
+    ("rhythm_code", np.uint8),
+    ("active_lead_id", np.uint8),
+    ("flags", np.uint8),
+])
+
+
+class BeatArrayProxy(Sequence):
+    """Read-only lazy sequence over a compact 88-byte/beat NumPy structured array."""
+
+    def __init__(
+        self,
+        arr: np.ndarray,
+        fs: float,
+        lead_names: list[str] | None = None,
+        as_classified: bool = False,
+    ) -> None:
+        self._arr = arr
+        self._fs = float(fs) if fs > 0 else 500.0
+        self._lead_names = list(lead_names) if lead_names else []
+        self._as_classified = as_classified
+
+    @property
+    def array(self) -> np.ndarray:
+        return self._arr
+
+    def __len__(self) -> int:
+        return int(len(self._arr))
+
+    def _materialize_dict(self, idx: int) -> dict[str, Any]:
+        row = self._arr[idx]
+        r_idx = int(row["r_peak_sample"])
+        q_idx = int(row["q_onset_sample"])
+        j_idx = int(row["j_point_sample"])
+        tp_idx = int(row["t_peak_sample"])
+        te_idx = int(row["t_end_sample"])
+        rr = float(row["rr_sec"])
+        qt = float(row["qt_sec"])
+        flags = int(row["flags"])
+        cipa = compute_cipa_metrics(q_idx, j_idx, tp_idx, te_idx, self._fs, rr)
+        bc = _BEAT_CLASSES[min(int(row["beat_class_code"]), len(_BEAT_CLASSES) - 1)].value
+        rp = _RHYTHM_PATTERNS[min(int(row["rhythm_code"]), len(_RHYTHM_PATTERNS) - 1)].value
+        lid = int(row["active_lead_id"])
+        lead_label = self._lead_names[lid] if 0 <= lid < len(self._lead_names) else f"Lead_{lid + 1}"
+        return {
+            "beat_index": idx,
+            "r_peak_sample": r_idx,
+            "time_sec": float(r_idx / self._fs),
+            "q_onset_sample": q_idx,
+            "j_point_sample": j_idx,
+            "t_peak_sample": tp_idx,
+            "t_end_sample": te_idx,
+            "rr_sec": rr,
+            "hr_bpm": float(60.0 / rr) if rr > 0 else np.nan,
+            "qt_sec": qt,
+            "qt_ms": float(qt * 1000.0),
+            "jt_peak_ms": float(cipa["jt_peak_ms"]),
+            "jt_peak_c_ms": float(cipa["jt_peak_c_ms"]),
+            "tpe_ms": float(cipa["tpe_ms"]),
+            "tpe_qt_ratio": float(cipa["tpe_qt_ratio"]),
+            "t_asymmetry_ratio": float(row["t_asymmetry_ratio"]),
+            "t_flatness_score": float(row["t_flatness_score"]),
+            "t_is_notched": bool(flags & BEAT_FLAG_T_NOTCHED),
+            "t_is_biphasic": bool(flags & BEAT_FLAG_T_BIPHASIC),
+            "is_paced": bool(flags & BEAT_FLAG_PACED),
+            "low_quality_epoch": bool(flags & BEAT_FLAG_LOW_QUALITY_EPOCH),
+            "active_lead": lead_label,
+            "active_lead_id": lid,
+            "st_level_uv": float(row["st_level_uv"]),
+            "st_j60_uv": float(row["st_j60_uv"]),
+            "st_j80_uv": float(row["st_j80_uv"]),
+            "st_slope_mv_per_sec": float(row["st_slope_mv_per_sec"]),
+            "beat_class": bc,
+            "rhythm_pattern": rp,
+            "classification_confidence": float(row["classification_confidence"]),
+            "diagnostic_rationale": f"{bc} ({rp})",
+            "qrs_duration_ms": float(row["qrs_duration_ms"]),
+            "template_correlation": float(row["template_correlation"]),
+            "qtc": compute_qtc(qt, rr) if rr > 0 else {},
+        }
+
+    def _materialize_classified(self, idx: int) -> ClassifiedBeat:
+        row = self._arr[idx]
+        r_idx = int(row["r_peak_sample"])
+        rr = float(row["rr_sec"])
+        bc = _BEAT_CLASSES[min(int(row["beat_class_code"]), len(_BEAT_CLASSES) - 1)]
+        rp = _RHYTHM_PATTERNS[min(int(row["rhythm_code"]), len(_RHYTHM_PATTERNS) - 1)]
+        feats = BeatFeatures(
+            pre_rr_sec=rr,
+            post_rr_sec=rr,
+            pre_rr_ratio=1.0,
+            post_rr_ratio=1.0,
+            compensatory_ratio=1.0,
+            qrs_duration_ms=float(row["qrs_duration_ms"]),
+            qrs_peak_to_peak_mv=1.0,
+            qrs_energy=1.0,
+            template_correlation=float(row["template_correlation"]),
+            polarity=1,
+        )
+        return ClassifiedBeat(
+            beat_index=idx,
+            r_peak_sample=r_idx,
+            time_sec=float(r_idx / self._fs),
+            beat_class=bc,
+            rhythm_pattern=rp,
+            confidence=float(row["classification_confidence"]),
+            features=feats,
+            diagnostic_rationale=f"{bc.value} ({rp.value})",
+        )
+
+    def __getitem__(self, index: int | slice) -> Any:
+        if isinstance(index, slice):
+            indices = range(*index.indices(len(self._arr)))
+            return [
+                self._materialize_classified(i) if self._as_classified else self._materialize_dict(i)
+                for i in indices
+            ]
+        idx = int(index)
+        if idx < 0:
+            idx += len(self._arr)
+        if idx < 0 or idx >= len(self._arr):
+            raise IndexError("BeatArrayProxy index out of range")
+        return self._materialize_classified(idx) if self._as_classified else self._materialize_dict(idx)
+
+    def __setitem__(self, index: Any, value: Any) -> None:
+        raise TypeError("BeatArrayProxy is read-only; copy the materialized beat dict before mutating.")
+
+
+def _condition_signal(raw_arr: np.ndarray, fs: float, fcfg: FilterConfig) -> np.ndarray:
+    """Applies the shared clinical conditioning chain (Q=30 notch -> 0.05-45 Hz bandpass -> median baseline)."""
+    notched = notch_filter(raw_arr, fs, freq=fcfg.notch_freq, q=fcfg.notch_quality)
+    filtered = bandpass_filter(notched, fs, fcfg)
+    return remove_baseline_wander(filtered, fs)
+
+
+def _apply_stream_rhythm_patterns(beat_arr: np.ndarray) -> None:
+    """Assigns rhythm pattern codes directly on the structured beat array without Python object allocation."""
+    n = len(beat_arr)
+    if n == 0:
+        return
+    pvc_code = _BEAT_CLASS_TO_CODE[BeatClass.PVC.value]
+    pac_code = _BEAT_CLASS_TO_CODE[BeatClass.PAC.value]
+    vt_code = _RHYTHM_TO_CODE[RhythmPattern.VT_RUN.value]
+    couplet_code = _RHYTHM_TO_CODE[RhythmPattern.COUPLET.value]
+    bigeminy_code = _RHYTHM_TO_CODE[RhythmPattern.BIGEMINY.value]
+    trigeminy_code = _RHYTHM_TO_CODE[RhythmPattern.TRIGEMINY.value]
+    pause_code = _RHYTHM_TO_CODE[RhythmPattern.PAUSE.value]
+    isolated_code = _RHYTHM_TO_CODE[RhythmPattern.ISOLATED_ECTOPIC.value]
+
+    bc = beat_arr["beat_class_code"]
+    rr = beat_arr["rr_sec"]
+    rc = beat_arr["rhythm_code"]
+    rc[:] = _RHYTHM_TO_CODE[RhythmPattern.NORMAL_SINUS.value]
+
+    i = 0
+    while i < n:
+        if bc[i] == pvc_code:
+            run_end = i + 1
+            while run_end < n and bc[run_end] == pvc_code:
+                run_end += 1
+            run_len = run_end - i
+            if run_len >= 3:
+                rc[i:run_end] = vt_code
+                i = run_end
+                continue
+            if run_len == 2:
+                rc[i:run_end] = couplet_code
+                i = run_end
+                continue
+        i += 1
+
+    for idx in range(n):
+        if rc[idx] != 0:
+            continue
+        if rr[idx] >= 2.0:
+            rc[idx] = pause_code
+        elif bc[idx] in (pvc_code, pac_code):
+            if idx >= 2 and bc[idx - 2] == bc[idx] and bc[idx - 1] == 0:
+                rc[idx] = bigeminy_code
+            elif idx >= 3 and bc[idx - 3] == bc[idx] and bc[idx - 1] == 0 and bc[idx - 2] == 0:
+                rc[idx] = trigeminy_code
+            else:
+                rc[idx] = isolated_code
 
 
 def _compute_repolarization_dynamics(
@@ -137,22 +373,29 @@ def _compute_repolarization_dynamics(
                 "ranking": multi_fit["ranking"],
                 "hysteresis_enabled": bool(enable_hysteresis and hysteresis_metrics is not None),
                 "hysteresis_kernel": hysteresis_kernel if enable_hysteresis else "raw",
-                "rr_raw_sec": rr_valid.tolist(),
-                "rr_effective_sec": rr_used.tolist(),
-                "qt_sec": qt_valid.tolist(),
-                "qt_ms": (qt_valid * 1000.0).tolist(),
+                "rr_raw_sec": rr_valid[:: max(1, len(rr_valid) // 5000)][:5000].tolist(),
+                "rr_effective_sec": rr_used[:: max(1, len(rr_used) // 5000)][:5000].tolist(),
+                "qt_sec": qt_valid[:: max(1, len(qt_valid) // 5000)][:5000].tolist(),
+                "qt_ms": (qt_valid[:: max(1, len(qt_valid) // 5000)][:5000] * 1000.0).tolist(),
             }
 
     return qtvi_score, qtrr_metrics, hysteresis_metrics
 
 
 def _build_annotation_manager(
-    classified_beats: list[ClassifiedBeat],
+    classified_beats: Sequence[ClassifiedBeat],
     author: str = "AI_DETECTOR",
+    max_normal_annotations: int = 5000,
 ) -> AnnotationManager:
-    """Populates an AnnotationManager from classified beats."""
+    """Populates a sparse AnnotationManager from classified beats."""
     mgr = AnnotationManager()
+    normal_count = 0
     for cb in classified_beats:
+        is_normal = cb.beat_class == BeatClass.NORMAL and cb.rhythm_pattern == RhythmPattern.NORMAL_SINUS
+        if is_normal:
+            if normal_count >= max_normal_annotations:
+                continue
+            normal_count += 1
         mgr.add_annotation(
             sample=cb.r_peak_sample,
             timestamp_sec=cb.time_sec,
@@ -207,6 +450,7 @@ def analyze_ecg(
     multi_lead_signals: np.ndarray | dict[str, np.ndarray] | None = None,
     lead_names: list[str] | None = None,
     metadata: dict[str, Any] | None = None,
+    auto_select_lead: bool = False,
 ) -> dict[str, Any]:
     """Executes the master diagnostic analysis pipeline on a raw ECG signal."""
     if config is None:
@@ -216,31 +460,132 @@ def analyze_ecg(
 
     if progress_callback:
         progress_callback(0.10, "Preprocessing and baseline wander removal...")
-    notched = notch_filter(
-        raw_signal,
-        fs,
-        freq=config.filter_cfg.notch_freq,
-        q=config.filter_cfg.notch_quality,
-    )
-    filtered = bandpass_filter(notched, fs, config.filter_cfg)
-    clean_signal = remove_baseline_wander(filtered, fs)
+
+    raw_lead_dict: dict[str, np.ndarray] | None = None
+    conditioned_cache: dict[str, np.ndarray] | None = None
+    if multi_lead_signals is not None:
+        if isinstance(multi_lead_signals, dict):
+            raw_lead_dict = {
+                k: _sanitize_raw_signal(np.asarray(v, dtype=np.float64))[0]
+                for k, v in multi_lead_signals.items()
+            }
+        else:
+            ml_arr = np.asarray(multi_lead_signals, dtype=np.float64)
+            if ml_arr.ndim == 1:
+                ml_arr = ml_arr[None, :]
+            ml_names = (
+                lead_names
+                if (lead_names and len(lead_names) == ml_arr.shape[0])
+                else [f"Lead_{i + 1}" for i in range(ml_arr.shape[0])]
+            )
+            raw_lead_dict = {
+                ml_names[i]: _sanitize_raw_signal(ml_arr[i])[0] for i in range(ml_arr.shape[0])
+            }
+        conditioned_cache = {
+            k: _condition_signal(v, fs, config.filter_cfg) for k, v in raw_lead_dict.items()
+        }
+
+    clean_signal = _condition_signal(raw_signal, fs, config.filter_cfg)
 
     if progress_callback:
         progress_callback(0.25, "Evaluating lead signal quality (SQI)...")
     sqi_metrics = evaluate_lead_quality(raw_signal, fs, conditioned_signal=clean_signal)
     lead_voting = (
-        rank_leads_two_stage(multi_lead_signals, fs=fs, lead_names=lead_names)
-        if multi_lead_signals is not None
+        rank_leads_two_stage(raw_lead_dict, fs=fs, conditioned_leads=conditioned_cache)
+        if raw_lead_dict is not None and conditioned_cache is not None
         else None
     )
+
+    qrs_lead: str | None = None
+    delineation_lead: str | None = None
+    low_t_amplitude_warning = False
+    qrs_diag: dict[str, int] = {}
+
+    if auto_select_lead and lead_voting is not None and conditioned_cache is not None and raw_lead_dict is not None:
+        qrs_lead = (
+            lead_voting["recommended_lead"]
+            if lead_voting.get("quorum_passed")
+            else lead_voting.get("fallback_lead")
+        )
+        if qrs_lead is not None and qrs_lead in conditioned_cache:
+            raw_signal = raw_lead_dict[qrs_lead]
+            clean_signal = conditioned_cache[qrs_lead]
+            _, is_flatline = _sanitize_raw_signal(raw_signal)
+            sqi_metrics = lead_voting["per_lead"].get(qrs_lead, sqi_metrics)
 
     if progress_callback:
         progress_callback(0.40, "Detecting QRS complexes, R-peaks, and high-rate pacing spikes...")
     r_peaks = (
         np.array([], dtype=int)
         if is_flatline
-        else detect_r_peaks(clean_signal, fs, config.detection_cfg.refractory_period_ms)
+        else detect_r_peaks(
+            clean_signal,
+            fs,
+            config.detection_cfg.refractory_period_ms,
+            backend=getattr(config.detection_cfg, "qrs_backend", "adaptive_derivative"),
+            t_wave_slope_ratio=getattr(config.detection_cfg, "t_wave_slope_ratio", 0.50),
+            diagnostics_out=qrs_diag if getattr(config.detection_cfg, "collect_diagnostics", False) else None,
+        )
     )
+
+    if (
+        auto_select_lead
+        and qrs_lead is not None
+        and lead_voting is not None
+        and conditioned_cache is not None
+        and raw_lead_dict is not None
+        and len(r_peaks) > 0
+    ):
+        delineation_lead = qrs_lead
+
+        def _median_post_r_t_ptp(sig_trace: np.ndarray, peaks: np.ndarray) -> float | None:
+            ptps: list[float] = []
+            n_sig = len(sig_trace)
+            off_start = int(round(0.120 * fs))
+            max_end = int(round(0.480 * fs))
+            for idx_p, r_p in enumerate(peaks):
+                if idx_p + 1 < len(peaks):
+                    rr_s = int(peaks[idx_p + 1] - r_p)
+                elif idx_p > 0:
+                    rr_s = int(r_p - peaks[idx_p - 1])
+                else:
+                    rr_s = int(round(0.8 * fs))
+                w_end_off = min(max_end, int(round(0.65 * rr_s)))
+                if w_end_off <= off_start:
+                    continue
+                s0 = min(n_sig - 1, int(r_p) + off_start)
+                s1 = min(n_sig, int(r_p) + w_end_off)
+                if s1 > s0:
+                    ptps.append(float(np.ptp(sig_trace[s0:s1])))
+            return float(np.median(ptps)) if ptps else None
+
+        qrs_t_ptp = _median_post_r_t_ptp(clean_signal, r_peaks)
+        if qrs_t_ptp is None or qrs_t_ptp < 0.05:
+            passing_sorted = sorted(
+                lead_voting.get("passing_leads", []),
+                key=lambda k: (
+                    float(lead_voting["per_lead"][k].get("voting_index", -6.0)),
+                    float(lead_voting["per_lead"][k].get("snr_db", -30.0)),
+                ),
+                reverse=True,
+            )
+            switched = False
+            for cand_lead in passing_sorted:
+                if cand_lead == qrs_lead:
+                    continue
+                cand_sig = conditioned_cache[cand_lead]
+                snapped = _refine_r_peaks_polarity_locked(cand_sig, r_peaks.tolist(), fs)
+                cand_t_ptp = _median_post_r_t_ptp(cand_sig, snapped)
+                if cand_t_ptp is not None and cand_t_ptp >= 0.05:
+                    delineation_lead = cand_lead
+                    raw_signal = raw_lead_dict[cand_lead]
+                    clean_signal = cand_sig
+                    r_peaks = snapped
+                    sqi_metrics = lead_voting["per_lead"].get(cand_lead, sqi_metrics)
+                    switched = True
+                    break
+            if not switched:
+                low_t_amplitude_warning = True
     pacemaker_report = detect_pacemaker_spikes(raw_signal, fs=fs, r_peaks=r_peaks, metadata=metadata)
     paced_set = set(pacemaker_report.get("paced_beat_indices", []))
 
@@ -421,10 +766,13 @@ def analyze_ecg(
     }
     dispersion_metrics = (
         calculate_qt_dispersion(
-            multi_lead_signals,
+            raw_lead_dict if raw_lead_dict is not None else multi_lead_signals,
             fs=fs,
             lead_names=lead_names,
             config=config.detection_cfg,
+            conditioned_leads=conditioned_cache,
+            lead_voting=lead_voting,
+            filter_cfg=config.filter_cfg,
         )
         if multi_lead_signals is not None
         else None
@@ -463,6 +811,24 @@ def analyze_ecg(
         "dispersion": dispersion_metrics,
         "af_report": af_dict,
         "trends": trends_report.to_dict(),
+        **(
+            {
+                "diagnostics": {
+                    "qrs_backend": getattr(config.detection_cfg, "qrs_backend", "adaptive_derivative"),
+                    "refractory_period_ms": float(config.detection_cfg.refractory_period_ms),
+                    "t_wave_slope_ratio": float(getattr(config.detection_cfg, "t_wave_slope_ratio", 0.50)),
+                    "qrs_lead": qrs_lead,
+                    "delineation_lead": delineation_lead,
+                    "low_t_amplitude_warning": low_t_amplitude_warning,
+                    "refractory_rejected": qrs_diag.get("refractory_rejected", 0),
+                    "t_wave_rejected": qrs_diag.get("t_wave_rejected", 0),
+                    "selection_basis": lead_voting.get("selection_basis") if lead_voting else None,
+                    "failed_criteria": sqi_metrics.get("failed_criteria", []),
+                }
+            }
+            if getattr(config.detection_cfg, "collect_diagnostics", False)
+            else {}
+        ),
     }
 
 
@@ -472,9 +838,9 @@ def _iter_array_chunks(
     chunk_duration_sec: float,
     overlap_sec: float,
 ) -> Iterator[dict[str, Any]]:
-    """Yields overlapping chunks from an in-memory or memory-mapped 1D array."""
+    """Yields overlapping chunks from an in-memory or memory-mapped 1D or 2D (n_leads, n_samples) array."""
     raw_arr = np.asarray(signal_arr, dtype=np.float32)
-    total_samples = len(raw_arr)
+    total_samples = raw_arr.shape[1] if raw_arr.ndim == 2 else len(raw_arr)
     chunk_samples = max(1, int(round(chunk_duration_sec * fs)))
     overlap_samples = max(0, int(round(overlap_sec * fs)))
 
@@ -484,13 +850,14 @@ def _iter_array_chunks(
         c_end = min(total_samples, c_start + chunk_samples)
         w_start = max(0, c_start - overlap_samples)
         w_end = min(total_samples, c_end + overlap_samples)
+        sig_slice = raw_arr[:, w_start:w_end] if raw_arr.ndim == 2 else raw_arr[w_start:w_end]
         yield {
             "chunk_index": c_idx,
             "start_sample": w_start,
             "end_sample": w_end,
             "core_start_sample": c_start,
             "core_end_sample": c_end,
-            "signal": raw_arr[w_start:w_end],
+            "signal": sig_slice,
             "fs": fs,
             "total_samples": total_samples,
             "metadata": {"mmap_backed": isinstance(signal_arr, np.memmap)},
@@ -503,7 +870,7 @@ def analyze_ecg_stream(
     signal_or_path: np.ndarray | str,
     fs: float = 500.0,
     lead: str | int = 0,
-    chunk_duration_sec: float = 300.0,
+    chunk_duration_sec: float | None = None,
     overlap_sec: float = 5.0,
     config: ECGConfig | None = None,
     progress_callback: Callable[[float, str], None] | None = None,
@@ -514,20 +881,29 @@ def analyze_ecg_stream(
     if config is None:
         config = ECGConfig(sampling_rate=fs)
 
+    auto_lead_mode = isinstance(lead, str) and lead.strip().lower() == "auto"
+    eff_chunk_sec = (
+        float(chunk_duration_sec)
+        if chunk_duration_sec is not None
+        else (60.0 if auto_lead_mode else 300.0)
+    )
+    loader_lead: str | int = "all" if auto_lead_mode else lead
+
     chunk_iter = (
-        _iter_array_chunks(signal_or_path, fs, chunk_duration_sec, overlap_sec)
+        _iter_array_chunks(signal_or_path, fs, eff_chunk_sec, overlap_sec)
         if isinstance(signal_or_path, np.ndarray)
         else stream_ecg_chunks(
             signal_or_path,
-            lead_name_or_index=lead,
-            chunk_duration_sec=chunk_duration_sec,
+            lead_name_or_index=loader_lead,
+            chunk_duration_sec=eff_chunk_sec,
             overlap_sec=overlap_sec,
         )
     )
 
-    all_r_peaks: list[int] = []
-    all_beats: list[dict[str, Any]] = []
-    all_classified: list[ClassifiedBeat] = []
+    capacity = 4096
+    beat_buf = np.empty(capacity, dtype=BEAT_DTYPE)
+    n_beats_total = 0
+
     sqi_list: list[dict[str, Any]] = []
     twa_list: list[dict[str, Any]] = []
     edr_list: list[dict[str, Any]] = []
@@ -538,6 +914,11 @@ def analyze_ecg_stream(
     preview_signal: np.ndarray | None = None
     actual_fs = fs
     total_len = 0
+    last_r_peak = -1
+
+    active_lead_idx = 0
+    consec_bad_chunks = 0
+    lead_names_list: list[str] = []
 
     for ch in chunk_iter:
         actual_fs = float(ch["fs"])
@@ -548,6 +929,8 @@ def analyze_ecg_stream(
         sig_win = ch["signal"]
         if not stream_meta and isinstance(ch.get("metadata"), dict):
             stream_meta = dict(ch["metadata"])
+            if isinstance(stream_meta.get("lead_names"), list):
+                lead_names_list = [str(n) for n in stream_meta["lead_names"]]
 
         if progress_callback and total_len > 0:
             frac = min(0.85, (core_end / total_len) * 0.85)
@@ -556,7 +939,50 @@ def analyze_ecg_stream(
                 f"Streaming chunk {ch['chunk_index'] + 1} ({core_end / actual_fs:.0f}s / {total_len / actual_fs:.0f}s)...",
             )
 
-        res_win = analyze_ecg(sig_win, fs=actual_fs, config=config, metadata=stream_meta)
+        low_quality_epoch = False
+        if auto_lead_mode and isinstance(sig_win, np.ndarray) and sig_win.ndim == 2:
+            n_ch_leads = sig_win.shape[0]
+            if not lead_names_list or len(lead_names_list) != n_ch_leads:
+                lead_names_list = [f"Lead_{i + 1}" for i in range(n_ch_leads)]
+            if active_lead_idx >= n_ch_leads:
+                active_lead_idx = 0
+
+            cond_chunk = {
+                lead_names_list[i]: _condition_signal(sig_win[i].astype(np.float64), actual_fs, config.filter_cfg)
+                for i in range(n_ch_leads)
+            }
+            raw_chunk = {lead_names_list[i]: sig_win[i] for i in range(n_ch_leads)}
+            chunk_vote = rank_leads_two_stage(raw_chunk, fs=actual_fs, conditioned_leads=cond_chunk)
+            act_name = lead_names_list[active_lead_idx]
+            act_sqi = chunk_vote["per_lead"].get(act_name, {})
+            is_flat_sat = (
+                float(act_sqi.get("non_flat_ratio", 0.0)) < 0.80
+                or float(np.std(sig_win[active_lead_idx])) <= 1e-6
+            )
+            passed_act = bool(act_sqi.get("passed_absolute_gate", False))
+
+            if chunk_vote["quorum_passed"]:
+                if is_flat_sat:
+                    best_name = chunk_vote["recommended_lead"]
+                    active_lead_idx = lead_names_list.index(best_name)
+                    consec_bad_chunks = 0
+                elif not passed_act:
+                    consec_bad_chunks += 1
+                    if consec_bad_chunks >= 2:
+                        best_name = chunk_vote["recommended_lead"]
+                        active_lead_idx = lead_names_list.index(best_name)
+                        consec_bad_chunks = 0
+                else:
+                    consec_bad_chunks = 0
+            else:
+                low_quality_epoch = True
+                consec_bad_chunks += 1
+
+            sig_1d = sig_win[active_lead_idx]
+        else:
+            sig_1d = sig_win[0] if (isinstance(sig_win, np.ndarray) and sig_win.ndim == 2) else sig_win
+
+        res_win = analyze_ecg(sig_1d, fs=actual_fs, config=config, metadata=stream_meta)
         if preview_signal is None:
             preview_signal = res_win["clean_signal"][: min(len(res_win["clean_signal"]), int(actual_fs * 30))]
         if first_t_morph is None and isinstance(res_win.get("t_morphology"), dict):
@@ -577,69 +1003,73 @@ def analyze_ecg_stream(
         for b, cb in zip(res_win["beats"], res_win["classified_beats"], strict=False):
             global_r = int(b["r_peak_sample"]) + w_start
             if core_start <= global_r < core_end:
-                if all_r_peaks and (global_r - all_r_peaks[-1]) < int(0.20 * actual_fs):
+                if last_r_peak >= 0 and (global_r - last_r_peak) < int(0.20 * actual_fs):
                     continue
-                beat_idx = len(all_beats)
-                rr_sec = (global_r - all_r_peaks[-1]) / actual_fs if all_r_peaks else float(b.get("rr_sec", 0.0))
-                hr_bpm = 60.0 / rr_sec if rr_sec > 0 else np.nan
-                qt_sec = float(b["qt_sec"])
+                if n_beats_total >= capacity:
+                    new_cap = capacity * 2
+                    new_buf = np.empty(new_cap, dtype=BEAT_DTYPE)
+                    new_buf[:n_beats_total] = beat_buf[:n_beats_total]
+                    beat_buf = new_buf
+                    capacity = new_cap
 
-                q_global = int(b["q_onset_sample"]) + w_start
-                j_global = int(b.get("j_point_sample", b["r_peak_sample"] + int(0.04 * actual_fs))) + w_start
-                tp_global = int(b["t_peak_sample"]) + w_start
-                te_global = int(b["t_end_sample"]) + w_start
-                cipa = compute_cipa_metrics(q_global, j_global, tp_global, te_global, actual_fs, rr_sec)
+                rr_sec = (global_r - last_r_peak) / actual_fs if last_r_peak >= 0 else float(b.get("rr_sec", 0.0))
+                row = beat_buf[n_beats_total]
+                row["r_peak_sample"] = global_r
+                row["q_onset_sample"] = int(b.get("q_onset_sample", -1)) + w_start
+                row["j_point_sample"] = int(b.get("j_point_sample", b["r_peak_sample"] + int(0.04 * actual_fs))) + w_start
+                row["t_peak_sample"] = int(b.get("t_peak_sample", -1)) + w_start
+                row["t_end_sample"] = int(b.get("t_end_sample", -1)) + w_start
+                row["rr_sec"] = float(rr_sec)
+                row["qt_sec"] = float(b.get("qt_sec", 0.0))
+                row["st_level_uv"] = float(b.get("st_level_uv", 0.0))
+                row["st_j60_uv"] = float(b.get("st_j60_uv", 0.0))
+                row["st_j80_uv"] = float(b.get("st_j80_uv", 0.0))
+                row["st_slope_mv_per_sec"] = float(b.get("st_slope_mv_per_sec", 0.0))
+                row["t_asymmetry_ratio"] = float(b.get("t_asymmetry_ratio", 0.0))
+                row["t_flatness_score"] = float(b.get("t_flatness_score", 0.0))
+                row["classification_confidence"] = float(cb.confidence)
+                row["qrs_duration_ms"] = float(cb.features.qrs_duration_ms)
+                row["template_correlation"] = float(cb.features.template_correlation)
+                row["beat_class_code"] = _BEAT_CLASS_TO_CODE.get(cb.beat_class.value, 0)
+                row["rhythm_code"] = _RHYTHM_TO_CODE.get(cb.rhythm_pattern.value, 0)
+                row["active_lead_id"] = active_lead_idx & 0xFF
+                flags = 0
+                if b.get("is_paced", False):
+                    flags |= BEAT_FLAG_PACED
+                if b.get("t_is_notched", False):
+                    flags |= BEAT_FLAG_T_NOTCHED
+                if b.get("t_is_biphasic", False):
+                    flags |= BEAT_FLAG_T_BIPHASIC
+                if low_quality_epoch:
+                    flags |= BEAT_FLAG_LOW_QUALITY_EPOCH
+                row["flags"] = flags
 
-                b_copy = dict(b)
-                b_copy.update({
-                    "beat_index": beat_idx,
-                    "r_peak_sample": global_r,
-                    "time_sec": float(global_r / actual_fs),
-                    "q_onset_sample": q_global,
-                    "j_point_sample": j_global,
-                    "t_peak_sample": tp_global,
-                    "t_end_sample": te_global,
-                    "rr_sec": float(rr_sec),
-                    "hr_bpm": float(hr_bpm),
-                    "jt_peak_ms": float(cipa["jt_peak_ms"]),
-                    "jt_peak_c_ms": float(cipa["jt_peak_c_ms"]),
-                    "tpe_ms": float(cipa["tpe_ms"]),
-                    "tpe_qt_ratio": float(cipa["tpe_qt_ratio"]),
-                    "qtc": compute_qtc(qt_sec, rr_sec) if rr_sec > 0 else {},
-                })
-                cb_copy = ClassifiedBeat(
-                    beat_index=beat_idx,
-                    r_peak_sample=global_r,
-                    time_sec=float(global_r / actual_fs),
-                    beat_class=cb.beat_class,
-                    rhythm_pattern=cb.rhythm_pattern,
-                    confidence=cb.confidence,
-                    features=cb.features,
-                    diagnostic_rationale=cb.diagnostic_rationale,
-                )
-                all_r_peaks.append(global_r)
-                all_beats.append(b_copy)
-                all_classified.append(cb_copy)
+                last_r_peak = global_r
+                n_beats_total += 1
 
-    if all_classified:
-        detect_rhythm_patterns(all_classified)
-        for b_dict, cb_item in zip(all_beats, all_classified, strict=False):
-            b_dict["rhythm_pattern"] = cb_item.rhythm_pattern.value
-            b_dict["diagnostic_rationale"] = cb_item.diagnostic_rationale
+    beat_arr = np.ascontiguousarray(beat_buf[:n_beats_total])
+    if n_beats_total > 0:
+        _apply_stream_rhythm_patterns(beat_arr)
 
-    r_peaks_arr = np.array(all_r_peaks, dtype=np.int64)
+    all_beats = BeatArrayProxy(beat_arr, fs=actual_fs, lead_names=lead_names_list, as_classified=False)
+    all_classified = BeatArrayProxy(beat_arr, fs=actual_fs, lead_names=lead_names_list, as_classified=True)
+    r_peaks_arr = beat_arr["r_peak_sample"].copy() if n_beats_total > 0 else np.array([], dtype=np.int64)
+
     summary = summarize_beats(all_beats)
 
     counts: dict[str, int] = {}
-    for cb in all_classified:
-        counts[cb.beat_class.value] = counts.get(cb.beat_class.value, 0) + 1
+    rhythm_counts: dict[str, int] = {}
+    if n_beats_total > 0:
+        u_bc, u_bc_cnt = np.unique(beat_arr["beat_class_code"], return_counts=True)
+        for code_i, cnt_i in zip(u_bc, u_bc_cnt, strict=False):
+            counts[_BEAT_CLASSES[int(code_i)].value] = int(cnt_i)
+        u_rc, u_rc_cnt = np.unique(beat_arr["rhythm_code"], return_counts=True)
+        for code_i, cnt_i in zip(u_rc, u_rc_cnt, strict=False):
+            rhythm_counts[_RHYTHM_PATTERNS[int(code_i)].value] = int(cnt_i)
+
     pvc_cnt = counts.get("V", 0)
     pac_cnt = counts.get("S", 0)
-    tot_b = len(all_classified)
-    rhythm_counts: dict[str, int] = {}
-    for cb in all_classified:
-        rp = cb.rhythm_pattern.value
-        rhythm_counts[rp] = rhythm_counts.get(rp, 0) + 1
+    tot_b = n_beats_total
     ectopic_summary = {
         "total_beats": tot_b,
         "counts": counts,
@@ -666,40 +1096,63 @@ def analyze_ecg_stream(
         af_episodes=af_report.episodes,
     )
 
-    non_paced = [b for b in all_beats if not b.get("is_paced", False)] or all_beats
-    non_paced_classes = [str(b.get("beat_class", "N")) for b in non_paced]
-    stream_rr_arr = np.array([float(b.get("rr_sec", 0.0)) for b in non_paced], dtype=np.float64)
-    stream_qt_arr = np.array([float(b.get("qt_sec", 0.0)) for b in non_paced], dtype=np.float64)
+    if n_beats_total > 0:
+        non_paced_mask = (beat_arr["flags"] & BEAT_FLAG_PACED) == 0
+        if not np.any(non_paced_mask):
+            non_paced_mask = np.ones(n_beats_total, dtype=bool)
+        stream_rr_arr = beat_arr["rr_sec"][non_paced_mask].astype(np.float64)
+        stream_qt_arr = beat_arr["qt_sec"][non_paced_mask].astype(np.float64)
+        np_codes = beat_arr["beat_class_code"][non_paced_mask]
+        non_paced_classes = [_BEAT_CLASSES[int(c)].value for c in np_codes]
+    else:
+        stream_rr_arr = np.array([], dtype=np.float64)
+        stream_qt_arr = np.array([], dtype=np.float64)
+        non_paced_classes = []
+
     qtvi_score, qtrr_metrics, hysteresis_metrics = _compute_repolarization_dynamics(
         stream_rr_arr, stream_qt_arr, config
     )
     stv_qt_metrics = compute_stv_qt(
-        [float(b.get("qt_ms", 0.0)) for b in non_paced],
+        (stream_qt_arr * 1000.0).tolist(),
         beat_classes=non_paced_classes,
     )
     prsa_metrics = compute_prsa_capacity(
-        [float(b.get("rr_sec", 0.0)) * 1000.0 for b in non_paced],
+        (stream_rr_arr * 1000.0).tolist(),
         beat_classes=non_paced_classes,
     )
 
-    # Aggregate ST-segment summary across all streamed beats
-    st_uvs = [float(b.get("st_level_uv", 0.0)) for b in all_beats if "st_level_uv" in b]
-    st_j60s = [float(b.get("st_j60_uv", 0.0)) for b in all_beats if "st_j60_uv" in b]
-    st_j80s = [float(b.get("st_j80_uv", 0.0)) for b in all_beats if "st_j80_uv" in b]
-    st_slopes = [float(b.get("st_slope_mv_per_sec", 0.0)) for b in all_beats if "st_slope_mv_per_sec" in b]
-    st_stream_summary = {
-        "mean_st_j60_uv": round(float(np.mean(st_j60s)), 2) if st_j60s else 0.0,
-        "mean_st_j80_uv": round(float(np.mean(st_j80s)), 2) if st_j80s else 0.0,
-        "mean_st_level_uv": round(float(np.mean(st_uvs)), 2) if st_uvs else 0.0,
-        "max_st_elevation_uv": round(max(0.0, float(np.max(st_uvs))), 2) if st_uvs else 0.0,
-        "max_st_depression_uv": round(min(0.0, float(np.min(st_uvs))), 2) if st_uvs else 0.0,
-        "mean_st_slope_mv_per_sec": round(float(np.mean(st_slopes)), 3) if st_slopes else 0.0,
-        "num_episodes": 0,
-        "episodes": [],
-        "ischemic_burden_pct": 0.0,
-        "hourly_st_trends": [],
-        "verdict": "NORMAL",
-    }
+    if n_beats_total > 0:
+        st_uvs = beat_arr["st_level_uv"]
+        st_j60s = beat_arr["st_j60_uv"]
+        st_j80s = beat_arr["st_j80_uv"]
+        st_slopes = beat_arr["st_slope_mv_per_sec"]
+        st_stream_summary = {
+            "mean_st_j60_uv": round(float(np.mean(st_j60s)), 2),
+            "mean_st_j80_uv": round(float(np.mean(st_j80s)), 2),
+            "mean_st_level_uv": round(float(np.mean(st_uvs)), 2),
+            "max_st_elevation_uv": round(max(0.0, float(np.max(st_uvs))), 2),
+            "max_st_depression_uv": round(min(0.0, float(np.min(st_uvs))), 2),
+            "mean_st_slope_mv_per_sec": round(float(np.mean(st_slopes)), 3),
+            "num_episodes": 0,
+            "episodes": [],
+            "ischemic_burden_pct": 0.0,
+            "hourly_st_trends": [],
+            "verdict": "NORMAL",
+        }
+    else:
+        st_stream_summary = {
+            "mean_st_j60_uv": 0.0,
+            "mean_st_j80_uv": 0.0,
+            "mean_st_level_uv": 0.0,
+            "max_st_elevation_uv": 0.0,
+            "max_st_depression_uv": 0.0,
+            "mean_st_slope_mv_per_sec": 0.0,
+            "num_episodes": 0,
+            "episodes": [],
+            "ischemic_burden_pct": 0.0,
+            "hourly_st_trends": [],
+            "verdict": "NORMAL",
+        }
 
     p_wave_agg = p_wave_list[0] if p_wave_list else {
         "af_gated": False,
@@ -721,7 +1174,7 @@ def analyze_ecg_stream(
         "cvhr_power_ratio": 0.0,
         "apnea_screening_verdict": "INSUFFICIENT_DURATION",
     }
-    paced_indices = [b["beat_index"] for b in all_beats if b.get("is_paced", False)]
+    paced_indices = np.flatnonzero((beat_arr["flags"] & BEAT_FLAG_PACED) != 0).tolist() if n_beats_total > 0 else []
     pm_meta = str(stream_meta.get("pacemaker", "NO")).strip().upper()
     meta_paced = pm_meta not in ("", "NO", "NONE", "FALSE", "0", "ABSENT", "UNSPECIFIED")
     pacemaker_agg = {

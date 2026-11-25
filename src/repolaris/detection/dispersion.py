@@ -17,13 +17,13 @@ from typing import Any
 
 import numpy as np
 
-from repolaris.config import DetectionConfig
+from repolaris.config import DetectionConfig, FilterConfig
 from repolaris.detection.q_onset import detect_q_onset
 from repolaris.detection.qrs import detect_r_peaks
 from repolaris.detection.sqi import evaluate_lead_quality
 from repolaris.detection.t_end import detect_t_end
 from repolaris.preprocessing.baseline import remove_baseline_wander
-from repolaris.preprocessing.filter import bandpass_filter
+from repolaris.preprocessing.filter import bandpass_filter, notch_filter
 
 PRECORDIAL_LEADS: frozenset[str] = frozenset(
     {"V1", "V2", "V3", "V4", "V5", "V6", "LEAD V1", "LEAD V2", "LEAD V3", "LEAD V4", "LEAD V5", "LEAD V6"}
@@ -56,6 +56,9 @@ def calculate_qt_dispersion(
     min_snr_db: float = 8.0,
     min_t_amp_mv: float = 0.05,
     preprocess: bool = True,
+    conditioned_leads: dict[str, np.ndarray] | None = None,
+    lead_voting: dict[str, Any] | None = None,
+    filter_cfg: FilterConfig | None = None,
 ) -> dict[str, Any] | None:
     """Quantifies spatial repolarization heterogeneity across synchronous multi-lead recordings.
 
@@ -109,14 +112,24 @@ def calculate_qt_dispersion(
     rejected_leads: list[str] = []
     lead_sqi: dict[str, dict[str, Any]] = {}
 
+    fcfg = filter_cfg if filter_cfg is not None else FilterConfig()
+    voting_per_lead = lead_voting.get("per_lead", {}) if isinstance(lead_voting, dict) else {}
+
     for idx, name in enumerate(names):
         raw_trace = matrix[idx]
         if np.std(raw_trace) < 1e-6:
             rejected_leads.append(name)
             continue
 
-        trace = remove_baseline_wander(bandpass_filter(raw_trace, fs), fs) if preprocess else raw_trace
-        sqi = evaluate_lead_quality(trace, fs)
+        if conditioned_leads is not None and name in conditioned_leads:
+            trace = np.asarray(conditioned_leads[name], dtype=np.float64)
+        elif preprocess:
+            notched = notch_filter(raw_trace, fs, freq=fcfg.notch_freq, q=fcfg.notch_quality)
+            trace = remove_baseline_wander(bandpass_filter(notched, fs, fcfg), fs)
+        else:
+            trace = raw_trace
+
+        sqi = voting_per_lead[name] if name in voting_per_lead else evaluate_lead_quality(raw_trace, fs, conditioned_signal=trace)
         lead_sqi[name] = sqi
 
         if (
@@ -132,9 +145,18 @@ def calculate_qt_dispersion(
     if len(valid_leads) < required_quorum:
         return None
 
-    # Detect master R-peaks on the highest-SNR valid lead
-    best_lead = max(valid_leads, key=lambda k: float(lead_sqi[k]["snr_db"]))
-    r_peaks = detect_r_peaks(clean_leads[best_lead], fs, config.refractory_period_ms)
+    # Detect master R-peaks on the highest-ranked Stage 2 valid lead (fallback to highest SNR)
+    best_lead = max(
+        valid_leads,
+        key=lambda k: (float(lead_sqi[k].get("voting_index", -6.0)), float(lead_sqi[k]["snr_db"])),
+    )
+    r_peaks = detect_r_peaks(
+        clean_leads[best_lead],
+        fs,
+        config.refractory_period_ms,
+        backend=config.qrs_backend,
+        t_wave_slope_ratio=config.t_wave_slope_ratio,
+    )
     n_beats = len(r_peaks)
     if n_beats == 0:
         return None

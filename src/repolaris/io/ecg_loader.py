@@ -35,7 +35,7 @@ from repolaris.io.hl7_reader import is_hl7_xml, read_hl7_aecg
 from repolaris.io.ishne_reader import read_ishne
 from repolaris.io.pecg_format import load_pecg
 from repolaris.io.scp_reader import is_scp_file, read_scp_ecg
-from repolaris.io.wfdb_reader import read_wfdb
+from repolaris.io.wfdb_reader import iter_wfdb_chunks_format16, read_wfdb
 
 
 _EXT_FORMAT_MAP: dict[str, str] = {
@@ -532,6 +532,18 @@ def stream_ecg_chunks(
     progress_callback: Callable[[float, str], None] | None = None,
 ) -> Iterator[dict[str, Any]]:
     """Generator yielding overlapping waveform chunks for bounded-memory 24h-48h Holter streaming."""
+    path = Path(filepath)
+    if sniff_ecg_format(path) == "wfdb":
+        wfdb_gen = iter_wfdb_chunks_format16(
+            path,
+            lead_name_or_index=lead_name_or_index,
+            chunk_duration_sec=chunk_duration_sec,
+            overlap_sec=overlap_sec,
+        )
+        if wfdb_gen is not None:
+            yield from wfdb_gen
+            return
+
     with open_ecg_buffer(filepath, progress_callback=progress_callback) as buf:
         fs = buf.fs
         total_samples = buf.num_samples

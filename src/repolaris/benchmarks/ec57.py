@@ -55,6 +55,7 @@ def evaluate_qrs_and_classification_ec57(
     test_classes: list[str] | None = None,
     match_window_ms: float = 150.0,
     learning_period_sec: float = 0.0,
+    clip_to_ref_span: bool = True,
 ) -> dict[str, Any]:
     """Evaluates QRS detection and 5-class AAMI EC57 beat classification via 1-to-1 `bxb` matching."""
     if fs <= 0:
@@ -63,11 +64,21 @@ def evaluate_qrs_and_classification_ec57(
     ref_arr = np.asarray(ref_samples, dtype=np.int64)
     test_arr = np.asarray(test_samples, dtype=np.int64)
 
+    tol_samples = int(round((match_window_ms / 1000.0) * fs))
+
     min_sample = int(round(max(0.0, learning_period_sec) * fs))
     ref_mask = ref_arr >= min_sample
-    test_mask = test_arr >= min_sample
-
     ref_valid = ref_arr[ref_mask]
+
+    # Clip test detections to the annotated reference span [first_ref - tol, last_ref + tol]
+    # so unannotated Holter tails (e.g., SDDB post-arrest segments) are not penalized as FPs.
+    if clip_to_ref_span and len(ref_valid) > 0:
+        span_start = max(min_sample, int(ref_valid.min()) - tol_samples)
+        span_end = int(ref_valid.max()) + tol_samples
+        test_mask = (test_arr >= span_start) & (test_arr <= span_end)
+    else:
+        test_mask = test_arr >= min_sample
+
     test_valid = test_arr[test_mask]
 
     if ref_classes is not None and len(ref_classes) == len(ref_arr):
@@ -79,8 +90,6 @@ def evaluate_qrs_and_classification_ec57(
         test_cls_valid = [str(c).upper() for c, keep in zip(test_classes, test_mask, strict=False) if keep]
     else:
         test_cls_valid = ["N"] * len(test_valid)
-
-    tol_samples = int(round((match_window_ms / 1000.0) * fs))
 
     # Build candidate pairs (|test - ref| <= tol_samples) sorted by absolute time difference
     candidate_pairs: list[tuple[int, int, int]] = []

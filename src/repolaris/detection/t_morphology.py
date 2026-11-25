@@ -374,7 +374,11 @@ def compute_twave_svd_descriptors(
 ) -> dict[str, Any]:
     """Computes 3D SVD/PCA T-wave loop complexity (T2/T1), non-dipolar residue, and Total Cosine R-to-T (TCRT)."""
     lead_medians: dict[str, np.ndarray] = butterfly_data.get("lead_medians", {})
-    names = list(lead_medians.keys())
+    _non_ecg_tokens = ("RESP", "SPO2", "PLETH", "ABP", "ACC", "TEMP", "EEG", "EOG", "EMG", "AIRFLOW")
+    names = [
+        k for k in lead_medians.keys()
+        if not any(tok in str(k).upper() for tok in _non_ecg_tokens)
+    ]
     n_leads = len(names)
     if n_leads < 2:
         return {
@@ -397,7 +401,7 @@ def compute_twave_svd_descriptors(
     qrs_mat = matrix[:, q_samp:j_samp]
     t_mat = matrix[:, j_samp:te_samp]
 
-    if t_mat.shape[1] < 3 or float(np.std(t_mat)) < 1e-7:
+    def _unavailable() -> dict[str, Any]:
         return {
             "available": False,
             "lead_count": n_leads,
@@ -408,21 +412,35 @@ def compute_twave_svd_descriptors(
             "singular_values": [],
         }
 
-    _, s_vals, _ = np.linalg.svd(t_mat, full_matrices=False)
+    def _safe_svd(mat: np.ndarray) -> tuple[np.ndarray, np.ndarray] | None:
+        if not np.all(np.isfinite(mat)):
+            return None
+        try:
+            u_m, s_m, _ = np.linalg.svd(mat, full_matrices=False)
+            return u_m, s_m
+        except np.linalg.LinAlgError:
+            scale = float(np.max(np.abs(mat)))
+            if scale <= 1e-12 or not np.isfinite(scale):
+                return None
+            try:
+                u_m, s_m, _ = np.linalg.svd(mat / scale, full_matrices=False)
+                return u_m, s_m * scale
+            except np.linalg.LinAlgError:
+                return None
+
+    if t_mat.shape[1] < 3 or not np.all(np.isfinite(t_mat)) or float(np.std(t_mat)) < 1e-7:
+        return _unavailable()
+
+    t_svd = _safe_svd(t_mat)
+    if t_svd is None:
+        return _unavailable()
+    _, s_vals = t_svd
     s1 = float(s_vals[0]) if len(s_vals) >= 1 else 0.0
     s2 = float(s_vals[1]) if len(s_vals) >= 2 else 0.0
     s3 = float(s_vals[2]) if len(s_vals) >= 3 else 0.0
 
     if s1 <= 1e-9:
-        return {
-            "available": False,
-            "lead_count": n_leads,
-            "t2_t1_ratio": None,
-            "t3_t1_ratio": None,
-            "non_dipolar_residue_pct": None,
-            "tcrt": None,
-            "singular_values": [],
-        }
+        return _unavailable()
 
     t2_t1 = s2 / s1
     t3_t1 = s3 / s1 if len(s_vals) >= 3 else 0.0
@@ -432,7 +450,10 @@ def compute_twave_svd_descriptors(
     ndr_pct = (non_dipolar_energy / total_energy * 100.0) if total_energy > 1e-12 else 0.0
 
     qrst_mat = matrix[:, q_samp:te_samp]
-    u_full, _, _ = np.linalg.svd(qrst_mat, full_matrices=False)
+    qrst_svd = _safe_svd(qrst_mat)
+    if qrst_svd is None:
+        return _unavailable()
+    u_full, _ = qrst_svd
     n_dim = min(3, u_full.shape[1])
     u_3d = u_full[:, :n_dim]
 

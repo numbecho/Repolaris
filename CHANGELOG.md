@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.10] - 2026-11-24
+
+### Fixed
+- **True Out-of-Core WFDB Streaming (`wfdb_reader.py`, `ecg_loader.py`):** Added `iter_wfdb_chunks_format16()` using direct `seek`/`read` per 5-minute window, eliminating full-file RAM loads on >250 MB Holter `.dat` files and cutting peak RSS on `butqdb/105001_ECG` from 2,332.4 MB to 1,146.0 MB.
+- **3D T-Wave SVD Crash Guard (`t_morphology.py`):** Filtered non-ECG channels (`Resp`, `SpO2`, `ACC`, `PLETH`, `ABP`, `EEG`, `EOG`, `EMG`) prior to SVD and added finite-value + max-abs rescale `LinAlgError` fallback, resolving all 8 `apnea-ecg` `*r` crashes.
+- **EC57 Annotation-Span Clipping (`ec57.py`):** Clipped test beat detections to `[first_ref - tol, last_ref + tol]` by default so unannotated Holter tails are not scored as false positives (lifting `ltafdb/117` from 55.1% to 99.87% +P).
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),

@@ -7,9 +7,11 @@ Supports:
 """
 
 from __future__ import annotations
+from typing import Any
 
 import contextlib
 from dataclasses import dataclass
+from collections.abc import Iterator
 from pathlib import Path
 import warnings
 
@@ -107,7 +109,8 @@ def read_wfdb(record_path_or_header: str | Path) -> WFDBRecord:
     first_tokens = lines[0].split()
     record_name = first_tokens[0]
     num_signals = int(first_tokens[1])
-    fs = float(first_tokens[2]) if len(first_tokens) > 2 else 250.0
+    raw_fs = first_tokens[2].split("/")[0].split("(")[0] if len(first_tokens) > 2 else "250.0"
+    fs = float(raw_fs)
     sig_len = int(first_tokens[3]) if len(first_tokens) > 3 else 0
 
     if not (1 <= num_signals <= 64):
@@ -272,3 +275,119 @@ def read_wfdb_annotations(atr_path: str | Path) -> dict[str, list]:
         "raw_codes": raw_codes,
         "total_beats": len(samples),
     }
+
+
+def iter_wfdb_chunks_format16(
+    record_path_or_header: str | Path,
+    lead_name_or_index: str | int = 0,
+    chunk_duration_sec: float = 300.0,
+    overlap_sec: float = 5.0,
+) -> Iterator[dict[str, Any]] | None:
+    """True zero-copy out-of-core chunk iterator for WFDB Format 16 (.dat) Holter recordings."""
+    path = Path(record_path_or_header)
+    header_path = path.with_suffix(".hea") if path.suffix != ".hea" else path
+    if not header_path.exists():
+        return None
+
+    with open(header_path, encoding="utf-8", errors="ignore") as f:
+        lines = [line.strip() for line in f if line.strip() and not line.startswith("#")]
+    if not lines:
+        return None
+
+    first_tokens = lines[0].split()
+    record_name = first_tokens[0]
+    num_signals = int(first_tokens[1])
+    raw_fs = first_tokens[2].split("/")[0].split("(")[0] if len(first_tokens) > 2 else "250.0"
+    fs = float(raw_fs)
+    if not (1 <= num_signals <= 64) or fs <= 0:
+        return None
+
+    lead_names: list[str] = []
+    gains: list[float] = []
+    baselines: list[int] = []
+    formats: list[int] = []
+    dat_filenames: list[str] = []
+
+    for i in range(1, num_signals + 1):
+        if i >= len(lines):
+            break
+        tokens = lines[i].split()
+        dat_filenames.append(tokens[0])
+        formats.append(int(tokens[1].split("+")[0].split(":")[0]))
+        gain_str = tokens[2] if len(tokens) > 2 else "200.0"
+        baseline = 0
+        if "(" in gain_str and ")" in gain_str:
+            g_part, rest = gain_str.split("(", 1)
+            b_part = rest.split(")", 1)[0]
+            gain = float(g_part) if g_part else 200.0
+            baseline = int(b_part) if b_part else 0
+        else:
+            gain = float(gain_str.split("/")[0]) if "/" in gain_str else float(gain_str)
+        gains.append(gain if gain != 0 else 200.0)
+        baselines.append(baseline)
+        lead_names.append(tokens[8] if len(tokens) > 8 else f"Lead_{i}")
+
+    if not formats or any(fmt != 16 for fmt in formats):
+        return None
+
+    unique_dats = {Path(d).name for d in dat_filenames}
+    if len(unique_dats) != 1:
+        return None
+    dat_path = header_path.parent / next(iter(unique_dats))
+    if not dat_path.exists():
+        dat_path = header_path.with_suffix(".dat")
+    if not dat_path.exists():
+        raise FileNotFoundError(f"WFDB binary data file not found: {dat_path}")
+
+    file_bytes = dat_path.stat().st_size
+    frame_bytes = 2 * num_signals
+    total_samples = file_bytes // frame_bytes
+    if total_samples <= 0:
+        raise ValueError(f"Corrupt WFDB record: Binary data file '{dat_path.name}' contains 0 bytes.")
+
+    if isinstance(lead_name_or_index, int):
+        lead_idx = max(0, min(num_signals - 1, lead_name_or_index))
+    else:
+        target = str(lead_name_or_index).strip().upper()
+        lead_idx = next((idx for idx, n in enumerate(lead_names) if n.strip().upper() == target), 0)
+
+    gain = gains[lead_idx] if lead_idx < len(gains) else 200.0
+    baseline = baselines[lead_idx] if lead_idx < len(baselines) else 0
+    meta = {
+        "source_format": "wfdb",
+        "record_name": record_name,
+        "lead_names": lead_names,
+        "mmap_backed": True,
+        "true_streaming_wfdb": True,
+    }
+
+    def _gen() -> Iterator[dict[str, Any]]:
+        chunk_samples = max(1, int(round(chunk_duration_sec * fs)))
+        overlap_samples = max(0, int(round(overlap_sec * fs)))
+        with open(dat_path, "rb") as fh:
+            core_start = 0
+            chunk_idx = 0
+            while core_start < total_samples:
+                core_end = min(total_samples, core_start + chunk_samples)
+                win_start = max(0, core_start - overlap_samples)
+                win_end = min(total_samples, core_end + overlap_samples)
+                n_win = win_end - win_start
+                fh.seek(win_start * frame_bytes)
+                raw = fh.read(n_win * frame_bytes)
+                arr = np.frombuffer(raw, dtype="<i2").reshape(-1, num_signals)
+                sig_chunk = (arr[:, lead_idx].astype(np.float32) - baseline) / gain
+                yield {
+                    "chunk_index": chunk_idx,
+                    "start_sample": win_start,
+                    "end_sample": win_end,
+                    "core_start_sample": core_start,
+                    "core_end_sample": core_end,
+                    "signal": sig_chunk,
+                    "fs": fs,
+                    "total_samples": total_samples,
+                    "metadata": meta,
+                }
+                core_start = core_end
+                chunk_idx += 1
+
+    return _gen()

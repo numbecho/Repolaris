@@ -25,7 +25,7 @@ class TestV099UpgradesAndContract(unittest.TestCase):
     """Verifies all v0.9.9 upgrades, streaming schema parity, 5-language i18n, and public API contract."""
 
     def test_version_and_public_api_exports(self) -> None:
-        self.assertEqual(repolaris.__version__, "0.9.9")
+        self.assertGreaterEqual(tuple(int(x) for x in repolaris.__version__.split(".")), (0, 9, 9))
         for obj in (StudyAPI, AnalysisAPI, ExportAPI, BatchAPI, GLOBAL_PLUGIN_REGISTRY):
             self.assertIsNotNone(obj)
 

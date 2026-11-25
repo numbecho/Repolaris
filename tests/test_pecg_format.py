@@ -126,5 +126,66 @@ class TestPECGFormat(unittest.TestCase):
             load_pecg(p_bad_ch)
         self.assertIn("Invalid channel count", str(cm.exception))
 
+
+    def test_stdlib_zstd_backend_roundtrip_and_bomb_guard(self):
+        """Verifies PEP 784 compression.zstd compression, decompression, and bomb rejection."""
+        import enum
+        import zlib
+        from unittest import mock
+
+        from repolaris.io import pecg_format
+
+        class _FakeParam(enum.IntEnum):
+            compression_level = 1
+            nb_workers = 2
+
+            def bounds(self):
+                return (0, 4)
+
+        class _FakeDecompressor:
+            def __init__(self):
+                self.eof = False
+                self.unused_data = b""
+
+            def decompress(self, data: bytes, max_length: int = -1) -> bytes:
+                dec = zlib.decompressobj()
+                out = dec.decompress(data, max_length if max_length > 0 else 0)
+                self.eof = dec.eof and not dec.unconsumed_tail
+                self.unused_data = dec.unused_data
+                return out
+
+        class _FakeStdlibZstd:
+            CompressionParameter = _FakeParam
+            ZstdDecompressor = _FakeDecompressor
+
+            @staticmethod
+            def compress(data: bytes, options=None) -> bytes:
+                assert options is not None and _FakeParam.compression_level in options
+                return zlib.compress(data, level=3)
+
+        filepath = os.path.join(self.temp_dir.name, "stdlib_zstd.pecg")
+        with (
+            mock.patch.object(pecg_format, "_stdlib_zstd", _FakeStdlibZstd),
+            mock.patch.object(pecg_format, "_legacy_zstd", None),
+            mock.patch.object(pecg_format, "HAS_ZSTD", True),
+        ):
+            save_pecg(
+                filepath=filepath,
+                signals=self.signals,
+                sampling_rate=self.fs,
+                lead_names=self.lead_names,
+                patient_info=self.patient,
+                annotations=self.annotations,
+                compression="zstd",
+            )
+            meta, sigs = load_pecg(filepath)
+            self.assertEqual(meta["patient"]["age"], 64)
+            np.testing.assert_allclose(sigs, self.signals, rtol=1e-5)
+
+            # Decompression bomb: payload expands beyond expected_bytes
+            oversized = zlib.compress(b"A" * 1024, level=3)
+            with self.assertRaises(ValueError):
+                pecg_format._decompress_zstd(oversized, expected_bytes=64)
+
 if __name__ == "__main__":
     unittest.main()

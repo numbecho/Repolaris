@@ -33,6 +33,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: 3 :: Only",
     "Topic :: Scientific/Engineering :: Medical Science Apps.",
 ]
@@ -41,7 +42,7 @@ dependencies = [
     "scipy>=1.10",
     "matplotlib>=3.7",
     "pandas>=2.0",
-    "zstandard>=0.22",
+    "zstandard>=0.22; python_version < '3.14'",
     "cbor2>=5.6",
 ]
 
@@ -61,7 +62,7 @@ dev = [
 ]
 packaging = [
     "briefcase>=0.3.20",
-    "zstandard>=0.22",
+    "zstandard>=0.22; python_version < '3.14'",
 ]
 
 [dependency-groups]
@@ -170,7 +171,7 @@ requires = [
     "scipy>=1.10",
     "matplotlib>=3.7",
     "pandas>=2.0",
-    "zstandard>=0.22",
+    "zstandard>=0.22; python_version < '3.14'",
     "cbor2>=5.6",
     "PySide6>=6.7",
     "pyqtgraph>=0.13",

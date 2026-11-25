@@ -22,6 +22,7 @@ Architecture:
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import struct
@@ -38,11 +39,44 @@ try:
 except ImportError:
     HAS_CBOR = False
 
+_stdlib_zstd: Any = None
+_legacy_zstd: Any = None
 try:
-    import zstandard as zstd
-    HAS_ZSTD = True
+    from compression import zstd as _stdlib_zstd  # Python 3.14+ (PEP 784)
 except ImportError:
-    HAS_ZSTD = False
+    with contextlib.suppress(ImportError):
+        import zstandard as _legacy_zstd  # Python 3.12-3.13 fallback
+
+HAS_ZSTD = (_stdlib_zstd is not None) or (_legacy_zstd is not None)
+
+
+def _compress_zstd(data: bytes) -> bytes:
+    """Compress bytes using stdlib compression.zstd (3.14+) or legacy zstandard."""
+    threads = min(os.cpu_count() or 1, 4)
+    if _stdlib_zstd is not None:
+        cp = _stdlib_zstd.CompressionParameter
+        options: dict[Any, int] = {cp.compression_level: 3}
+        if hasattr(cp, "nb_workers"):
+            low, high = cp.nb_workers.bounds()
+            if high >= 1:
+                options[cp.nb_workers] = min(max(threads, low), high)
+        return _stdlib_zstd.compress(data, options=options)
+    cctx = _legacy_zstd.ZstdCompressor(level=3, threads=threads)
+    return cctx.compress(data)
+
+
+def _decompress_zstd(compressed_bytes: bytes, expected_bytes: int) -> bytes:
+    """Decompress Zstandard bytes with a strict upper bound to prevent decompression bombs."""
+    if _stdlib_zstd is not None:
+        decompressor = _stdlib_zstd.ZstdDecompressor()
+        raw_bytes = decompressor.decompress(compressed_bytes, max_length=expected_bytes + 1)
+        if not decompressor.eof or decompressor.unused_data:
+            raise ValueError(
+                f"Security Alert: Decompressed payload does not match expected dimensions ({expected_bytes} B expected)."
+            )
+        return raw_bytes
+    dctx = _legacy_zstd.ZstdDecompressor()
+    return dctx.decompress(compressed_bytes, max_output_size=expected_bytes)
 
 MAGIC = b"PECG"
 CURRENT_VERSION = 1
@@ -167,9 +201,7 @@ def save_pecg(
     comp_mode = compression.lower()
     if comp_mode == "zstd":
         if HAS_ZSTD:
-            threads = min(os.cpu_count() or 1, 4)
-            cctx = zstd.ZstdCompressor(level=3, threads=threads)
-            waveform_payload = cctx.compress(raw_waveform_bytes)
+            waveform_payload = _compress_zstd(raw_waveform_bytes)
             comp_flag = COMPRESSION_ZSTD
         else:
             # Graceful fallback to Deflate if zstandard isn't installed
@@ -315,9 +347,8 @@ def load_pecg(filepath: str | Path, mmap: bool = False, progress_callback: Calla
             compressed_bytes = f.read()
 
         # Enforce exact expected decompressed output size to neutralize decompression bombs
-        dctx = zstd.ZstdDecompressor()
         try:
-            raw_bytes = dctx.decompress(compressed_bytes, max_output_size=expected_bytes)
+            raw_bytes = _decompress_zstd(compressed_bytes, expected_bytes)
         except Exception as e:
             raise ValueError(f"Zstandard decompression failed: {e}") from e
 

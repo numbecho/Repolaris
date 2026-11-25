@@ -376,7 +376,7 @@ def compute_twave_svd_descriptors(
     lead_medians: dict[str, np.ndarray] = butterfly_data.get("lead_medians", {})
     _non_ecg_tokens = ("RESP", "SPO2", "PLETH", "ABP", "ACC", "TEMP", "EEG", "EOG", "EMG", "AIRFLOW")
     names = [
-        k for k in lead_medians.keys()
+        k for k in lead_medians
         if not any(tok in str(k).upper() for tok in _non_ecg_tokens)
     ]
     n_leads = len(names)

@@ -5,7 +5,6 @@
 [![CI/CD](https://github.com/numbecho/Repolaris/actions/workflows/build-artifacts.yml/badge.svg)](https://github.com/numbecho/Repolaris/actions/workflows/build-artifacts.yml)
 [![Version](https://img.shields.io/badge/Version-v0.9.10-0f766e?style=flat-square)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/License-Apache%202.0-334155?style=flat-square)](LICENSE)
-[[https://img.shields.io/badge/Python-3.12%2B-2563eb?style=flat-square]](pyproject.toml)
 [![Documentation](https://img.shields.io/badge/Docs-Wiki-1d4ed8?style=flat-square)](wiki/Home.md)
 
 ## Motivation
@@ -75,7 +74,6 @@ uv run pytest -q && uv run ruff check src tests
 ## License and Academic Citation
 
 Repolaris is released under the Apache License, Version 2.0 (see [LICENSE](LICENSE)).
-[[https://img.shields.io/badge/Python-3.12%2B-2563eb?style=flat-square]](pyproject.toml)
 
 If you use Repolaris in clinical research or publications, please cite the foundational work:
 

@@ -96,6 +96,7 @@ class HamiltonBeatClassifier:
 
         half_w = self.window_samples // 2
         classified_beats: list[ClassifiedBeat] = []
+        beat_template_ids: list[int] = []
 
         for i, r_idx in enumerate(r_peaks):
             start_s = max(0, int(r_idx) - half_w)
@@ -140,6 +141,8 @@ class HamiltonBeatClassifier:
 
             if best_corr >= self.match_threshold and best_match_id >= 0:
                 matched_tmpl = self.templates[best_match_id]
+                matched_tmpl.count += 1
+                assigned_tmpl_id = best_match_id
                 b_class = matched_tmpl.beat_class
 
                 if b_class == BeatClass.NORMAL and is_premature and not is_wide:
@@ -152,15 +155,18 @@ class HamiltonBeatClassifier:
                             (1.0 - self.adaptation_rate) * matched_tmpl.waveform
                             + self.adaptation_rate * norm_slice
                         )
-                        matched_tmpl.count += 1
                     confidence = max(0.80, min(0.99, best_corr))
                     rationale = f"Hamilton OSEA: Matched template #{best_match_id} ({b_class}) with correlation {best_corr:.2f}"
             else:
-                if is_premature and (is_wide or best_corr < 0.70):
+                if not self.templates:
+                    b_class = BeatClass.NORMAL
+                    confidence = 0.85
+                    rationale = "Hamilton OSEA: Initial baseline morphology cluster"
+                elif is_premature and (is_wide or best_corr < 0.70):
                     b_class = BeatClass.PVC
                     confidence = 0.94 if is_compensatory else 0.88
                     rationale = f"Hamilton OSEA: Premature ectopic (pre-RR {pre_ratio:.2f}) with morph deviation (r={best_corr:.2f}, QRS={qrs_dur_ms:.1f}ms)"
-                elif is_wide:
+                elif is_wide and best_corr < 0.75:
                     b_class = BeatClass.PVC
                     confidence = 0.85
                     rationale = f"Hamilton OSEA: Wide QRS ({qrs_dur_ms:.1f}ms) with unmatched morphology (r={best_corr:.2f})"
@@ -170,6 +176,7 @@ class HamiltonBeatClassifier:
                     rationale = f"Hamilton OSEA: New morphology cluster created (r={best_corr:.2f})"
 
                 new_id = len(self.templates)
+                assigned_tmpl_id = new_id
                 self.templates.append(
                     MorphologyTemplate(
                         template_id=new_id,
@@ -213,6 +220,23 @@ class HamiltonBeatClassifier:
                     diagnostic_rationale=rationale,
                 )
             )
+            beat_template_ids.append(assigned_tmpl_id)
+
+        # Dominant-cluster promotion: if >=50% of beats belong to a cluster tagged PVC
+        # (e.g., dominant LBBB/RBBB rhythm seeded after an initial ectopic), reclassify to NORMAL.
+        if self.templates and classified_beats:
+            dom_tmpl = max(self.templates, key=lambda t: t.count)
+            self.dominant_template_id = dom_tmpl.template_id
+            if dom_tmpl.beat_class == BeatClass.PVC and (dom_tmpl.count / len(classified_beats)) >= 0.50:
+                dom_tmpl.beat_class = BeatClass.NORMAL
+                for beat, tid in zip(classified_beats, beat_template_ids):
+                    if tid == dom_tmpl.template_id and beat.beat_class == BeatClass.PVC:
+                        beat.beat_class = BeatClass.NORMAL
+                        beat.rhythm_pattern = RhythmPattern.NORMAL_SINUS
+                        beat.diagnostic_rationale = (
+                            f"Hamilton OSEA: Dominant cluster #{tid} promoted to NORMAL "
+                            f"({dom_tmpl.count}/{len(classified_beats)} beats)"
+                        )
 
         # Annotate coupled rhythm sequences (Bigeminy, Trigeminy, Couplets, VT runs)
         classified_beats = detect_rhythm_patterns(classified_beats)

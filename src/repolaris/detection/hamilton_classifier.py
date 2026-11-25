@@ -160,7 +160,7 @@ class HamiltonBeatClassifier:
                     b_class = BeatClass.PVC
                     confidence = 0.94 if is_compensatory else 0.88
                     rationale = f"Hamilton OSEA: Premature ectopic (pre-RR {pre_ratio:.2f}) with morph deviation (r={best_corr:.2f}, QRS={qrs_dur_ms:.1f}ms)"
-                elif is_wide:
+                elif is_wide and len(self.templates) > 0:
                     b_class = BeatClass.PVC
                     confidence = 0.85
                     rationale = f"Hamilton OSEA: Wide QRS ({qrs_dur_ms:.1f}ms) with unmatched morphology (r={best_corr:.2f})"

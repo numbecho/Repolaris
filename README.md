@@ -60,7 +60,7 @@ Detailed user guides, workstation tutorials, and clinical documentation are avai
 
 ## For Developers and Researchers
 
-* **Stack:** Python 3.12+ (tested through 3.14), PySide6 + PyQtGraph workstation GUI, NumPy/SciPy DSP engine, Apache-2.0 licensed.
+* **Stack:** Python 3.12+ (tested through 3.15), PySide6 + PyQtGraph workstation GUI, NumPy/SciPy DSP engine, Apache-2.0 licensed.
 * **Quick Setup (`uv` or `pip`):**
 
 ```bash

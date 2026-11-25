@@ -2,6 +2,11 @@
 
 **Clinical ECG Analysis, Ventricular Repolarization, and Ambulatory Holter Workstation**
 
+[![CI/CD](https://github.com/numbecho/Repolaris/actions/workflows/build-artifacts.yml/badge.svg)](https://github.com/numbecho/Repolaris/actions/workflows/build-artifacts.yml)
+[![Version](https://img.shields.io/badge/Version-v0.9.10-0f766e?style=flat-square)](CHANGELOG.md)
+[![License](https://img.shields.io/badge/License-Apache%202.0-334155?style=flat-square)](LICENSE)
+[![Documentation](https://img.shields.io/badge/Docs-Wiki-1d4ed8?style=flat-square)](wiki/Home.md)
+
 ## Motivation
 
 Evaluating ventricular repolarization, QT interval dynamics, and arrhythmia burden across modern cardiology practices is often fragmented by proprietary vendor formats, black-box automated measurements, and software restricted to a single recorder brand. Repolaris was created to provide physicians and clinical researchers with a transparent, vendor-neutral workstation for inspecting both standard resting 12-lead ECGs and continuous multi-day Holter recordings.
@@ -52,6 +57,19 @@ Repolaris is intended for clinical research and physician-supervised review. Aut
 ## Documentation
 
 Detailed user guides, workstation tutorials, and clinical documentation are available in the [Repolaris Wiki](wiki/Home.md).
+
+## For Developers and Researchers
+
+* **Stack:** Python 3.12+ (tested through 3.14), PySide6 + PyQtGraph workstation GUI, NumPy/SciPy DSP engine, Apache-2.0 licensed.
+* **Quick Setup (`uv` or `pip`):**
+
+```bash
+uv sync --all-extras --dev          # or: pip install -e ".[dev]"
+uv run repolaris                    # launch desktop workstation
+uv run pytest -q && uv run ruff check src tests
+```
+
+* **Technical Guides:** [Architecture Overview](wiki/Architecture-Overview.md) · [Algorithms & EC57](wiki/Electrophysiology-and-Algorithms.md) · [Developer Guide](wiki/Developer-Guide.md) · [Packaging & CI/CD](wiki/Packaging-and-CI-CD-Guide.md)
 
 ## License and Academic Citation
 

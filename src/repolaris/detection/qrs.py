@@ -76,6 +76,7 @@ def _apply_adaptive_threshold_and_t_guard(
     clipped = np.clip(init_seg, 0.0, clip_hi)
     p99 = float(np.percentile(clipped, 99))
     spki = max(0.85 * p99, 1e-9)
+    init_spki = spki
     npki = max(med, 1e-12)
 
     min_cand_dist = max(1, int(round(0.080 * fs)))
@@ -93,6 +94,7 @@ def _apply_adaptive_threshold_and_t_guard(
     prev_r_slope = 0.0
     refractory_rejected = 0
     t_wave_rejected = 0
+    init_silence_samples = int(round(4.0 * fs))
 
     for idx_i, cp_raw in enumerate(candidates):
         cp = int(cp_raw)
@@ -131,22 +133,27 @@ def _apply_adaptive_threshold_and_t_guard(
                 if len(rr_history) > 8:
                     rr_history.pop(0)
                 mean_rr = float(np.mean(rr_history))
+            # Clamp outlier spikes only after initial real beats establish spki (protects flat/microvolt lead-ins)
+            val_capped = min(val, 3.0 * spki) if (len(accepted) >= 3 and spki > max(2.5 * npki, 1e-6)) else val
             accepted.append(cp)
-            spki = 0.125 * val + 0.875 * spki
+            spki = 0.125 * val_capped + 0.875 * spki
             prev_r_slope = cand_slope if prev_r_slope <= 0.0 else (0.5 * cand_slope + 0.5 * prev_r_slope)
         else:
             npki = 0.125 * val + 0.875 * npki
             if accepted and (cp - accepted[-1]) > 1.66 * mean_rr:
+                max_sb_samples = max(hard_ref_samples + 1, int(round(max(2.5 * mean_rr, 3.0 * fs))))
+                min_sb_sample = max(accepted[-1] + hard_ref_samples, cp - max_sb_samples)
                 sb_best_cp = -1
                 sb_best_val = -1.0
                 for j in range(idx_i - 1, -1, -1):
                     cand_j = int(candidates[j])
-                    if cand_j <= accepted[-1] + hard_ref_samples:
+                    if cand_j <= min_sb_sample:
                         break
                     v_j = float(envelope[cand_j])
                     if v_j >= thr2 and v_j > sb_best_val:
                         sb_best_val = v_j
                         sb_best_cp = cand_j
+                sb_accepted = False
                 if sb_best_cp >= 0:
                     sb_slope = float(
                         np.max(abs_diff[max(0, sb_best_cp - rad40) : min(n_samples, sb_best_cp + rad40 + 1)])
@@ -160,9 +167,18 @@ def _apply_adaptive_threshold_and_t_guard(
                         if len(rr_history) > 8:
                             rr_history.pop(0)
                         mean_rr = float(np.mean(rr_history))
+                        sb_capped = min(sb_best_val, 3.0 * spki) if (len(accepted) >= 3 and spki > max(2.5 * npki, 1e-6)) else sb_best_val
                         accepted.append(sb_best_cp)
-                        spki = 0.25 * sb_best_val + 0.75 * spki
+                        spki = 0.25 * sb_capped + 0.75 * spki
                         prev_r_slope = sb_slope if prev_r_slope <= 0.0 else (0.5 * sb_slope + 0.5 * prev_r_slope)
+                        sb_accepted = True
+                if not sb_accepted:
+                    # Decay spki with a noise-safe floor to prevent latch-up without collapsing into background noise
+                    spki_floor = max(6.0 * npki, 0.05 * init_spki, 1e-6)
+                    spki = max(spki_floor, 0.90 * spki + 0.10 * val)
+            elif not accepted and cp > init_silence_samples:
+                spki_floor = max(6.0 * npki, 0.05 * init_spki, 1e-6)
+                spki = max(spki_floor, 0.90 * spki + 0.10 * val)
 
     if diagnostics_out is not None:
         diagnostics_out["refractory_rejected"] = refractory_rejected

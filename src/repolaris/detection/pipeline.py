@@ -23,6 +23,9 @@ Coordinates end-to-end processing of electrocardiogram recordings:
 
 from __future__ import annotations
 
+import ctypes
+import gc
+
 import contextlib
 from collections.abc import Callable, Iterator, Sequence
 from typing import Any
@@ -451,6 +454,7 @@ def analyze_ecg(
     lead_names: list[str] | None = None,
     metadata: dict[str, Any] | None = None,
     auto_select_lead: bool = False,
+    hamilton_clf: HamiltonBeatClassifier | None = None,
 ) -> dict[str, Any]:
     """Executes the master diagnostic analysis pipeline on a raw ECG signal."""
     if config is None:
@@ -658,12 +662,14 @@ def analyze_ecg(
         t_ends=t_ends_arr,
         fs=fs,
     )
-    hamilton_clf = HamiltonBeatClassifier(fs=fs)
-    hamilton_beats, hamilton_summary = hamilton_clf.classify_recording(
+    reuse_hamilton = hamilton_clf is not None
+    active_hamilton = hamilton_clf if reuse_hamilton else HamiltonBeatClassifier(fs=fs)
+    hamilton_beats, hamilton_summary = active_hamilton.classify_recording(
         signal=clean_signal,
         r_peaks=r_peaks,
         q_onsets=q_onsets_arr,
         t_ends=t_ends_arr,
+        reset_state=not reuse_hamilton,
     )
     ectopic_summary["template_cluster_count"] = hamilton_summary.get("template_cluster_count", 1)
     ectopic_summary["af_stabilized"] = hamilton_summary.get("af_stabilized", False)
@@ -918,6 +924,9 @@ def analyze_ecg_stream(
 
     active_lead_idx = 0
     consec_bad_chunks = 0
+    stream_hamilton_clf: HamiltonBeatClassifier | None = None
+    stream_hamilton_lead: int | None = None
+    stream_hamilton_fs: float | None = None
     lead_names_list: list[str] = []
 
     for ch in chunk_iter:
@@ -982,17 +991,31 @@ def analyze_ecg_stream(
         else:
             sig_1d = sig_win[0] if (isinstance(sig_win, np.ndarray) and sig_win.ndim == 2) else sig_win
 
-        res_win = analyze_ecg(sig_1d, fs=actual_fs, config=config, metadata=stream_meta)
+        if (
+            stream_hamilton_clf is None
+            or stream_hamilton_lead != active_lead_idx
+            or stream_hamilton_fs != actual_fs
+        ):
+            stream_hamilton_clf = HamiltonBeatClassifier(fs=actual_fs)
+            stream_hamilton_lead = active_lead_idx
+            stream_hamilton_fs = actual_fs
+        res_win = analyze_ecg(
+            sig_1d,
+            fs=actual_fs,
+            config=config,
+            metadata=stream_meta,
+            hamilton_clf=stream_hamilton_clf,
+        )
         if preview_signal is None:
-            preview_signal = res_win["clean_signal"][: min(len(res_win["clean_signal"]), int(actual_fs * 30))]
+            preview_signal = res_win["clean_signal"][: min(len(res_win["clean_signal"]), int(actual_fs * 30))].copy()
         if first_t_morph is None and isinstance(res_win.get("t_morphology"), dict):
             first_t_morph = dict(res_win["t_morphology"])
         sqi_list.append(res_win["sqi"])
         if res_win.get("twa"):
             twa_list.append(res_win["twa"])
-        if res_win.get("edr") and res_win["edr"].get("valid"):
+        if not edr_list and res_win.get("edr") and res_win["edr"].get("valid"):
             edr_list.append(res_win["edr"])
-        if res_win.get("p_wave"):
+        if not p_wave_list and res_win.get("p_wave"):
             p_wave_list.append(res_win["p_wave"])
         pm_win = res_win.get("pacemaker") or {}
         for sp in pm_win.get("spike_samples", []):
@@ -1046,8 +1069,13 @@ def analyze_ecg_stream(
 
                 last_r_peak = global_r
                 n_beats_total += 1
+        del res_win
 
     beat_arr = np.ascontiguousarray(beat_buf[:n_beats_total])
+    del beat_buf
+    gc.collect()
+    with contextlib.suppress(Exception):
+        ctypes.CDLL("libc.so.6").malloc_trim(0)
     if n_beats_total > 0:
         _apply_stream_rhythm_patterns(beat_arr)
 

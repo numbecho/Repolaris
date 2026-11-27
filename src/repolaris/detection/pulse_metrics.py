@@ -215,7 +215,84 @@ def compute_stv_qt(
     }
 
 
-def summarize_beats(beats: list[dict[str, Any]]) -> dict[str, Any]:
+_PROXY_BEAT_CODES = ("N", "V", "S", "F", "Q")
+
+
+def _summarize_beat_array_proxy(beats: Any) -> dict[str, Any]:
+    """Vectorized summary over a BeatArrayProxy structured array (zero per-beat dict materialization)."""
+    arr = beats.array
+    n = len(arr)
+    fs = float(beats._fs) if float(beats._fs) > 0 else 500.0
+    rr = arr["rr_sec"].astype(np.float64)
+    qt_sec = arr["qt_sec"].astype(np.float64)
+    qt_ms = qt_sec * 1000.0
+
+    valid_rr = np.isfinite(rr) & (rr > 0.0)
+    hrs = 60.0 / rr[valid_rr]
+    valid_qt_ms = qt_ms[np.isfinite(qt_ms)]
+
+    valid_qtc = valid_rr & np.isfinite(qt_sec) & (qt_sec > 0.0)
+    if np.any(valid_qtc):
+        rr_q = rr[valid_qtc]
+        qt_q = qt_ms[valid_qtc]
+        hr_q = 60.0 / rr_q
+        qtc_b = np.round(qt_q / np.sqrt(rr_q), 2)
+        qtc_f = np.round(qt_q / np.cbrt(rr_q), 2)
+        qtc_fram = np.round(qt_q + 154.0 * (1.0 - rr_q), 2)
+        qtc_hodg = np.round(qt_q + 1.75 * (hr_q - 60.0), 2)
+        mean_qtc_b = float(np.mean(qtc_b))
+        mean_qtc_f = float(np.mean(qtc_f))
+        mean_qtc_fram = float(np.mean(qtc_fram))
+        mean_qtc_hodg = float(np.mean(qtc_hodg))
+    else:
+        mean_qtc_b = mean_qtc_f = mean_qtc_fram = mean_qtc_hodg = 0.0
+
+    q_idx = arr["q_onset_sample"].astype(np.int64)
+    j_idx = arr["j_point_sample"].astype(np.int64)
+    tp_idx = arr["t_peak_sample"].astype(np.int64)
+    te_idx = arr["t_end_sample"].astype(np.int64)
+
+    cipa_qt_ms = np.maximum(0.0, (te_idx - q_idx) / fs * 1000.0)
+    eff_j = np.minimum(np.maximum(q_idx, j_idx), tp_idx)
+    jt_peak_raw = np.maximum(0.0, (tp_idx - eff_j) / fs * 1000.0)
+    tpe_raw = np.maximum(0.0, (te_idx - tp_idx) / fs * 1000.0)
+    jt_peak_c_raw = np.where(rr > 0.15, jt_peak_raw / np.power(np.where(rr > 0.15, rr, 1.0), 0.58), jt_peak_raw)
+    tpe_ratio_raw = np.where(cipa_qt_ms > 1e-6, tpe_raw / np.where(cipa_qt_ms > 1e-6, cipa_qt_ms, 1.0), 0.0)
+
+    jtp = np.round(jt_peak_raw, 2)
+    jtpc = np.round(jt_peak_c_raw, 2)
+    tpes = np.round(tpe_raw, 2)
+    tpe_ratios = np.round(tpe_ratio_raw, 4)
+
+    jtp_pos = jtp[np.isfinite(jtp) & (jtp > 0.0)]
+    jtpc_pos = jtpc[np.isfinite(jtpc) & (jtpc > 0.0)]
+    tpe_pos = tpes[np.isfinite(tpes) & (tpes > 0.0)]
+    tpe_r_pos = tpe_ratios[np.isfinite(tpe_ratios) & (tpe_ratios > 0.0)]
+
+    codes = np.clip(arr["beat_class_code"].astype(np.int64), 0, len(_PROXY_BEAT_CODES) - 1)
+    classes_for_stv = [_PROXY_BEAT_CODES[int(c)] for c in codes]
+    stv_info = compute_stv_qt(qt_ms, beat_classes=classes_for_stv)
+
+    return {
+        "mean_hr_bpm": float(np.mean(hrs)) if len(hrs) else 0.0,
+        "mean_qt_ms": float(np.mean(valid_qt_ms)) if len(valid_qt_ms) else 0.0,
+        "mean_qtc_bazett_ms": mean_qtc_b,
+        "mean_qtc_fridericia_ms": mean_qtc_f,
+        "mean_qtc_framingham_ms": mean_qtc_fram,
+        "mean_qtc_hodges_ms": mean_qtc_hodg,
+        "mean_jt_peak_ms": float(np.mean(jtp_pos)) if len(jtp_pos) else 0.0,
+        "mean_jt_peak_c_ms": float(np.mean(jtpc_pos)) if len(jtpc_pos) else 0.0,
+        "mean_tpe_ms": float(np.mean(tpe_pos)) if len(tpe_pos) else 0.0,
+        "mean_tpe_qt_ratio": float(np.mean(tpe_r_pos)) if len(tpe_r_pos) else 0.0,
+        "stv_qt_ms": float(stv_info["stv_qt_ms"]),
+        "ltv_qt_ms": float(stv_info["ltv_qt_ms"]),
+        "qt_instability_index": float(stv_info["instability_index"]),
+        "stv_risk_category": str(stv_info["risk_category"]),
+        "total_beats": int(n),
+    }
+
+
+def summarize_beats(beats: Any) -> dict[str, Any]:
     """Computes summary statistics across detected beats, safely handling None and NaN values."""
     if not beats:
         return {
@@ -235,6 +312,9 @@ def summarize_beats(beats: list[dict[str, Any]]) -> dict[str, Any]:
             "stv_risk_category": "INSUFFICIENT_DATA",
             "total_beats": 0,
         }
+
+    if hasattr(beats, "array") and hasattr(beats, "_fs"):
+        return _summarize_beat_array_proxy(beats)
 
     hrs = [b["hr_bpm"] for b in beats if b.get("hr_bpm") is not None and not np.isnan(b["hr_bpm"])]
     qts = [b["qt_ms"] for b in beats if b.get("qt_ms") is not None and not np.isnan(b["qt_ms"])]

@@ -67,6 +67,42 @@ def _read_format_212(raw_bytes: bytes, num_signals: int, num_samples: int) -> np
     return interleaved[: actual_samples * num_signals].reshape(actual_samples, num_signals).T
 
 
+def _read_format_310(raw_bytes: bytes, num_signals: int, num_samples: int) -> np.ndarray:
+    """Unpacks PhysioNet Format 310 (three 10-bit signed samples per 4-byte pair of little-endian uint16 words)."""
+    # Per PhysioNet signal(5) Format 310:
+    # - w0 (bytes 0..1, <u2): bits 1..10 = s0 (low bit 0 discarded), bits 11..15 = low 5 bits of s2
+    # - w1 (bytes 2..3, <u2): bits 1..10 = s1 (low bit 0 discarded), bits 11..15 = high 5 bits of s2
+    num_groups = len(raw_bytes) // 4
+    if num_groups == 0 or num_signals <= 0:
+        return np.zeros((max(1, num_signals), 0), dtype=np.int32)
+
+    words = np.frombuffer(raw_bytes[: num_groups * 4], dtype="<u2").reshape(-1, 2)
+    w0 = words[:, 0].astype(np.int32)
+    w1 = words[:, 1].astype(np.int32)
+
+    s0 = (w0 >> 1) & 0x3FF
+    s1 = (w1 >> 1) & 0x3FF
+    s2 = ((w0 >> 11) & 0x1F) | (((w1 >> 11) & 0x1F) << 5)
+
+    # Sign-extend 10-bit two's-complement values [-512, 511]
+    s0 = np.where(s0 >= 512, s0 - 1024, s0)
+    s1 = np.where(s1 >= 512, s1 - 1024, s1)
+    s2 = np.where(s2 >= 512, s2 - 1024, s2)
+
+    interleaved = np.empty(num_groups * 3, dtype=np.int32)
+    interleaved[0::3] = s0
+    interleaved[1::3] = s1
+    interleaved[2::3] = s2
+
+    if num_samples > 0:
+        max_vals = num_samples * num_signals
+        if len(interleaved) > max_vals:
+            interleaved = interleaved[:max_vals]
+
+    actual_samples = len(interleaved) // num_signals
+    return interleaved[: actual_samples * num_signals].reshape(actual_samples, num_signals).T
+
+
 def read_wfdb(record_path_or_header: str | Path) -> WFDBRecord:
     """Reads a PhysioNet WFDB record from .hea header and companion .dat binary file."""
     path = Path(record_path_or_header)
@@ -183,8 +219,12 @@ def read_wfdb(record_path_or_header: str | Path) -> WFDBRecord:
         matrix = raw_arr[: actual_samples * num_signals].reshape(actual_samples, num_signals).T
     elif main_format == 212:
         matrix = _read_format_212(raw_bytes, num_signals, sig_len or (len(raw_bytes) * 2 // 3 // num_signals))
+    elif main_format == 310:
+        matrix = _read_format_310(raw_bytes, num_signals, sig_len or ((len(raw_bytes) // 4) * 3 // num_signals))
     else:
-        raise ValueError(f"Unsupported WFDB format {main_format}. (Supported: Format 16 and Format 212)")
+        raise ValueError(
+            f"Unsupported WFDB format {main_format}. (Supported: Format 16, Format 212, and Format 310)"
+        )
 
     # Convert to physical millivolts
     physical_signals = np.zeros_like(matrix, dtype=np.float32)

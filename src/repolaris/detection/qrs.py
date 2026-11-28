@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections import deque
+
 import numpy as np
 from scipy.signal import find_peaks
 
@@ -62,31 +64,58 @@ def _apply_adaptive_threshold_and_t_guard(
     candidate_min_height: float = 0.0,
     max_half_width_samples: int | None = None,
     diagnostics_out: dict[str, int] | None = None,
+    signal: np.ndarray | None = None,
+    min_qrs_amp_mv: float = 0.15,
 ) -> list[int]:
-    """Causal SPKI/NPKI adaptive thresholding with search-back and rate-adaptive T-wave guard."""
+    """Causal 8-peak median adaptive thresholding with pause-safe silence recovery and T-wave guard."""
     n_samples = len(envelope)
     if n_samples < 4 or fs <= 0:
         return []
+    if not np.all(np.isfinite(envelope)):
+        envelope = np.nan_to_num(envelope, nan=0.0, posinf=0.0, neginf=0.0)
+    if not np.all(np.isfinite(abs_diff)):
+        abs_diff = np.nan_to_num(abs_diff, nan=0.0, posinf=0.0, neginf=0.0)
 
+    hard_ref_samples = max(1, int(round((refractory_ms / 1000.0) * fs)))
+    rad40 = max(1, int(round(0.040 * fs)))
+
+    def _passes_amp_floor(sample_idx: int) -> bool:
+        if signal is None or min_qrs_amp_mv <= 0.0:
+            return True
+        win = signal[max(0, sample_idx - rad40) : min(n_samples, sample_idx + rad40 + 1)]
+        if win.size == 0:
+            return False
+        return float(np.max(win) - np.min(win)) >= min_qrs_amp_mv
+
+    # Refractory-separated peak seeding over initial <=4s window (immune to both single spikes and MAD-clipping)
     init_n = min(n_samples, max(10, int(round(4.0 * fs))))
     init_seg = envelope[:init_n]
-    med = float(np.median(init_seg))
-    mad = float(np.median(np.abs(init_seg - med)))
-    clip_hi = med + 10.0 * max(mad, 1e-9)
-    clipped = np.clip(init_seg, 0.0, clip_hi)
-    p99 = float(np.percentile(clipped, 99))
-    spki = max(0.85 * p99, 1e-9)
-    init_spki = spki
-    npki = max(med, 1e-12)
+    raw_med = float(np.median(init_seg))
+    med = raw_med if np.isfinite(raw_med) else 0.0
+    npki_seed = max(med, 1e-12)
+
+    init_pk_kwargs: dict[str, float | int] = {"distance": hard_ref_samples}
+    if candidate_min_height > 0.0:
+        init_pk_kwargs["height"] = candidate_min_height
+    init_peaks, _ = find_peaks(init_seg, **init_pk_kwargs)
+    if len(init_peaks) >= 2:
+        top_vals = np.sort(init_seg[init_peaks])[-4:]
+        seed_spki = float(np.median(top_vals))
+    elif len(init_peaks) == 1:
+        seed_spki = float(init_seg[init_peaks[0]])
+    else:
+        max_init = float(np.max(init_seg)) if init_seg.size > 0 else 0.0
+        seed_spki = max_init / 3.0 if max_init > 0.0 else 1e-6
+
+    spki_seed = max(seed_spki, 4.0 * npki_seed, 1e-6)
+    qrs_peaks_buf: deque[float] = deque([spki_seed], maxlen=8)
+    noise_peaks_buf: deque[float] = deque([npki_seed], maxlen=8)
 
     min_cand_dist = max(1, int(round(0.080 * fs)))
     cand_kwargs: dict[str, float | int] = {"distance": min_cand_dist}
     if candidate_min_height > 0.0:
         cand_kwargs["height"] = candidate_min_height
     candidates, _ = find_peaks(envelope, **cand_kwargs)
-
-    hard_ref_samples = max(1, int(round((refractory_ms / 1000.0) * fs)))
-    rad40 = max(1, int(round(0.040 * fs)))
 
     accepted: list[int] = []
     rr_history: list[float] = []
@@ -95,6 +124,7 @@ def _apply_adaptive_threshold_and_t_guard(
     refractory_rejected = 0
     t_wave_rejected = 0
     init_silence_samples = int(round(4.0 * fs))
+    last_decay_sample = 0
 
     for idx_i, cp_raw in enumerate(candidates):
         cp = int(cp_raw)
@@ -109,23 +139,25 @@ def _apply_adaptive_threshold_and_t_guard(
             while right + 1 < n_samples and envelope[right + 1] >= half_lvl:
                 right += 1
             if (right - left + 1) > max_half_width_samples:
-                npki = 0.125 * val + 0.875 * npki
+                noise_peaks_buf.append(val)
                 continue
 
         if accepted and (cp - accepted[-1]) < hard_ref_samples:
             refractory_rejected += 1
             continue
 
-        thr1 = npki + 0.32 * (spki - npki)
-        thr2 = max(0.5 * thr1, npki + 0.10 * (spki - npki))
+        npki = float(np.median(noise_peaks_buf))
+        spki = max(float(np.median(qrs_peaks_buf)), 2.0 * npki, 1e-6)
+        thr1 = npki + 0.25 * (spki - npki)
+        thr2 = max(0.4 * thr1, npki + 0.10 * (spki - npki))
         soft_zone_end = int(round(np.clip(0.45 * mean_rr, 0.280 * fs, 0.480 * fs)))
         cand_slope = float(np.max(abs_diff[max(0, cp - rad40) : min(n_samples, cp + rad40 + 1)]))
 
-        if val >= thr1:
+        if val >= thr1 and _passes_amp_floor(cp):
             if accepted and (cp - accepted[-1]) <= soft_zone_end and prev_r_slope > 0.0:
                 if cand_slope < t_wave_slope_ratio * prev_r_slope:
                     t_wave_rejected += 1
-                    npki = 0.125 * val + 0.875 * npki
+                    noise_peaks_buf.append(val)
                     continue
 
             if accepted:
@@ -133,16 +165,25 @@ def _apply_adaptive_threshold_and_t_guard(
                 if len(rr_history) > 8:
                     rr_history.pop(0)
                 mean_rr = float(np.mean(rr_history))
-            # Clamp outlier spikes only after initial real beats establish spki (protects flat/microvolt lead-ins)
-            val_capped = min(val, 3.0 * spki) if (len(accepted) >= 3 and spki > max(2.5 * npki, 1e-6)) else val
             accepted.append(cp)
-            spki = 0.125 * val_capped + 0.875 * spki
+            qrs_peaks_buf.append(val)
             prev_r_slope = cand_slope if prev_r_slope <= 0.0 else (0.5 * cand_slope + 0.5 * prev_r_slope)
+            last_decay_sample = cp
         else:
-            npki = 0.125 * val + 0.875 * npki
-            if accepted and (cp - accepted[-1]) > 1.66 * mean_rr:
+            noise_peaks_buf.append(val)
+            silence_limit = max(1.4 * fs, 1.66 * mean_rr)
+            in_searchback = bool(accepted and (cp - accepted[-1]) > 1.66 * mean_rr)
+            in_lead_in_silence = bool(not accepted and cp > init_silence_samples)
+
+            if in_searchback or in_lead_in_silence:
                 max_sb_samples = max(hard_ref_samples + 1, int(round(max(2.5 * mean_rr, 3.0 * fs))))
-                min_sb_sample = max(accepted[-1] + hard_ref_samples, cp - max_sb_samples)
+                min_sb_sample = (
+                    max(accepted[-1] + hard_ref_samples, cp - max_sb_samples)
+                    if accepted
+                    else max(0, cp - max_sb_samples)
+                )
+
+                # Standard thr2 search-back
                 sb_best_cp = -1
                 sb_best_val = -1.0
                 for j in range(idx_i - 1, -1, -1):
@@ -150,35 +191,82 @@ def _apply_adaptive_threshold_and_t_guard(
                     if cand_j <= min_sb_sample:
                         break
                     v_j = float(envelope[cand_j])
-                    if v_j >= thr2 and v_j > sb_best_val:
+                    if v_j >= thr2 and v_j > sb_best_val and _passes_amp_floor(cand_j):
                         sb_best_val = v_j
                         sb_best_cp = cand_j
+
                 sb_accepted = False
                 if sb_best_cp >= 0:
                     sb_slope = float(
                         np.max(abs_diff[max(0, sb_best_cp - rad40) : min(n_samples, sb_best_cp + rad40 + 1)])
                     )
-                    if not (
-                        (sb_best_cp - accepted[-1]) <= soft_zone_end
+                    t_guard_blocked = bool(
+                        accepted
+                        and (sb_best_cp - accepted[-1]) <= soft_zone_end
                         and prev_r_slope > 0.0
                         and sb_slope < t_wave_slope_ratio * prev_r_slope
-                    ):
-                        rr_history.append(float(sb_best_cp - accepted[-1]))
-                        if len(rr_history) > 8:
-                            rr_history.pop(0)
-                        mean_rr = float(np.mean(rr_history))
-                        sb_capped = min(sb_best_val, 3.0 * spki) if (len(accepted) >= 3 and spki > max(2.5 * npki, 1e-6)) else sb_best_val
+                    )
+                    if not t_guard_blocked:
+                        if accepted:
+                            rr_history.append(float(sb_best_cp - accepted[-1]))
+                            if len(rr_history) > 8:
+                                rr_history.pop(0)
+                            mean_rr = float(np.mean(rr_history))
                         accepted.append(sb_best_cp)
-                        spki = 0.25 * sb_capped + 0.75 * spki
+                        qrs_peaks_buf.append(sb_best_val)
                         prev_r_slope = sb_slope if prev_r_slope <= 0.0 else (0.5 * sb_slope + 0.5 * prev_r_slope)
+                        last_decay_sample = sb_best_cp
                         sb_accepted = True
-                if not sb_accepted:
-                    # Decay spki with a noise-safe floor to prevent latch-up without collapsing into background noise
-                    spki_floor = max(6.0 * npki, 0.05 * init_spki, 1e-6)
-                    spki = max(spki_floor, 0.90 * spki + 0.10 * val)
-            elif not accepted and cp > init_silence_samples:
-                spki_floor = max(6.0 * npki, 0.05 * init_spki, 1e-6)
-                spki = max(spki_floor, 0.90 * spki + 0.10 * val)
+
+                # 1.4s silence fallback (Pan-Tompkins++ Rule-2 analogue: 1-beat median re-seed on sudden drops)
+                if not sb_accepted and (
+                    (accepted and (cp - accepted[-1]) > silence_limit) or in_lead_in_silence
+                ):
+                    # Use baseline npki_seed (not missed-beat-polluted npki) when signal-domain 150 uV floor is active
+                    fb_noise_guard = 2.0 * npki_seed if signal is not None else 6.0 * npki
+                    fb_thr = max(0.2 * thr2, fb_noise_guard, 1e-6)
+                    fb_best_cp = -1
+                    fb_best_val = -1.0
+                    for j in range(idx_i, -1, -1):
+                        cand_j = int(candidates[j])
+                        if cand_j <= min_sb_sample:
+                            break
+                        v_j = float(envelope[cand_j])
+                        if v_j >= fb_thr and v_j > fb_best_val and _passes_amp_floor(cand_j):
+                            fb_best_val = v_j
+                            fb_best_cp = cand_j
+
+                    if fb_best_cp >= 0:
+                        fb_slope = float(
+                            np.max(abs_diff[max(0, fb_best_cp - rad40) : min(n_samples, fb_best_cp + rad40 + 1)])
+                        )
+                        fb_t_blocked = bool(
+                            accepted
+                            and (fb_best_cp - accepted[-1]) <= soft_zone_end
+                            and prev_r_slope > 0.0
+                            and fb_slope < t_wave_slope_ratio * prev_r_slope
+                        )
+                        if not fb_t_blocked:
+                            if accepted:
+                                rr_history.append(float(fb_best_cp - accepted[-1]))
+                                if len(rr_history) > 8:
+                                    rr_history.pop(0)
+                                mean_rr = float(np.mean(rr_history))
+                            accepted.append(fb_best_cp)
+                            qrs_peaks_buf = deque([fb_best_val], maxlen=8)
+                            noise_peaks_buf = deque([npki_seed], maxlen=8)
+                            prev_r_slope = fb_slope if prev_r_slope <= 0.0 else (0.5 * fb_slope + 0.5 * prev_r_slope)
+                            last_decay_sample = fb_best_cp
+                            sb_accepted = True
+
+                    # Rate-limited halving during prolonged silence with no valid candidate
+                    if not sb_accepted and (cp - last_decay_sample) >= silence_limit:
+                        floor_val = max(6.0 * npki, 1e-6)
+                        qrs_peaks_buf = deque(
+                            (max(floor_val, 0.5 * v) for v in qrs_peaks_buf),
+                            maxlen=8,
+                        )
+                        last_decay_sample = cp
 
     if diagnostics_out is not None:
         diagnostics_out["refractory_rejected"] = refractory_rejected
@@ -199,6 +287,8 @@ def detect_r_peaks_phasor_adaptive(
     n_samples = len(sig)
     if n_samples < 4 or fs <= 0:
         return np.array([], dtype=int)
+    if not np.all(np.isfinite(sig)):
+        sig = np.nan_to_num(sig, nan=0.0, posinf=0.0, neginf=0.0)
 
     diff = np.diff(sig, prepend=sig[0])
     abs_diff = np.abs(diff)
@@ -251,6 +341,7 @@ def detect_r_peaks_phasor_adaptive(
         candidate_min_height=float(np.deg2rad(15.0)),
         max_half_width_samples=max_width_samples,
         diagnostics_out=diagnostics_out,
+        signal=sig,
     )
     return _refine_r_peaks_polarity_locked(sig, candidates, fs)
 
@@ -268,6 +359,8 @@ def detect_r_peaks(
     sig = np.asarray(filtered_signal, dtype=np.float64)
     if len(sig) < 4 or fs <= 0:
         return np.array([], dtype=int)
+    if not np.all(np.isfinite(sig)):
+        sig = np.nan_to_num(sig, nan=0.0, posinf=0.0, neginf=0.0)
 
     if backend == "phasor_slope_adaptive":
         return detect_r_peaks_phasor_adaptive(
@@ -291,5 +384,6 @@ def detect_r_peaks(
         refractory_ms=refractory_ms,
         t_wave_slope_ratio=t_wave_slope_ratio,
         diagnostics_out=diagnostics_out,
+        signal=sig,
     )
     return _refine_r_peaks_polarity_locked(sig, candidates, fs)

@@ -9,6 +9,7 @@ Reference:
 
 from __future__ import annotations
 
+from collections import Counter, deque
 from dataclasses import dataclass
 from typing import Any
 
@@ -32,6 +33,7 @@ class MorphologyTemplate:
     count: int = 1
     mean_width_ms: float = 85.0
     mean_amplitude_mv: float = 1.0
+    last_seen_beat_idx: int = 0
 
 
 class HamiltonBeatClassifier:
@@ -53,8 +55,27 @@ class HamiltonBeatClassifier:
 
         self.templates: list[MorphologyTemplate] = []
         self.dominant_template_id: int = 0
+        self._next_template_id: int = 0
         self.rr_history: list[float] = []
+        self.recent_template_ids: deque[int] = deque(maxlen=180)
+        self.recent_rr_irregular: deque[bool] = deque(maxlen=180)
+        self._beats_since_normal: int = 0
+        self._global_beat_idx: int = 0
         self.window_samples = int(0.16 * fs)
+
+    def _update_dominant_template(self) -> MorphologyTemplate | None:
+        """Selects the dominant NORMAL template over the last 180 beats (Hamilton 2002 Sec. 3.5)."""
+        if not self.templates:
+            return None
+        recent_counts = Counter(self.recent_template_ids)
+        normal_pool = [t for t in self.templates if t.beat_class == BeatClass.NORMAL]
+        pool = normal_pool if normal_pool else self.templates
+        dom = max(
+            pool,
+            key=lambda t: (recent_counts.get(t.template_id, 0), t.count, t.last_seen_beat_idx),
+        )
+        self.dominant_template_id = dom.template_id
+        return dom
 
     def classify_recording(
         self,
@@ -65,6 +86,20 @@ class HamiltonBeatClassifier:
         reset_state: bool = True,
     ) -> tuple[list[ClassifiedBeat], dict[str, Any]]:
         """Executes Hamilton OSEA template clustering, AF entropy gating, and rhythm sequence detection."""
+        if reset_state:
+            self.templates = []
+            self.dominant_template_id = 0
+            self._next_template_id = 0
+            self.rr_history = []
+            self.recent_template_ids.clear()
+            self.recent_rr_irregular.clear()
+            self._beats_since_normal = 0
+            self._global_beat_idx = 0
+        elif self.templates:
+            max_existing_id = max(t.template_id for t in self.templates)
+            if self._next_template_id <= max_existing_id:
+                self._next_template_id = max_existing_id + 1
+
         n_peaks = len(r_peaks)
         if n_peaks == 0:
             return [], {
@@ -74,7 +109,7 @@ class HamiltonBeatClassifier:
                 "pac_count": 0,
                 "pvc_percentage": 0.0,
                 "ectopic_burden_pct": 0.0,
-                "template_cluster_count": 0,
+                "template_cluster_count": len(self.templates),
                 "algorithm": "Hamilton (2002) OSEA Template Matching",
                 "af_stabilized": False,
             }
@@ -89,16 +124,11 @@ class HamiltonBeatClassifier:
         else:
             is_high_entropy_rhythm = False
 
-        if reset_state:
-            self.templates = []
-            self.dominant_template_id = 0
-            self.rr_history = []
-
         if not self.rr_history:
             if n_peaks > 1:
                 initial_rrs = np.diff(r_peaks[: min(10, n_peaks)]) / self.fs
-                self.rr_history = list(initial_rrs)
-                running_rr = float(np.median(initial_rrs))
+                self.rr_history = list(initial_rrs[-8:])
+                running_rr = float(np.median(self.rr_history))
             else:
                 self.rr_history = [1.0]
                 running_rr = 1.0
@@ -108,8 +138,10 @@ class HamiltonBeatClassifier:
         half_w = self.window_samples // 2
         classified_beats: list[ClassifiedBeat] = []
         beat_template_ids: list[int] = []
+        any_af_stabilized = is_high_entropy_rhythm
 
         for i, r_idx in enumerate(r_peaks):
+            self._global_beat_idx += 1
             start_s = max(0, int(r_idx) - half_w)
             end_s = min(len(signal), int(r_idx) + half_w)
             beat_slice = signal[start_s:end_s]
@@ -124,7 +156,8 @@ class HamiltonBeatClassifier:
             std = float(np.std(beat_slice))
             norm_slice = (beat_slice - np.mean(beat_slice)) / (std if std > 1e-6 else 1.0)
 
-            pre_rr = float(r_idx - r_peaks[i - 1]) / self.fs if i > 0 else running_rr
+            is_measured_rr = i > 0
+            pre_rr = float(r_idx - r_peaks[i - 1]) / self.fs if is_measured_rr else running_rr
             post_rr = float(r_peaks[i + 1] - r_idx) / self.fs if i < n_peaks - 1 else running_rr
             pre_ratio = pre_rr / running_rr if running_rr > 0 else 1.0
             post_ratio = post_rr / running_rr if running_rr > 0 else 1.0
@@ -133,7 +166,14 @@ class HamiltonBeatClassifier:
             q_on = int(q_onsets[i]) if (q_onsets is not None and i < len(q_onsets)) else int(r_idx) - int(0.04 * self.fs)
             qrs_dur_ms = max(30.0, float(int(r_idx) + int(0.05 * self.fs) - q_on) / self.fs * 1000.0)
 
-            best_match_id = -1
+            if is_measured_rr:
+                rr_irreg = abs(pre_rr - running_rr) / max(running_rr, 1e-3) > 0.125
+                self.recent_rr_irregular.append(rr_irreg)
+
+            dom_tmpl = self._update_dominant_template()
+            dom_width_ms = dom_tmpl.mean_width_ms if dom_tmpl is not None else 100.0
+
+            best_match_tmpl: MorphologyTemplate | None = None
             best_corr = -1.0
 
             for tmpl in self.templates:
@@ -141,44 +181,75 @@ class HamiltonBeatClassifier:
                     corr = float(np.corrcoef(tmpl.waveform, norm_slice)[0, 1])
                     if corr > best_corr:
                         best_corr = corr
-                        best_match_id = tmpl.template_id
+                        best_match_tmpl = tmpl
+
+            is_irregular_rhythm = is_high_entropy_rhythm or (
+                len(self.recent_rr_irregular) >= 12
+                and (sum(self.recent_rr_irregular) / len(self.recent_rr_irregular)) >= (1.0 / 3.0)
+            )
+            if is_irregular_rhythm:
+                any_af_stabilized = True
 
             is_premature = pre_ratio < self.prematurity_ratio
             is_compensatory = comp_ratio >= 0.92 and post_ratio > 1.12
             is_wide = qrs_dur_ms >= 115.0
+            is_relatively_wide = (qrs_dur_ms > dom_width_ms + 20.0) and (qrs_dur_ms >= 110.0)
 
-            if is_high_entropy_rhythm and not is_wide and best_corr >= 0.75:
-                is_premature = False
 
             assigned_tmpl_id = -1
-            if best_corr >= self.match_threshold and best_match_id >= 0:
-                matched_tmpl = self.templates[best_match_id]
-                assigned_tmpl_id = matched_tmpl.template_id
-                matched_tmpl.count += 1
-                b_class = matched_tmpl.beat_class
+            if best_corr >= self.match_threshold and best_match_tmpl is not None:
+                assigned_tmpl_id = best_match_tmpl.template_id
+                best_match_tmpl.count += 1
+                best_match_tmpl.last_seen_beat_idx = self._global_beat_idx
+                b_class = best_match_tmpl.beat_class
 
-                if b_class == BeatClass.NORMAL and is_premature and not is_wide:
+                if b_class == BeatClass.NORMAL and is_premature and not is_wide and not is_irregular_rhythm:
                     b_class = BeatClass.PAC
                     confidence = 0.88
-                    rationale = f"Hamilton OSEA: Premature (pre-RR {pre_ratio:.2f}) with normal template match (r={best_corr:.2f})"
+                    rationale = (
+                        f"Hamilton OSEA: Premature (pre-RR {pre_ratio:.2f}) with normal template match (r={best_corr:.2f})"
+                    )
                 else:
                     if b_class == BeatClass.NORMAL:
-                        matched_tmpl.waveform = (
-                            (1.0 - self.adaptation_rate) * matched_tmpl.waveform
+                        best_match_tmpl.waveform = (
+                            (1.0 - self.adaptation_rate) * best_match_tmpl.waveform
                             + self.adaptation_rate * norm_slice
                         )
+                        best_match_tmpl.mean_width_ms = (
+                            (1.0 - self.adaptation_rate) * best_match_tmpl.mean_width_ms
+                            + self.adaptation_rate * qrs_dur_ms
+                        )
                     confidence = max(0.80, min(0.99, best_corr))
-                    rationale = f"Hamilton OSEA: Matched template #{best_match_id} ({b_class}) with correlation {best_corr:.2f}"
+                    rationale = (
+                        f"Hamilton OSEA: Matched template #{best_match_tmpl.template_id} ({b_class}) "
+                        f"with correlation {best_corr:.2f}"
+                    )
             else:
                 if len(self.templates) == 0:
                     # Never seed the initial rhythm template as PVC (protects dominant BBB / wide-QRS rhythms)
                     b_class = BeatClass.NORMAL
                     confidence = 0.85
                     rationale = "Hamilton OSEA: Seeded initial dominant morphology template"
+                elif is_irregular_rhythm:
+                    # Hamilton 2002 Sec. 3.5-3.6: irregular/AFib rhythms require relative widening or severe divergence
+                    if is_relatively_wide or best_corr < 0.45:
+                        b_class = BeatClass.PVC
+                        confidence = 0.88 if is_relatively_wide else 0.84
+                        rationale = (
+                            f"Hamilton OSEA: AFib-gated ventricular ectopic "
+                            f"(r={best_corr:.2f}, QRS={qrs_dur_ms:.1f}ms vs dom={dom_width_ms:.1f}ms)"
+                        )
+                    else:
+                        b_class = BeatClass.NORMAL
+                        confidence = 0.82
+                        rationale = f"Hamilton OSEA: AFib-gated morphology drift cluster (r={best_corr:.2f})"
                 elif is_premature and (is_wide or best_corr < 0.70):
                     b_class = BeatClass.PVC
                     confidence = 0.94 if is_compensatory else 0.88
-                    rationale = f"Hamilton OSEA: Premature ectopic (pre-RR {pre_ratio:.2f}) with morph deviation (r={best_corr:.2f}, QRS={qrs_dur_ms:.1f}ms)"
+                    rationale = (
+                        f"Hamilton OSEA: Premature ectopic (pre-RR {pre_ratio:.2f}) "
+                        f"with morph deviation (r={best_corr:.2f}, QRS={qrs_dur_ms:.1f}ms)"
+                    )
                 elif is_wide and best_corr < 0.70:
                     b_class = BeatClass.PVC
                     confidence = 0.85
@@ -188,26 +259,47 @@ class HamiltonBeatClassifier:
                     confidence = 0.82
                     rationale = f"Hamilton OSEA: New morphology cluster created (r={best_corr:.2f})"
 
-                if len(self.templates) < self.max_templates:
-                    new_id = len(self.templates)
-                    self.templates.append(
-                        MorphologyTemplate(
-                            template_id=new_id,
-                            beat_class=b_class,
-                            waveform=norm_slice,
-                            mean_width_ms=qrs_dur_ms,
-                            mean_amplitude_mv=p2p,
+                if len(self.templates) >= self.max_templates:
+                    recent_counts = Counter(self.recent_template_ids)
+                    evictable = [t for t in self.templates if t.template_id != self.dominant_template_id]
+                    if evictable:
+                        victim = min(
+                            evictable,
+                            key=lambda t: (recent_counts.get(t.template_id, 0), t.last_seen_beat_idx),
                         )
+                        self.templates.remove(victim)
+
+                new_id = self._next_template_id
+                self._next_template_id += 1
+                self.templates.append(
+                    MorphologyTemplate(
+                        template_id=new_id,
+                        beat_class=b_class,
+                        waveform=norm_slice,
+                        mean_width_ms=qrs_dur_ms,
+                        mean_amplitude_mv=p2p,
+                        last_seen_beat_idx=self._global_beat_idx,
                     )
-                    assigned_tmpl_id = new_id
-                else:
-                    assigned_tmpl_id = best_match_id
+                )
+                assigned_tmpl_id = new_id
+
+            if assigned_tmpl_id >= 0:
+                self.recent_template_ids.append(assigned_tmpl_id)
 
             if b_class == BeatClass.NORMAL:
-                self.rr_history.append(pre_rr)
-                if len(self.rr_history) > 8:
-                    self.rr_history.pop(0)
-                running_rr = float(np.median(self.rr_history))
+                self._beats_since_normal = 0
+                if is_measured_rr or reset_state:
+                    self.rr_history.append(pre_rr)
+                    if len(self.rr_history) > 8:
+                        self.rr_history.pop(0)
+                    running_rr = float(np.median(self.rr_history))
+            else:
+                self._beats_since_normal += 1
+                if self._beats_since_normal >= 8 and is_measured_rr and 0.20 <= pre_rr <= 2.0:
+                    self.rr_history.append(pre_rr)
+                    if len(self.rr_history) > 8:
+                        self.rr_history.pop(0)
+                    running_rr = float(np.median(self.rr_history))
 
             features = BeatFeatures(
                 pre_rr_sec=pre_rr,
@@ -240,13 +332,12 @@ class HamiltonBeatClassifier:
 
         # Promote any dominant morphology cluster (>=45% of beats) to NORMAL (AAMI N-class BBB safeguard)
         if self.templates and n_peaks >= 3:
-            dom_tmpl = max(self.templates, key=lambda t: t.count)
-            self.dominant_template_id = dom_tmpl.template_id
+            dom_all = max(self.templates, key=lambda t: t.count)
             total_seen = sum(t.count for t in self.templates)
-            if dom_tmpl.beat_class == BeatClass.PVC and dom_tmpl.count >= max(3, int(0.45 * total_seen)):
-                dom_tmpl.beat_class = BeatClass.NORMAL
+            if dom_all.beat_class == BeatClass.PVC and dom_all.count >= max(3, int(0.45 * total_seen)):
+                dom_all.beat_class = BeatClass.NORMAL
                 for idx_b, tid in enumerate(beat_template_ids):
-                    if tid == dom_tmpl.template_id and classified_beats[idx_b].beat_class == BeatClass.PVC:
+                    if tid == dom_all.template_id and classified_beats[idx_b].beat_class == BeatClass.PVC:
                         cb = classified_beats[idx_b]
                         classified_beats[idx_b] = ClassifiedBeat(
                             beat_index=cb.beat_index,
@@ -258,6 +349,7 @@ class HamiltonBeatClassifier:
                             features=cb.features,
                             diagnostic_rationale="Hamilton OSEA: Dominant rhythm cluster promoted to NORMAL",
                         )
+            self._update_dominant_template()
 
         # Annotate coupled rhythm sequences (Bigeminy, Trigeminy, Couplets, VT runs)
         classified_beats = detect_rhythm_patterns(classified_beats)
@@ -281,7 +373,7 @@ class HamiltonBeatClassifier:
             "ectopic_burden_pct": round(burden, 2),
             "template_cluster_count": len(self.templates),
             "algorithm": "Hamilton (2002) OSEA Template Matching",
-            "af_stabilized": is_high_entropy_rhythm,
+            "af_stabilized": any_af_stabilized,
         }
 
         return classified_beats, summary
